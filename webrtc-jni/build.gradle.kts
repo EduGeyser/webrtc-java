@@ -6,6 +6,7 @@ val platformClassifier = rootProject.extra["platformClassifier"] as String
 val buildDate = rootProject.extra["buildDate"] as String
 val nativesDir = rootProject.extra["nativesDir"] as File?
 val dataChannelsOnly = rootProject.extra["dataChannelsOnly"] as Boolean
+val variant = if (dataChannelsOnly) "data-channels" else "full"
 
 val userHome: String = System.getProperty("user.home")
 val webrtcBranch = providers.gradleProperty("webrtc.branch")
@@ -30,8 +31,8 @@ val toolchainFile = toolchainFiles[platformClassifier]
 	?: throw GradleException("No toolchain file for platform $platformClassifier, expected one of ${toolchainFiles.keys}")
 
 val cmakeSourceDir = layout.projectDirectory.dir("src/main/cpp")
-val cmakeBuildDir = layout.buildDirectory.dir("cmake/$platformClassifier")
-val installDir = layout.buildDirectory.dir("lib")
+val cmakeBuildDir = layout.buildDirectory.dir("cmake/$platformClassifier/$variant")
+val installDir = layout.buildDirectory.dir("lib/$platformClassifier/$variant")
 
 val nativeSources = fileTree(cmakeSourceDir) {
 	// Sysroots installed by the Linux build and a local WebRTC checkout.
@@ -70,9 +71,7 @@ val cmakeGenerate = tasks.register<Exec>("cmakeGenerate") {
 	args("-DCMAKE_INSTALL_PREFIX=${installDir.get().asFile.absolutePath}")
 	args("-DOUTPUT_NAME_SUFFIX=$platformClassifier")
 
-	if (dataChannelsOnly) {
-		args("-DWEBRTC_DATA_CHANNELS_ONLY=ON")
-	}
+	args("-DWEBRTC_DATA_CHANNELS_ONLY=${if (dataChannelsOnly) "ON" else "OFF"}")
 	if (windowsSdkVersion.isPresent) {
 		args("-DWEBRTC_WINDOWS_SDK_VERSION=${windowsSdkVersion.get()}")
 	}
@@ -89,6 +88,8 @@ val cmakeBuild = tasks.register<Exec>("cmakeBuild") {
 	inputs.files(nativeSources).withPropertyName("sources")
 	inputs.property("platform", platformClassifier)
 	inputs.property("buildType", cmakeBuildType)
+	// Reconfiguring CMake must also invalidate the installed native library.
+	inputs.property("configuration", cmakeGenerate.map { it.inputs.properties })
 	outputs.dir(installDir)
 
 	executable = "cmake"
