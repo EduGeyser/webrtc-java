@@ -52,7 +52,7 @@ runs:
         if [ "$variant" == "data-channels" ]; then
           echo "WEBRTC_VARIANT_ARG=-Pwebrtc.variant=data-channels" >> "$GITHUB_ENV"
         else
-          echo "WEBRTC_VARIANT_ARG=" >> "$GITHUB_ENV"
+          echo "WEBRTC_VARIANT_ARG=-Pwebrtc.variant=full" >> "$GITHUB_ENV"
         fi
       shell: bash
 
@@ -74,7 +74,7 @@ runs:
           sudo apt-get update
         fi
 
-        if [ -z "$WEBRTC_VARIANT_ARG" ]; then
+        if [ "$WEBRTC_VARIANT_ARG" == "-Pwebrtc.variant=full" ]; then
           glib=libglib2.0-0
           if apt-cache show "libglib2.0-0t64$arch" >/dev/null 2>&1; then
             glib=libglib2.0-0t64

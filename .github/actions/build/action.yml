@@ -37,7 +37,7 @@ runs:
           echo "WEBRTC_VARIANT_ARG=-Pwebrtc.variant=data-channels" >> "$GITHUB_ENV"
         else
           echo "WEBRTC_VARIANT_SUFFIX=" >> "$GITHUB_ENV"
-          echo "WEBRTC_VARIANT_ARG=" >> "$GITHUB_ENV"
+          echo "WEBRTC_VARIANT_ARG=-Pwebrtc.variant=full" >> "$GITHUB_ENV"
         fi
       shell: bash
 

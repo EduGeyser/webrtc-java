@@ -150,7 +150,7 @@ jobs:
           if [ "$variant" == "data-channels" ]; then
             echo "WEBRTC_VARIANT_ARG=-Pwebrtc.variant=data-channels" >> "$GITHUB_ENV"
           else
-            echo "WEBRTC_VARIANT_ARG=" >> "$GITHUB_ENV"
+            echo "WEBRTC_VARIANT_ARG=-Pwebrtc.variant=full" >> "$GITHUB_ENV"
           fi
 
       - name: Download the native library jars of all platforms
