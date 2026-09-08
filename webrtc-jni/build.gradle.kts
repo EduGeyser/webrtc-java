@@ -15,6 +15,7 @@ val webrtcInstallDir = providers.gradleProperty("webrtc.install.dir")
 	.orElse("$userHome/webrtc/build" + if (dataChannelsOnly) "-data-channels" else "")
 val cmakeBuildType = providers.gradleProperty("cmake.build.type").orElse("Release")
 val windowsSdkVersion = providers.gradleProperty("webrtc.windows.sdk.version")
+val checkoutHistory = providers.gradleProperty("webrtc.checkout.history").map { it.toBoolean() }.orElse(false)
 
 val toolchainFiles = mapOf(
 	"windows-x86_64" to "x86_64-windows-clang.cmake",
@@ -49,6 +50,7 @@ val cmakeGenerate = tasks.register<Exec>("cmakeGenerate") {
 	inputs.property("webrtcInstallDir", webrtcInstallDir)
 	inputs.property("buildType", cmakeBuildType)
 	inputs.property("windowsSdkVersion", windowsSdkVersion).optional(true)
+	inputs.property("checkoutHistory", checkoutHistory)
 	outputs.dir(cmakeBuildDir)
 
 	executable = "cmake"
@@ -73,6 +75,9 @@ val cmakeGenerate = tasks.register<Exec>("cmakeGenerate") {
 	}
 	if (windowsSdkVersion.isPresent) {
 		args("-DWEBRTC_WINDOWS_SDK_VERSION=${windowsSdkVersion.get()}")
+	}
+	if (checkoutHistory.get()) {
+		args("-DWEBRTC_CHECKOUT_HISTORY=ON")
 	}
 }
 

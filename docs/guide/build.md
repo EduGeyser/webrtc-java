@@ -16,7 +16,7 @@ Assuming you have all the prerequisites installed for your OS, run:
 ./gradlew build
 ```
 
-On the first run, the WebRTC source tree will be loaded into the `/<user home>/webrtc` directory. This will take a while and require about 20 GB of disk space.
+On the first run, the WebRTC source tree will be loaded into the `/<user home>/webrtc` directory. This will take a while and require about 10 GB of disk space. The checkout carries no history; pass `-Pwebrtc.checkout.history=true` to fetch it, for example to bisect libwebrtc from this checkout.
 
 To use the build from another project on the same machine, publish it to the local Maven repository:
 
@@ -37,6 +37,7 @@ Build parameters are passed as Gradle project properties, for example `./gradlew
 | cmake.build.type   | The CMake build type.                                  | Release                     |
 | webrtc.variant      | The variant of the native library: `full`, or `data-channels` for a library without audio and video support, see below. | full |
 | webrtc.windows.sdk.version | The Windows SDK version to build WebRTC with, when the one its build scripts expect is not installed. | The version the WebRTC branch expects |
+| webrtc.checkout.history | Whether to fetch the history of WebRTC and its dependencies. | false |
 | natives.dir        | A directory with prebuilt native library jars, `webrtc-java-<version>-<classifier>.jar`, used instead of building the native library. The tests run against the jar of the build platform. | -                           |
 
 ## Data Channels Only

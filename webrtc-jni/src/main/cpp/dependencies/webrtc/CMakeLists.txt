@@ -290,9 +290,8 @@ endif()
 
 set(ENV{PATH} "${WEBRTC_SRC_DIR}/depot_tools${PATH_SEP}$ENV{PATH}")
 
-# Since depot_tools d4e95894 the fetch wrapper runs the hermetic Python that
-# only exists after the bootstrap, which fetch used to perform itself. The
-# Windows wrapper still bootstraps on its own.
+# Since depot_tools d4e95894 some wrappers run the hermetic Python that only
+# exists after the bootstrap. The Windows wrappers bootstrap on their own.
 if(UNIX)
     message(STATUS "WebRTC: bootstrap depot tools")
     execute_command(
@@ -303,25 +302,64 @@ endif()
 
 file(MAKE_DIRECTORY ${WEBRTC_DIR})
 
-message(STATUS "WebRTC: fetch")
+# The build needs the sources of one branch, so the checkout leaves out the
+# history of WebRTC and of its dependencies, several gigabytes, unless
+# WEBRTC_CHECKOUT_HISTORY is set, for example to bisect from this checkout.
+if(WEBRTC_CHECKOUT_HISTORY)
+    set(SYNC_HISTORY "")
+else()
+    set(SYNC_HISTORY --no-history)
+endif()
+
+message(STATUS "WebRTC: configure gclient for ${WEBRTC_BRANCH}")
 execute_command(
-    COMMAND fetch --nohooks webrtc
+    COMMAND gclient config --name src --unmanaged "https://webrtc.googlesource.com/src.git@${WEBRTC_BRANCH}"
     WORKING_DIRECTORY "${WEBRTC_DIR}"
 )
 
-message(STATUS "WebRTC: checkout \"${WEBRTC_BRANCH}\"")
+if(APPLE)
+    set(WEBRTC_TARGET_OS "['mac']")
+elseif(WIN32)
+    set(WEBRTC_TARGET_OS "['win']")
+else()
+    set(WEBRTC_TARGET_OS "['linux']")
+endif()
+
+file(APPEND "${WEBRTC_DIR}/.gclient" "target_os = ${WEBRTC_TARGET_OS}\n")
+
+# An existing checkout is unmanaged, so move it to the branch by hand and
+# drop the patches applied to it.
+if(EXISTS "${WEBRTC_SRC}/.git")
+    message(STATUS "WebRTC: checkout ${WEBRTC_BRANCH}")
+    execute_command(
+        COMMAND git checkout .
+        WORKING_DIRECTORY "${WEBRTC_SRC}"
+    )
+    execute_command(
+        COMMAND git fetch --depth 1 origin ${WEBRTC_BRANCH}
+        WORKING_DIRECTORY "${WEBRTC_SRC}"
+    )
+    execute_command(
+        COMMAND git checkout --detach FETCH_HEAD
+        WORKING_DIRECTORY "${WEBRTC_SRC}"
+    )
+endif()
+
+message(STATUS "WebRTC: sync sources")
 execute_command(
-    COMMAND git checkout .
-    WORKING_DIRECTORY "${WEBRTC_SRC}"
-)
-execute_command(
-    COMMAND git checkout ${WEBRTC_BRANCH}
-    WORKING_DIRECTORY "${WEBRTC_SRC}"
+    COMMAND gclient sync -D --nohooks -j16 ${SYNC_HISTORY}
+    WORKING_DIRECTORY "${WEBRTC_DIR}"
 )
 
-message(STATUS "WebRTC: sync")
+# The test resources hook downloads media files that only libwebrtc's own
+# tests read, which are not built. Mark the hook as never applying.
+file(READ "${WEBRTC_SRC}/DEPS" DEPS_CONTENT)
+string(REPLACE "'src/resources']," "'src/resources'], 'condition': 'False'," DEPS_CONTENT "${DEPS_CONTENT}")
+file(WRITE "${WEBRTC_SRC}/DEPS" "${DEPS_CONTENT}")
+
+message(STATUS "WebRTC: run hooks")
 execute_command(
-    COMMAND gclient sync
+    COMMAND gclient sync -D -j16 ${SYNC_HISTORY}
     WORKING_DIRECTORY "${WEBRTC_DIR}"
 )
 
@@ -338,7 +376,7 @@ if (PATCHES)
         message(STATUS "Applying ${PATCH}")
 
         execute_process(
-            COMMAND git apply
+            COMMAND git apply --ignore-whitespace
             WORKING_DIRECTORY "${WEBRTC_SRC}"
             INPUT_FILE "${PATCH}"
             OUTPUT_VARIABLE OUTPUT
