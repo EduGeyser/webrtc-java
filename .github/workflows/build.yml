@@ -121,3 +121,53 @@ jobs:
     uses: ./.github/workflows/test-natives.yml
     with:
       variant: ${{ inputs.variant }}
+
+  # Snapshots leave only once every platform has passed its tests, and all of
+  # them at once, as one deployment.
+  deploy-snapshots:
+    needs: test-natives
+    if: ${{ github.event_name != 'pull_request' && github.repository == 'EduGeyser/webrtc-java' }}
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v5
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v6
+
+      - name: Derive the variant
+        run: |
+          variant="${{ inputs.variant }}"
+          if [ -z "$variant" ]; then
+            variant=$(sed -n 's/^webrtc.variant=//p' gradle.properties)
+          fi
+          if [ "$variant" == "data-channels" ]; then
+            echo "WEBRTC_VARIANT_ARG=-Pwebrtc.variant=data-channels" >> "$GITHUB_ENV"
+          else
+            echo "WEBRTC_VARIANT_ARG=" >> "$GITHUB_ENV"
+          fi
+
+      - name: Download the native library jars of all platforms
+        uses: actions/download-artifact@v4
+        with:
+          pattern: natives-*
+          path: natives
+          merge-multiple: true
+
+      - name: Publish snapshots
+        env:
+          MAVEN_USERNAME: ${{ secrets.MAVEN_USERNAME }}
+          MAVEN_TOKEN: ${{ secrets.MAVEN_TOKEN }}
+        run: |
+          version=$(sed -n 's/^version=//p' gradle.properties)
+          case "$version" in
+            *-SNAPSHOT) ;;
+            *) echo "$version is not a snapshot version, nothing to publish"; exit 0 ;;
+          esac
+          ./gradlew publishAggregationToCentralPortalSnapshots -Pnatives.dir=natives $WEBRTC_VARIANT_ARG
