@@ -18,12 +18,24 @@ runs:
       run: echo "WEBRTC_CACHE_BRANCH=$(sed -n 's|^webrtc.branch=branch-heads/||p' gradle.properties)" >> "$GITHUB_ENV"
       shell: bash
 
+    # The variant of the native library comes from gradle.properties. Each
+    # variant has its own WebRTC build and cache.
+    - name: Derive the variant
+      run: |
+        variant=$(sed -n 's/^webrtc.variant=//p' gradle.properties)
+        if [ "$variant" == "data-channels" ]; then
+          echo "WEBRTC_VARIANT_SUFFIX=-data-channels" >> "$GITHUB_ENV"
+        else
+          echo "WEBRTC_VARIANT_SUFFIX=" >> "$GITHUB_ENV"
+        fi
+      shell: bash
+
     - name: Set up WebRTC cache
       uses: actions/cache@v4
       with:
-        path: ~/${{ env.WEBRTC_INSTALL_FOLDER }}
-        key: webrtc-${{ env.WEBRTC_CACHE_BRANCH }}-${{ inputs.platform-name }}-${{ hashFiles('webrtc-jni/src/main/cpp/dependencies/webrtc/CMakeLists.txt') }}-${{ hashFiles('webrtc-jni/build.gradle.kts') }}
-        restore-keys: webrtc-${{ env.WEBRTC_CACHE_BRANCH }}-${{ inputs.platform-name }}-${{ hashFiles('webrtc-jni/src/main/cpp/dependencies/webrtc/CMakeLists.txt') }}-
+        path: ~/${{ env.WEBRTC_INSTALL_FOLDER }}${{ env.WEBRTC_VARIANT_SUFFIX }}
+        key: webrtc-${{ env.WEBRTC_CACHE_BRANCH }}-${{ inputs.platform-name }}${{ env.WEBRTC_VARIANT_SUFFIX }}-${{ hashFiles('webrtc-jni/src/main/cpp/dependencies/webrtc/CMakeLists.txt') }}-${{ hashFiles('webrtc-jni/build.gradle.kts') }}
+        restore-keys: webrtc-${{ env.WEBRTC_CACHE_BRANCH }}-${{ inputs.platform-name }}${{ env.WEBRTC_VARIANT_SUFFIX }}-${{ hashFiles('webrtc-jni/src/main/cpp/dependencies/webrtc/CMakeLists.txt') }}-
 
     - name: Set up JDK ${{ inputs.java-version }}
       uses: actions/setup-java@v5

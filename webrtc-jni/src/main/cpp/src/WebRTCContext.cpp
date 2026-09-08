@@ -30,6 +30,7 @@
 #include "modules/desktop_capture/desktop_capturer.h"
 #include "rtc_base/ssl_adapter.h"
 
+#ifndef WEBRTC_DATA_CHANNELS_ONLY
 #ifdef _WIN32
 #include <windows.h>
 #include "media/audio/windows/WindowsAudioDeviceManager.h"
@@ -46,6 +47,7 @@
 #include "media/video/macos/AVFVideoDeviceManager.h"
 #include "media/video/desktop/macos/MacOSPowerManagement.h"
 #endif
+#endif
 
 #include <memory>
 
@@ -53,10 +55,7 @@ namespace jni
 {
 	WebRTCContext::WebRTCContext(JavaVM * vm) :
 		JavaContext(vm),
-		webrtcEnv(webrtc::CreateEnvironment()),
-		audioDevManager(nullptr),
-		videoDevManager(nullptr),
-		powerManagement(nullptr)
+		webrtcEnv(webrtc::CreateEnvironment())
 	{
 	}
 
@@ -90,9 +89,11 @@ namespace jni
 		JavaEnums::add<webrtc::AudioProcessing::Config::Pipeline::DownmixMethod>(env, PKG_AUDIO"AudioProcessingConfig$Pipeline$DownmixMethod");
 		JavaEnums::add<webrtc::AudioProcessing::Config::NoiseSuppression::Level>(env, PKG_AUDIO"AudioProcessingConfig$NoiseSuppression$Level");
 		JavaEnums::add<jni::RTCStats::RTCStatsType>(env, PKG"RTCStatsType");
+#ifndef WEBRTC_DATA_CHANNELS_ONLY
 		JavaEnums::add<jni::avdev::DeviceFormFactor>(env, PKG_MEDIA"DeviceFormFactor");
 		JavaEnums::add<jni::avdev::DeviceTransport>(env, PKG_MEDIA"DeviceTransport");
 		JavaEnums::add<jni::avdev::AudioDeviceDirectionType>(env, PKG_MEDIA"AudioDeviceDirectionType");
+#endif
 
 		JavaFactories::add<webrtc::AudioSourceInterface>(env, PKG_MEDIA"audio/AudioTrackSource");
 		JavaFactories::add<webrtc::AudioTrackInterface>(env, PKG_MEDIA"audio/AudioTrack");
@@ -130,10 +131,13 @@ namespace jni
 			env->Throw(jni::JavaError(env, "Cleanup SSL failed"));
 		}
 
+#ifndef WEBRTC_DATA_CHANNELS_ONLY
 		audioDevManager = nullptr;
 		videoDevManager = nullptr;
+#endif
 	}
 
+#ifndef WEBRTC_DATA_CHANNELS_ONLY
 	avdev::AudioDeviceManager * WebRTCContext::getAudioDeviceManager()
 	{
 		std::unique_lock<std::mutex> mlock(aMutex);
@@ -205,4 +209,5 @@ namespace jni
 		powerManagement = std::make_unique<avdev::MacOSPowerManagement>();
 #endif
 	}
+#endif
 }

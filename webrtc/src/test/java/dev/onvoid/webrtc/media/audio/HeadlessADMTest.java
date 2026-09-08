@@ -24,6 +24,7 @@ import dev.onvoid.webrtc.PeerConnectionFactory;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
@@ -31,6 +32,7 @@ import org.junit.jupiter.api.parallel.ExecutionMode;
 
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 @Execution(ExecutionMode.SAME_THREAD)
+@Tag("media")
 public class HeadlessADMTest {
 
     private HeadlessAudioDeviceModule adm;

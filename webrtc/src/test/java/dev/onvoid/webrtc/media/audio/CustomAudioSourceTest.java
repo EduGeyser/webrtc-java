@@ -24,11 +24,13 @@ import dev.onvoid.webrtc.media.SyncClock;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
+@Tag("media")
 class CustomAudioSourceTest extends TestBase {
 
     private CustomAudioSource customAudioSource;

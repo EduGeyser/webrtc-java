@@ -5,11 +5,14 @@ plugins {
 val platformClassifier = rootProject.extra["platformClassifier"] as String
 val buildDate = rootProject.extra["buildDate"] as String
 val nativesDir = rootProject.extra["nativesDir"] as File?
+val dataChannelsOnly = rootProject.extra["dataChannelsOnly"] as Boolean
 
 val userHome: String = System.getProperty("user.home")
 val webrtcBranch = providers.gradleProperty("webrtc.branch")
 val webrtcSrcDir = providers.gradleProperty("webrtc.src.dir").orElse("$userHome/webrtc")
-val webrtcInstallDir = providers.gradleProperty("webrtc.install.dir").orElse("$userHome/webrtc/build")
+// Each variant is a different libwebrtc build and has its own install directory.
+val webrtcInstallDir = providers.gradleProperty("webrtc.install.dir")
+	.orElse("$userHome/webrtc/build" + if (dataChannelsOnly) "-data-channels" else "")
 val cmakeBuildType = providers.gradleProperty("cmake.build.type").orElse("Release")
 
 val toolchainFiles = mapOf(
@@ -39,6 +42,7 @@ val cmakeGenerate = tasks.register<Exec>("cmakeGenerate") {
 
 	inputs.files(nativeSources).withPropertyName("sources")
 	inputs.property("platform", platformClassifier)
+	inputs.property("dataChannelsOnly", dataChannelsOnly)
 	inputs.property("webrtcBranch", webrtcBranch)
 	inputs.property("webrtcSrcDir", webrtcSrcDir)
 	inputs.property("webrtcInstallDir", webrtcInstallDir)
@@ -61,6 +65,10 @@ val cmakeGenerate = tasks.register<Exec>("cmakeGenerate") {
 	args("-DCMAKE_BUILD_TYPE=${cmakeBuildType.get()}")
 	args("-DCMAKE_INSTALL_PREFIX=${installDir.get().asFile.absolutePath}")
 	args("-DOUTPUT_NAME_SUFFIX=$platformClassifier")
+
+	if (dataChannelsOnly) {
+		args("-DWEBRTC_DATA_CHANNELS_ONLY=ON")
+	}
 }
 
 val cmakeBuild = tasks.register<Exec>("cmakeBuild") {

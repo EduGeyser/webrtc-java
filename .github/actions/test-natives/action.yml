@@ -11,6 +11,11 @@ inputs:
     description: 'The Maven classifier of the natives.'
     required: true
 
+  variant:
+    description: 'The variant of the native library: full, or data-channels for a library without audio and video support.'
+    required: false
+    default: ''
+
   java-version:
     description: 'The Java version.'
     required: true
@@ -63,8 +68,23 @@ runs:
     - name: Set up Gradle
       uses: gradle/actions/setup-gradle@v6
 
+    # The variant of the native library comes from the input, or else from
+    # gradle.properties.
+    - name: Derive the variant
+      run: |
+        variant="${{ inputs.variant }}"
+        if [ -z "$variant" ]; then
+          variant=$(sed -n 's/^webrtc.variant=//p' gradle.properties)
+        fi
+        if [ "$variant" == "data-channels" ]; then
+          echo "WEBRTC_VARIANT_ARG=-Pwebrtc.variant=data-channels" >> "$GITHUB_ENV"
+        else
+          echo "WEBRTC_VARIANT_ARG=" >> "$GITHUB_ENV"
+        fi
+      shell: bash
+
     # Gradle's native integration has no binaries for the 32-bit arm JDK, hence
     # the switches.
     - name: Test
-      run: ./gradlew :webrtc:test -Pnatives.dir=natives -Pwebrtc.platform=${{ inputs.classifier }} --no-daemon -Dorg.gradle.native=false -Dorg.gradle.vfs.watch=false
+      run: ./gradlew :webrtc:test -Pnatives.dir=natives -Pwebrtc.platform=${{ inputs.classifier }} $WEBRTC_VARIANT_ARG --no-daemon -Dorg.gradle.native=false -Dorg.gradle.vfs.watch=false
       shell: bash

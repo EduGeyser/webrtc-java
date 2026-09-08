@@ -18,8 +18,10 @@ package dev.onvoid.webrtc.media.audio;
 
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
+@Tag("media")
 class AudioConverterTest {
 
 	@Test

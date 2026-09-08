@@ -31,6 +31,7 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 class RTCPeerConnectionTests extends TestBase {
@@ -91,6 +92,7 @@ class RTCPeerConnectionTests extends TestBase {
 		peerConnection.close();
 	}
 
+	@Tag("media")
 	@Test
 	void addTrackNullParams() {
 		AudioTrackSource audioSource = factory.createAudioSource(new AudioOptions());
@@ -105,6 +107,7 @@ class RTCPeerConnectionTests extends TestBase {
 		});
 	}
 
+	@Tag("media")
 	@Test
 	void addTrack() {
 		AudioTrackSource audioSource = factory.createAudioSource(new AudioOptions());
@@ -130,6 +133,7 @@ class RTCPeerConnectionTests extends TestBase {
 		assertEquals(2, receivers.length);
 	}
 
+	@Tag("media")
 	@Test
 	void removeTrack() {
 		AudioTrackSource audioSource = factory.createAudioSource(new AudioOptions());
@@ -150,6 +154,7 @@ class RTCPeerConnectionTests extends TestBase {
 		assertEquals(2, peerConnection.getSenders().length);
 	}
 
+	@Tag("media")
 	@Test
 	void addTransceiverNullParams() {
 		assertThrows(NullPointerException.class, () -> {
@@ -157,6 +162,7 @@ class RTCPeerConnectionTests extends TestBase {
 		});
 	}
 
+	@Tag("media")
 	@Test
 	void addAudioTransceiver() {
 		AudioTrackSource audioSource = factory.createAudioSource(new AudioOptions());
@@ -174,6 +180,7 @@ class RTCPeerConnectionTests extends TestBase {
 		assertEquals(RTCRtpTransceiverDirection.SEND_RECV, transceiver.getDirection());
 	}
 
+	@Tag("media")
 	@Test
 	void addSendOnlyAudioTransceiver() {
 		AudioTrackSource audioSource = factory.createAudioSource(new AudioOptions());
@@ -188,6 +195,7 @@ class RTCPeerConnectionTests extends TestBase {
 		assertEquals(RTCRtpTransceiverDirection.SEND_ONLY, transceiver.getDirection());
 	}
 
+	@Tag("media")
 	@Test
 	void addRecvOnlyAudioTransceiver() {
 		AudioTrackSource audioSource = factory.createAudioSource(new AudioOptions());
@@ -202,6 +210,7 @@ class RTCPeerConnectionTests extends TestBase {
 		assertEquals(RTCRtpTransceiverDirection.RECV_ONLY, transceiver.getDirection());
 	}
 
+	@Tag("media")
 	@Test
 	void addVideoTransceiver() {
 		VideoDeviceSource videoSource = new VideoDeviceSource();
@@ -219,6 +228,7 @@ class RTCPeerConnectionTests extends TestBase {
 		assertEquals(RTCRtpTransceiverDirection.SEND_RECV, transceiver.getDirection());
 	}
 
+	@Tag("media")
 	@Test
 	void addSendOnlyVideoTransceiver() {
 		VideoDeviceSource videoSource = new VideoDeviceSource();
@@ -233,6 +243,7 @@ class RTCPeerConnectionTests extends TestBase {
 		assertEquals(RTCRtpTransceiverDirection.SEND_ONLY, transceiver.getDirection());
 	}
 
+	@Tag("media")
 	@Test
 	void addRecvOnlyVideoTransceiver() {
 		VideoDeviceSource videoSource = new VideoDeviceSource();

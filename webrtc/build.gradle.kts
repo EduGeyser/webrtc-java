@@ -12,6 +12,7 @@ evaluationDependsOn(":webrtc-jni")
 val platformClassifier = rootProject.extra["platformClassifier"] as String
 val buildDate = rootProject.extra["buildDate"] as String
 val nativesDir = rootProject.extra["nativesDir"] as File?
+val dataChannelsOnly = rootProject.extra["dataChannelsOnly"] as Boolean
 
 val moduleName = "webrtc.java"
 val nativeClassifiers = listOf(
@@ -117,7 +118,13 @@ tasks.javadoc {
 }
 
 tasks.test {
-	useJUnitPlatform()
+	useJUnitPlatform {
+		if (dataChannelsOnly) {
+			// The native library has no audio and video.
+			excludeTags("media")
+		}
+	}
+	systemProperty("webrtc.variant", if (dataChannelsOnly) "data-channels" else "full")
 	dependsOn(tasks.jar)
 
 	// A hung test JVM fails the build instead of blocking a CI runner.

@@ -58,6 +58,7 @@ namespace jni
 		ExceptionCheck(env);
 	}
 
+#ifndef WEBRTC_DATA_CHANNELS_ONLY
 	void PeerConnectionObserver::OnTrack(webrtc::scoped_refptr<webrtc::RtpTransceiverInterface> transceiver)
 	{
 		JNIEnv * env = AttachCurrentThread();
@@ -99,6 +100,7 @@ namespace jni
 
 		ExceptionCheck(env);
 	}
+#endif
 
 	void PeerConnectionObserver::OnDataChannel(webrtc::scoped_refptr<webrtc::DataChannelInterface> channel)
 	{
@@ -200,9 +202,11 @@ namespace jni
 
 		onConnectionChange = GetMethod(env, cls, "onConnectionChange", "(L" PKG "RTCPeerConnectionState;)V");
 		onSignalingChange = GetMethod(env, cls, "onSignalingChange", "(L" PKG "RTCSignalingState;)V");
+#ifndef WEBRTC_DATA_CHANNELS_ONLY
 		onTrack = GetMethod(env, cls, "onTrack", "(L" PKG "RTCRtpTransceiver;)V");
 		onAddTrack = GetMethod(env, cls, "onAddTrack", "(L" PKG "RTCRtpReceiver;[L" PKG_MEDIA "MediaStream;)V");
 		onRemoveTrack = GetMethod(env, cls, "onRemoveTrack", "(L" PKG "RTCRtpReceiver;)V");
+#endif
 		onDataChannel = GetMethod(env, cls, "onDataChannel", "(L" PKG "RTCDataChannel;)V");
 		onRenegotiationNeeded = GetMethod(env, cls, "onRenegotiationNeeded", "()V");
 		onIceConnectionChange = GetMethod(env, cls, "onIceConnectionChange", "(L" PKG "RTCIceConnectionState;)V");

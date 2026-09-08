@@ -2,6 +2,7 @@ package dev.onvoid.webrtc.media.audio;
 
 import org.junit.jupiter.api.*;
 
+@Tag("media")
 class AudioDeviceModuleTest {
 
 	private AudioDeviceModule module;

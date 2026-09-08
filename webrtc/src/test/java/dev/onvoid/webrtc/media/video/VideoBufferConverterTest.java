@@ -25,8 +25,10 @@ import java.nio.ByteBuffer;
 import dev.onvoid.webrtc.TestBase;
 import dev.onvoid.webrtc.media.FourCC;
 
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
+@Tag("media")
 class VideoBufferConverterTest extends TestBase {
 
 	private static final int WIDTH = 32;

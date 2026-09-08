@@ -39,8 +39,17 @@ fun hostPlatform(): String {
 
 val platformClassifier = providers.gradleProperty("webrtc.platform").orElse(provider { hostPlatform() }).get()
 
+// The variant of the native library: "full", or "data-channels" for a library
+// without audio and video support. See docs/guide/build.md.
+val variant = providers.gradleProperty("webrtc.variant").getOrElse("full")
+
+if (variant != "full" && variant != "data-channels") {
+	throw GradleException("Unknown webrtc.variant '$variant', expected 'full' or 'data-channels'")
+}
+
 // Shared by the subprojects.
 extra["platformClassifier"] = platformClassifier
+extra["dataChannelsOnly"] = variant == "data-channels"
 // A directory holding prebuilt native library jars, "webrtc-java-<version>-<classifier>.jar",
 // in place of the ones webrtc-jni builds: the tests run against the jar of the
 // build platform, and the publication attaches the jars of every platform.

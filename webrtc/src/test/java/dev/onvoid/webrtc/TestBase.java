@@ -34,6 +34,12 @@ import org.junit.jupiter.api.parallel.ExecutionMode;
 @Execution(ExecutionMode.SAME_THREAD)
 public abstract class TestBase {
 
+	/**
+	 * Whether the tests run against the data channels only variant of the
+	 * native library, which has no audio device module.
+	 */
+	protected static final boolean DATA_CHANNELS_ONLY = "data-channels".equals(System.getProperty("webrtc.variant"));
+
 	protected PeerConnectionFactory factory;
 
 	protected AudioDeviceModule audioDevModule;
@@ -41,13 +47,20 @@ public abstract class TestBase {
 
 	@BeforeAll
 	protected void initFactory() {
-		audioDevModule = new AudioDeviceModule(AudioLayer.kDummyAudio);
-		factory = new PeerConnectionFactory(audioDevModule);
+		if (DATA_CHANNELS_ONLY) {
+			factory = new PeerConnectionFactory();
+		}
+		else {
+			audioDevModule = new AudioDeviceModule(AudioLayer.kDummyAudio);
+			factory = new PeerConnectionFactory(audioDevModule);
+		}
 	}
 
 	@AfterAll
 	protected void disposeFactory() {
-		audioDevModule.dispose();
+		if (audioDevModule != null) {
+			audioDevModule.dispose();
+		}
 		factory.dispose();
 	}
 

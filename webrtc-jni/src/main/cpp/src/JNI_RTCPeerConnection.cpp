@@ -45,6 +45,7 @@
 #include <string>
 #include <vector>
 
+#ifndef WEBRTC_DATA_CHANNELS_ONLY
 JNIEXPORT jobjectArray JNICALL Java_dev_onvoid_webrtc_RTCPeerConnection_getSenders
 (JNIEnv * env, jobject caller)
 {
@@ -189,6 +190,8 @@ JNIEXPORT jobject JNICALL Java_dev_onvoid_webrtc_RTCPeerConnection_addTransceive
 
 	return nullptr;
 }
+
+#endif
 
 JNIEXPORT jobject JNICALL Java_dev_onvoid_webrtc_RTCPeerConnection_createDataChannel
 (JNIEnv * env, jobject caller, jstring jLabel, jobject jDict)
@@ -512,6 +515,7 @@ JNIEXPORT void JNICALL Java_dev_onvoid_webrtc_RTCPeerConnection_getStats__Ldev_o
 	pc->GetStats(callback);
 }
 
+#ifndef WEBRTC_DATA_CHANNELS_ONLY
 JNIEXPORT void JNICALL Java_dev_onvoid_webrtc_RTCPeerConnection_getStats__Ldev_onvoid_webrtc_RTCRtpReceiver_2Ldev_onvoid_webrtc_RTCStatsCollectorCallback_2
 (JNIEnv * env, jobject caller, jobject jreceiver, jobject jcallback)
 {
@@ -557,6 +561,8 @@ JNIEXPORT void JNICALL Java_dev_onvoid_webrtc_RTCPeerConnection_getStats__Ldev_o
 
 	pc->GetStats(webrtc::scoped_refptr<webrtc::RtpSenderInterface>(sender), webrtc::scoped_refptr<webrtc::RTCStatsCollectorCallback>(callback));
 }
+
+#endif
 
 JNIEXPORT void JNICALL Java_dev_onvoid_webrtc_RTCPeerConnection_restartIce
 (JNIEnv * env, jobject caller)

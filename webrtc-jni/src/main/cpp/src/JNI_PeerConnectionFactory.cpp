@@ -15,11 +15,9 @@
  */
 
 #include "JNI_PeerConnectionFactory.h"
-#include "api/AudioOptions.h"
 #include "api/CreateSessionDescriptionObserver.h"
 #include "api/PeerConnectionObserver.h"
 #include "api/RTCConfiguration.h"
-#include "api/RTCRtpCapabilities.h"
 #include "JavaEnums.h"
 #include "JavaError.h"
 #include "JavaFactories.h"
@@ -29,6 +27,12 @@
 #include "JavaString.h"
 #include "JavaUtils.h"
 #include "WebRTCContext.h"
+
+#ifdef WEBRTC_DATA_CHANNELS_ONLY
+#include "api/create_modular_peer_connection_factory.h"
+#else
+#include "api/AudioOptions.h"
+#include "api/RTCRtpCapabilities.h"
 
 #include "api/audio/create_audio_device_module.h"
 #include "api/create_peerconnection_factory.h"
@@ -57,13 +61,16 @@
 #include "api/video_codecs/video_decoder_factory_template.h"
 #include "api/video_codecs/video_encoder_factory.h"
 #include "api/video_codecs/video_encoder_factory_template.h"
+#endif
 
 JNIEXPORT void JNICALL Java_dev_onvoid_webrtc_PeerConnectionFactory_initialize
 (JNIEnv * env, jobject caller, jobject audioModule, jobject audioProcessing)
 {
+#ifndef WEBRTC_DATA_CHANNELS_ONLY
 	webrtc::AudioDeviceModule * audioDevModule = (audioModule != nullptr)
 		? GetHandle<webrtc::AudioDeviceModule>(env, audioModule)
 		: nullptr;
+#endif
 
 	try {
 		auto networkThread = webrtc::Thread::CreateWithSocketServer();
@@ -85,6 +92,15 @@ JNIEXPORT void JNICALL Java_dev_onvoid_webrtc_PeerConnectionFactory_initialize
 			throw jni::Exception("Start worker thread failed");
 		}
 
+#ifdef WEBRTC_DATA_CHANNELS_ONLY
+		// No media engine: the audio module and the audio processing are not used.
+		webrtc::PeerConnectionFactoryDependencies dependencies;
+		dependencies.network_thread = networkThread.get();
+		dependencies.worker_thread = workerThread.get();
+		dependencies.signaling_thread = signalingThread.get();
+
+		auto factory = webrtc::CreateModularPeerConnectionFactory(std::move(dependencies));
+#else
 		webrtc::AudioProcessing * processing = (audioProcessing != nullptr)
 			? GetHandle<webrtc::AudioProcessing>(env, audioProcessing)
 			: nullptr;
@@ -134,6 +150,7 @@ JNIEXPORT void JNICALL Java_dev_onvoid_webrtc_PeerConnectionFactory_initialize
 #endif
 			nullptr,
 			apm);
+#endif
 
 		if (factory != nullptr) {
 			SetHandle(env, caller, factory.release());
@@ -189,6 +206,7 @@ JNIEXPORT void JNICALL Java_dev_onvoid_webrtc_PeerConnectionFactory_dispose
 	}
 }
 
+#ifndef WEBRTC_DATA_CHANNELS_ONLY
 JNIEXPORT jobject JNICALL Java_dev_onvoid_webrtc_PeerConnectionFactory_createAudioSource
 (JNIEnv * env, jobject caller, jobject jAudioOptions)
 {
@@ -262,6 +280,7 @@ JNIEXPORT jobject JNICALL Java_dev_onvoid_webrtc_PeerConnectionFactory_createVid
 
 	return jni::JavaFactories::create(env, videoTrack.release()).release();
 }
+#endif
 
 JNIEXPORT jobject JNICALL Java_dev_onvoid_webrtc_PeerConnectionFactory_createPeerConnection
 (JNIEnv * env, jobject caller, jobject jConfig, jobject jobserver)
@@ -304,6 +323,7 @@ JNIEXPORT jobject JNICALL Java_dev_onvoid_webrtc_PeerConnectionFactory_createPee
 	return nullptr;
 }
 
+#ifndef WEBRTC_DATA_CHANNELS_ONLY
 JNIEXPORT jobject JNICALL Java_dev_onvoid_webrtc_PeerConnectionFactory_getRtpReceiverCapabilities
 (JNIEnv * env, jobject caller, jobject mediaType)
 {
@@ -327,3 +347,4 @@ JNIEXPORT jobject JNICALL Java_dev_onvoid_webrtc_PeerConnectionFactory_getRtpSen
 
 	return jni::RTCRtpCapabilities::toJava(env, capabilities).release();
 }
+#endif

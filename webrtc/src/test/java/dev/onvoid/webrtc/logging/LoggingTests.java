@@ -25,6 +25,7 @@ import dev.onvoid.webrtc.logging.Logging.Severity;
 import dev.onvoid.webrtc.media.audio.AudioDeviceModule;
 import dev.onvoid.webrtc.media.audio.AudioLayer;
 
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 class LoggingTests {
@@ -38,6 +39,7 @@ class LoggingTests {
 		Logging.info("logToDebug at NONE must not print this");
 	}
 
+	@Tag("media")
 	@Test
 	void logInfo() throws Exception {
 		CountDownLatch latch = new CountDownLatch(3);

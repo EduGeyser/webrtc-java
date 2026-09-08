@@ -30,11 +30,13 @@ import dev.onvoid.webrtc.media.audio.AudioTrackSource;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 /**
  * Unit tests for the {@link RTCDtmfSender} class.
  */
+@Tag("media")
 class RTCDtmfSenderTests extends TestBase {
 
     /**

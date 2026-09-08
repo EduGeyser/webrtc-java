@@ -14,6 +14,15 @@ on:
       - main
 
   workflow_dispatch:
+    inputs:
+      variant:
+        description: "The variant of the native library: full, or data-channels for a library without audio and video support."
+        required: false
+        type: choice
+        options:
+          - full
+          - data-channels
+        default: full
 
 env:
   WEBRTC_CHECKOUT_FOLDER: webrtc
@@ -45,6 +54,7 @@ jobs:
         with:
           java-version: ${{ matrix.java }}
           platform-name: ${{ matrix.platform.name }}
+          variant: ${{ inputs.variant }}
           maven-username: ${{ secrets.MAVEN_USERNAME }}
           maven-password: ${{ secrets.MAVEN_TOKEN }}
 
@@ -83,6 +93,7 @@ jobs:
         with:
           java-version: ${{ matrix.java }}
           platform-name: ${{ matrix.platform.name }}
+          variant: ${{ inputs.variant }}
           maven-username: ${{ secrets.MAVEN_USERNAME }}
           maven-password: ${{ secrets.MAVEN_TOKEN }}
 
@@ -120,6 +131,7 @@ jobs:
         with:
           java-version: ${{ matrix.java }}
           platform-name: ${{ matrix.platform.name }}
+          variant: ${{ inputs.variant }}
           maven-username: ${{ secrets.MAVEN_USERNAME }}
           maven-password: ${{ secrets.MAVEN_TOKEN }}
 
@@ -130,6 +142,7 @@ jobs:
         with:
           java-version: ${{ matrix.java }}
           platform-name: ${{ matrix.platform.name }}
+          variant: ${{ inputs.variant }}
           maven-username: ${{ secrets.MAVEN_USERNAME }}
           maven-password: ${{ secrets.MAVEN_TOKEN }}
 
@@ -164,5 +177,6 @@ jobs:
         with:
           platform-name: ${{ matrix.platform.name }}
           classifier: ${{ matrix.platform.classifier }}
+          variant: ${{ inputs.variant }}
           java-distribution: ${{ matrix.platform.java-distribution }}
           java-architecture: ${{ matrix.platform.java-architecture }}

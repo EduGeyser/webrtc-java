@@ -25,6 +25,7 @@ import dev.onvoid.webrtc.media.audio.*;
 import dev.onvoid.webrtc.media.video.VideoDeviceSource;
 import dev.onvoid.webrtc.media.video.VideoTrack;
 
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 class PeerConnectionFactoryTests extends TestBase {
@@ -43,6 +44,7 @@ class PeerConnectionFactoryTests extends TestBase {
 		}
 	}
 
+	@Tag("media")
 	@Test
 	void createWithAudioDeviceModule() {
 		AudioDeviceModule audioDevModule = new AudioDeviceModule(AudioLayer.kDummyAudio);
@@ -51,6 +53,7 @@ class PeerConnectionFactoryTests extends TestBase {
 		factory.dispose();
 	}
 
+	@Tag("media")
 	@Test
 	void createWithAudioProcessing() {
 		AudioDeviceModule audioDevModule = new AudioDeviceModule(AudioLayer.kDummyAudio);
@@ -83,6 +86,7 @@ class PeerConnectionFactoryTests extends TestBase {
 		peerConnection.close();
 	}
 
+	@Tag("media")
 	@Test
 	void createAudioSourceNullOptions() {
 		assertThrows(NullPointerException.class, () -> {
@@ -90,6 +94,7 @@ class PeerConnectionFactoryTests extends TestBase {
 		});
 	}
 
+	@Tag("media")
 	@Test
 	void createAudioSource() {
 		AudioOptions audioOptions = new AudioOptions();
@@ -99,6 +104,7 @@ class PeerConnectionFactoryTests extends TestBase {
 		assertEquals(MediaSource.State.LIVE, audioSource.getState());
 	}
 
+	@Tag("media")
 	@Test
 	void createAudioTrackNullParams() {
 		assertThrows(NullPointerException.class, () -> {
@@ -110,6 +116,7 @@ class PeerConnectionFactoryTests extends TestBase {
 		});
 	}
 
+	@Tag("media")
 	@Test
 	void createAudioTrack() {
 		AudioOptions audioOptions = new AudioOptions();
@@ -123,6 +130,7 @@ class PeerConnectionFactoryTests extends TestBase {
 		assertTrue(audioTrack.isEnabled());
 	}
 
+	@Tag("media")
 	@Test
 	void createVideoTrackNullParams() {
 		assertThrows(NullPointerException.class, () -> {
@@ -134,6 +142,7 @@ class PeerConnectionFactoryTests extends TestBase {
 		});
 	}
 
+	@Tag("media")
 	@Test
 	void createVideoTrack() {
 		VideoDeviceSource videoSource = new VideoDeviceSource();
@@ -146,6 +155,7 @@ class PeerConnectionFactoryTests extends TestBase {
 		assertTrue(videoTrack.isEnabled());
 	}
 
+	@Tag("media")
 	@Test
 	void getReceiverCapabilities() {
 		RTCRtpCapabilities audioCapabilities = factory
@@ -169,6 +179,7 @@ class PeerConnectionFactoryTests extends TestBase {
 		assertFalse(videoCapabilities.getHeaderExtensions().isEmpty());
 	}
 
+	@Tag("media")
 	@Test
 	void getSenderCapabilities() {
 		RTCRtpCapabilities audioCapabilities = factory

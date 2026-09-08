@@ -22,8 +22,10 @@ import dev.onvoid.webrtc.TestBase;
 import dev.onvoid.webrtc.media.audio.AudioOptions;
 import dev.onvoid.webrtc.media.audio.AudioTrackSource;
 
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
+@Tag("media")
 class MediaSourceTests extends TestBase {
 
 	@Test

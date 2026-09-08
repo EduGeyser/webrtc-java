@@ -19,9 +19,12 @@
 
 #include "JavaContext.h"
 #include "api/environment/environment.h"
+
+#ifndef WEBRTC_DATA_CHANNELS_ONLY
 #include "media/audio/AudioDeviceManager.h"
 #include "media/video/VideoDeviceManager.h"
 #include "media/video/desktop/PowerManagement.h"
+#endif
 
 #include <jni.h>
 #include <memory>
@@ -39,11 +42,12 @@ namespace jni
 			void initializeClassLoader(JNIEnv* env, const char * loaderName) override;
 			void destroy(JNIEnv * env) override;
 
+			const webrtc::Environment webrtcEnv;
+
+#ifndef WEBRTC_DATA_CHANNELS_ONLY
 			avdev::AudioDeviceManager * getAudioDeviceManager();
 			avdev::VideoDeviceManager * getVideoDeviceManager();
 			avdev::PowerManagement * getPowerManagement();
-
-			const webrtc::Environment webrtcEnv;
 
 		private:
 			void initializeAudioManager();
@@ -56,6 +60,7 @@ namespace jni
 			std::unique_ptr<avdev::AudioDeviceManager> audioDevManager;
 			std::unique_ptr<avdev::VideoDeviceManager> videoDevManager;
 			std::unique_ptr<avdev::PowerManagement> powerManagement;
+#endif
 	};
 }
 

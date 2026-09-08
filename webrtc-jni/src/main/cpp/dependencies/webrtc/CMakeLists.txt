@@ -51,8 +51,16 @@ if(NOT DEFINED WEBRTC_SRC_DIR)
     endif()
 endif()
 
+# The data channels only variant is a different libwebrtc build, so it gets
+# its own build and install directories beside the full ones.
+if(WEBRTC_DATA_CHANNELS_ONLY)
+    set(WEBRTC_VARIANT_SUFFIX "-data-channels")
+else()
+    set(WEBRTC_VARIANT_SUFFIX "")
+endif()
+
 if(NOT DEFINED WEBRTC_INSTALL_DIR)
-    set(WEBRTC_INSTALL_DIR "${WEBRTC_SRC_DIR}/build")
+    set(WEBRTC_INSTALL_DIR "${WEBRTC_SRC_DIR}/build${WEBRTC_VARIANT_SUFFIX}")
 endif()
 
 if(WIN32)
@@ -114,7 +122,7 @@ file(TO_CMAKE_PATH "${WEBRTC_SRC_DIR}" WEBRTC_SRC_DIR)
 
 set(WEBRTC_DIR ${WEBRTC_SRC_DIR})
 set(WEBRTC_SRC ${WEBRTC_DIR}/src)
-set(WEBRTC_BUILD out/${TARGET_CPU})
+set(WEBRTC_BUILD out/${TARGET_CPU}${WEBRTC_VARIANT_SUFFIX})
 set(WEBRTC_LIB_PATH ${WEBRTC_SRC}/${WEBRTC_BUILD}/obj/${WEBRTC_LIB})
 set(WEBRTC_LIB_PATH_INSTALLED ${WEBRTC_INSTALL_DIR}/lib/${WEBRTC_LIB})
 
@@ -138,7 +146,10 @@ message(STATUS "WebRTC install path: ${WEBRTC_INSTALL_DIR}")
 # undefined and loading fails at runtime; they are built and linked
 # explicitly. The Apple archive is assembled from an object glob and only
 # needs them built.
-if(WIN32)
+if(WEBRTC_DATA_CHANNELS_ONLY)
+    # No JNI video code, nothing needs them.
+    set(VIDEO_UTIL_LIB_NAMES "")
+elseif(WIN32)
     set(VIDEO_UTIL_LIB_NAMES adapted_video_track_source.lib video_adapter.lib video_broadcaster.lib)
 else()
     set(VIDEO_UTIL_LIB_NAMES libadapted_video_track_source.a libvideo_adapter.a libvideo_broadcaster.a)
@@ -162,6 +173,12 @@ else()
     # The flat re-archives; gn's originals are thin archives that break
     # when copied away from their object files.
     set(VIDEO_UTIL_LIB_DIR ${WEBRTC_SRC}/${WEBRTC_BUILD}/obj)
+endif()
+
+if(WEBRTC_DATA_CHANNELS_ONLY)
+    set(VIDEO_UTIL_TARGETS "")
+else()
+    set(VIDEO_UTIL_TARGETS adapted_video_track_source video_adapter video_broadcaster)
 endif()
 
 set(VIDEO_UTIL_LINK_LIBS "")
@@ -197,7 +214,19 @@ target_include_directories(${PROJECT_NAME}
 )
 target_link_libraries(${PROJECT_NAME} ${TARGET_LINK_LIB} ${VIDEO_UTIL_LINK_LIBS})
 
-if(APPLE)
+if(WEBRTC_DATA_CHANNELS_ONLY)
+    # Without audio and video, libwebrtc needs no more than the base system
+    # libraries, and none of the capture related defines apply.
+    if(APPLE)
+        target_compile_definitions(${PROJECT_NAME} PUBLIC WEBRTC_MAC WEBRTC_POSIX)
+        target_link_libraries(${PROJECT_NAME} "-framework Foundation" "-framework AVFoundation" "-framework CoreMedia" "-framework CoreVideo")
+    elseif(LINUX)
+        target_compile_definitions(${PROJECT_NAME} PUBLIC WEBRTC_LINUX WEBRTC_POSIX)
+    elseif(WIN32)
+        target_compile_definitions(${PROJECT_NAME} PUBLIC WEBRTC_WIN NOMINMAX WIN32_LEAN_AND_MEAN NDEBUG)
+        target_link_libraries(${PROJECT_NAME} user32 iphlpapi secur32 ws2_32 winmm)
+    endif()
+elseif(APPLE)
     target_include_directories(${PROJECT_NAME}
         PUBLIC
             ${TARGET_INC_DIR}/sdk/objc
@@ -337,18 +366,53 @@ rtc_enable_protobuf=false \
 rtc_build_examples=false \
 rtc_include_tests=false \
 use_rtti=true \
-rtc_use_h264=true \
-ffmpeg_branding=\"Chrome\" \
 symbol_level=0")
+
+if(WEBRTC_DATA_CHANNELS_ONLY)
+    # No codecs, audio processing, audio devices, cameras or desktop capture:
+    # what a data channel needs and nothing else.
+    set(COMPILE_ARGS "${COMPILE_ARGS} \
+rtc_use_h264=false \
+rtc_include_opus=false \
+rtc_build_opus=false \
+rtc_opus_support_120ms_ptime=false \
+rtc_opus_variable_complexity=false \
+rtc_include_builtin_audio_codecs=false \
+rtc_exclude_audio_processing_module=true \
+rtc_include_internal_audio_device=false \
+rtc_include_pulse_audio=false \
+rtc_build_libvpx=false \
+rtc_libvpx_build_vp9=false \
+rtc_include_dav1d_in_internal_decoder_factory=false \
+enable_libaom=false \
+proprietary_codecs=false \
+rtc_use_x11=false \
+rtc_use_x11_extensions=false \
+rtc_link_pipewire=false \
+rtc_enable_win_wgc=false \
+rtc_enable_google_benchmarks=false \
+use_dbus=false \
+use_udev=false \
+enable_freetype=false \
+libyuv_disable_jpeg=true \
+libyuv_disable_rvv=true \
+libyuv_include_tests=false")
+else()
+    set(COMPILE_ARGS "${COMPILE_ARGS} \
+rtc_use_h264=true \
+ffmpeg_branding=\"Chrome\"")
+endif()
 
 if(APPLE)
     set(COMPILE_ARGS "${COMPILE_ARGS} mac_deployment_target=\"${CMAKE_OSX_DEPLOYMENT_TARGET}\"")
 elseif(LINUX)
-    # Build the PipeWire/xdg-desktop-portal capturer for Wayland sessions. The
-    # X11 capturer stays in as well; WebRTC picks PipeWire at runtime only when
-    # IsRunningUnderWayland() is true. rtc_link_pipewire stays false (default),
-    # so libpipewire is dlopen'd and X11-only systems gain no hard dependency.
-    string(REPLACE "rtc_use_pipewire=false" "rtc_use_pipewire=true" COMPILE_ARGS "${COMPILE_ARGS}")
+    if(NOT WEBRTC_DATA_CHANNELS_ONLY)
+        # Build the PipeWire/xdg-desktop-portal capturer for Wayland sessions. The
+        # X11 capturer stays in as well; WebRTC picks PipeWire at runtime only when
+        # IsRunningUnderWayland() is true. rtc_link_pipewire stays false (default),
+        # so libpipewire is dlopen'd and X11-only systems gain no hard dependency.
+        string(REPLACE "rtc_use_pipewire=false" "rtc_use_pipewire=true" COMPILE_ARGS "${COMPILE_ARGS}")
+    endif()
 
     if(${TARGET_CPU} STREQUAL "arm")
         set(COMPILE_ARGS "${COMPILE_ARGS} custom_toolchain=\"//build/toolchain/linux:clang_arm\"")
@@ -376,8 +440,14 @@ execute_command(
 
 message(STATUS "WebRTC: compile")
 if(APPLE)
+    if(WEBRTC_DATA_CHANNELS_ONLY)
+        set(NINJA_TARGETS :default api/task_queue:default_task_queue_factory sdk:native_api pc:peer_connection)
+    else()
+        set(NINJA_TARGETS :default api/audio_codecs:builtin_audio_decoder_factory api/task_queue:default_task_queue_factory sdk:native_api sdk:default_codec_factory_objc pc:peer_connection sdk:videocapture_objc api/video:adapted_video_track_source api/video:video_adapter api/video:video_broadcaster)
+    endif()
+
     execute_command(
-        COMMAND ninja -C "${WEBRTC_BUILD}" :default api/audio_codecs:builtin_audio_decoder_factory api/task_queue:default_task_queue_factory sdk:native_api sdk:default_codec_factory_objc pc:peer_connection sdk:videocapture_objc api/video:adapted_video_track_source api/video:video_adapter api/video:video_broadcaster
+        COMMAND ninja -C "${WEBRTC_BUILD}" ${NINJA_TARGETS}
         WORKING_DIRECTORY "${WEBRTC_SRC}"
     )
 
@@ -392,16 +462,18 @@ else()
         WORKING_DIRECTORY "${WEBRTC_SRC}"
     )
 
-    # The api/video utility targets are not reachable from the default
-    # graph since their move out of media/base; build them explicitly so
-    # their symbols exist for the shared library link.
-    execute_command(
-        COMMAND ninja -C "${WEBRTC_BUILD}" api/video:adapted_video_track_source api/video:video_adapter api/video:video_broadcaster
-        WORKING_DIRECTORY "${WEBRTC_SRC}"
-    )
+    if(NOT WEBRTC_DATA_CHANNELS_ONLY)
+        # The api/video utility targets are not reachable from the default
+        # graph since their move out of media/base; build them explicitly so
+        # their symbols exist for the shared library link.
+        execute_command(
+            COMMAND ninja -C "${WEBRTC_BUILD}" api/video:adapted_video_track_source api/video:video_adapter api/video:video_broadcaster
+            WORKING_DIRECTORY "${WEBRTC_SRC}"
+        )
+    endif()
 endif()
 
-if(WIN32)
+if(WIN32 AND NOT WEBRTC_DATA_CHANNELS_ONLY)
     # gn emits these as thin archives on Windows as well (lld-link /lib),
     # so the installed copies go hollow once the cache restores them
     # without the object tree; a cold build never notices because the
@@ -430,7 +502,7 @@ if(LINUX)
         # gn emits thin archives whose members reference objects by relative
         # path, so they break once copied to the install tree. Re-archive the
         # api/video utility objects into regular archives, like libc++ below.
-        foreach(VIDEO_UTIL_TARGET adapted_video_track_source video_adapter video_broadcaster)
+        foreach(VIDEO_UTIL_TARGET ${VIDEO_UTIL_TARGETS})
             file(GLOB_RECURSE VIDEO_UTIL_OBJS
                 ${WEBRTC_SRC}/${WEBRTC_BUILD}/obj/api/video/${VIDEO_UTIL_TARGET}/*.o
             )

@@ -7,6 +7,8 @@ endif()
 
 project(webrtc-java)
 
+option(WEBRTC_DATA_CHANNELS_ONLY "Build without audio and video support, for applications that use data channels only" OFF)
+
 if(UNIX AND NOT APPLE)
     # Apply the sysroot configuration for the actual build
     if(DEFERRED_SYSROOT)
@@ -76,6 +78,14 @@ list(APPEND SOURCES
     ${SOURCES_RTC}
 )
 
+if(WEBRTC_DATA_CHANNELS_ONLY)
+    # The peer connection, data channel and transport bindings stay; the
+    # media bindings and the device code go.
+    list(FILTER SOURCES EXCLUDE REGEX "/src/(media|platform|api/audio)/")
+    list(FILTER SOURCES EXCLUDE REGEX "/src/JNI_(Audio|CustomAudio|CustomVideo|Desktop|Headless|Media|NativeI420|Power|RTCDtmf|RTCRtp|Screen|SyncClock|Video|VoiceActivity|Window)[A-Za-z0-9]*\\.cpp$")
+    list(FILTER SOURCES EXCLUDE REGEX "/src/api/(Audio|HeadlessAudio|RTCDtmf|RTCRtcp|RTCRtp|Video)[A-Za-z0-9]*\\.cpp$")
+endif()
+
 add_library(${PROJECT_NAME} SHARED ${SOURCES})
 
 # Introduced since WebRTC branch 7204 and Clang 20.
@@ -92,9 +102,14 @@ target_include_directories(${PROJECT_NAME}
     PRIVATE
         include
         include/api
-        include/media
         include/rtc
 )
+
+if(WEBRTC_DATA_CHANNELS_ONLY)
+    target_compile_definitions(${PROJECT_NAME} PRIVATE WEBRTC_DATA_CHANNELS_ONLY)
+else()
+    target_include_directories(${PROJECT_NAME} PRIVATE include/media)
+endif()
 
 set_target_properties(${PROJECT_NAME} PROPERTIES
     OUTPUT_NAME "${PROJECT_NAME}-${OUTPUT_NAME_SUFFIX}"
@@ -108,14 +123,25 @@ target_link_libraries(${PROJECT_NAME} webrtc)
 
 if(APPLE)
     set_source_files_properties(${SOURCES} PROPERTIES COMPILE_FLAGS "-x objective-c++")
-    target_link_options(${PROJECT_NAME} PRIVATE "-ObjC")
-    target_link_libraries(${PROJECT_NAME} "-framework Foundation" "-framework AVFoundation" "-framework CoreMedia" "-framework CoreAudio" "-framework IOKit" "-framework CoreVideo" "-framework VideoToolbox" "-framework QuartzCore")
+
+    if(WEBRTC_DATA_CHANNELS_ONLY)
+        # Without -ObjC the linker takes only the Objective-C classes that are
+        # referenced, which keeps the capture code out of the library.
+        target_link_libraries(${PROJECT_NAME} "-framework Foundation" "-framework AVFoundation" "-framework CoreMedia" "-framework CoreVideo")
+    else()
+        target_link_options(${PROJECT_NAME} PRIVATE "-ObjC")
+        target_link_libraries(${PROJECT_NAME} "-framework Foundation" "-framework AVFoundation" "-framework CoreMedia" "-framework CoreAudio" "-framework IOKit" "-framework CoreVideo" "-framework VideoToolbox" "-framework QuartzCore")
+    endif()
 elseif(LINUX)
     set(CXX_LIBS "-static-libgcc -stdlib=libc++ -lc++ -lc++abi")
 
     target_link_libraries(${PROJECT_NAME} ${CXX_LIBS})
-    target_link_libraries(${PROJECT_NAME} dl)
-elseif(WIN32)
+
+    if(NOT WEBRTC_DATA_CHANNELS_ONLY)
+        # For the audio and video device libraries opened at runtime.
+        target_link_libraries(${PROJECT_NAME} dl)
+    endif()
+elseif(WIN32 AND NOT WEBRTC_DATA_CHANNELS_ONLY)
     target_link_libraries(${PROJECT_NAME} dwmapi.lib mf.lib mfreadwrite.lib mfplat.lib mfuuid.lib shcore.lib)
 endif()
 

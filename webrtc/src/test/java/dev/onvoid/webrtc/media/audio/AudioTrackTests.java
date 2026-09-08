@@ -22,8 +22,10 @@ import dev.onvoid.webrtc.TestBase;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
+@Tag("media")
 class AudioTrackTests extends TestBase {
 
 	private AudioTrack audioTrack;
