@@ -36,6 +36,7 @@ Build parameters are passed as Gradle project properties, for example `./gradlew
 | webrtc.platform    | The platform to build the native library for, as `<os>-<arch>`: `windows-x86_64`, `windows-aarch64`, `linux-x86_64`, `linux-aarch32`, `linux-aarch64`, `macos-x86_64` or `macos-aarch64`. Cross compiling requires the toolchain the build workflow installs. | The host platform |
 | cmake.build.type   | The CMake build type.                                  | Release                     |
 | webrtc.variant      | The variant of the native library: `full`, or `data-channels` for a library without audio and video support, see below. | full |
+| webrtc.windows.sdk.version | The Windows SDK version to build WebRTC with, when the one its build scripts expect is not installed. | The version the WebRTC branch expects |
 | natives.dir        | A directory with prebuilt native library jars, `webrtc-java-<version>-<classifier>.jar`, used instead of building the native library. The tests run against the jar of the build platform. | -                           |
 
 ## Data Channels Only

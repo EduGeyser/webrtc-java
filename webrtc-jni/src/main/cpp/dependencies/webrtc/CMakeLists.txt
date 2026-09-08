@@ -352,6 +352,31 @@ if (PATCHES)
     endforeach(PATCH)
 endif()
 
+if(WIN32 AND WEBRTC_WINDOWS_SDK_VERSION)
+    # The WebRTC build scripts insist on the Windows SDK version their tree
+    # was tested with. Build with an installed one instead.
+    message(STATUS "WebRTC: use Windows SDK ${WEBRTC_WINDOWS_SDK_VERSION}")
+
+    foreach(SCRIPT build/vs_toolchain.py build/toolchain/win/setup_toolchain.py)
+        file(READ "${WEBRTC_SRC}/${SCRIPT}" SCRIPT_CONTENT)
+        string(REGEX REPLACE "SDK_VERSION = '[0-9.]+'" "SDK_VERSION = '${WEBRTC_WINDOWS_SDK_VERSION}'" SCRIPT_CONTENT "${SCRIPT_CONTENT}")
+        file(WRITE "${WEBRTC_SRC}/${SCRIPT}" "${SCRIPT_CONTENT}")
+    endforeach()
+
+    # The build targets the newest Windows version of the expected SDK by a
+    # symbol an older SDK does not define, which leaves NTDDI_VERSION at 0 and
+    # the SDK headers without every version gated declaration. Target the
+    # newest version the installed SDK names in its own header instead.
+    file(STRINGS "C:/Program Files (x86)/Windows Kits/10/Include/${WEBRTC_WINDOWS_SDK_VERSION}/shared/sdkddkver.h" WDK_NTDDI_LINE
+        REGEX "^#define WDK_NTDDI_VERSION")
+    string(REGEX REPLACE "^#define WDK_NTDDI_VERSION[ \t]+([A-Z0-9_]+).*" "\\1" WDK_NTDDI_VERSION "${WDK_NTDDI_LINE}")
+    message(STATUS "WebRTC: target NTDDI_VERSION ${WDK_NTDDI_VERSION}")
+
+    file(READ "${WEBRTC_SRC}/build/config/win/BUILD.gn" WIN_BUILD_GN)
+    string(REGEX REPLACE "NTDDI_VERSION=NTDDI_[A-Z0-9_]+" "NTDDI_VERSION=${WDK_NTDDI_VERSION}" WIN_BUILD_GN "${WIN_BUILD_GN}")
+    file(WRITE "${WEBRTC_SRC}/build/config/win/BUILD.gn" "${WIN_BUILD_GN}")
+endif()
+
 message(STATUS "WebRTC: generate")
 set(COMPILE_ARGS "target_cpu=\"${TARGET_CPU}\" \
 use_custom_libcxx=${CUSTOM_LIBCXX} \
