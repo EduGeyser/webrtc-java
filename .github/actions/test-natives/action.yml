@@ -11,10 +11,6 @@ inputs:
     description: 'The Maven classifier of the natives.'
     required: true
 
-  profile:
-    description: 'The Maven profile that selects the classifier.'
-    required: true
-
   java-version:
     description: 'The Java version.'
     required: true
@@ -64,25 +60,11 @@ runs:
         distribution: ${{ inputs.java-distribution }}
         architecture: ${{ inputs.java-architecture }}
 
-    - name: Ensure Maven
-      run: |
-        if ! command -v mvn >/dev/null 2>&1; then
-          curl -sSLo maven.zip https://archive.apache.org/dist/maven/maven-3/3.9.9/binaries/apache-maven-3.9.9-bin.zip
-          unzip -q maven.zip -d "$RUNNER_TEMP/maven"
-          echo "$RUNNER_TEMP/maven/apache-maven-3.9.9/bin" >> "$GITHUB_PATH"
-        fi
-      shell: bash
+    - name: Set up Gradle
+      uses: gradle/actions/setup-gradle@v6
 
-    - name: Install the natives into the local repository
-      run: |
-        VERSION=$(sed -n '0,/<version>/s|.*<version>\([^<]*\)</version>.*|\1|p' pom.xml)
-        JAR=$(ls natives/webrtc-java-*.jar | head -n 1)
-        echo "Installing $JAR as webrtc-java:$VERSION:${{ inputs.classifier }}"
-        mvn -B -q install:install-file -Dfile="$JAR" -DgroupId=dev.onvoid.webrtc \
-          -DartifactId=webrtc-java -Dversion="$VERSION" -Dpackaging=jar \
-          -Dclassifier=${{ inputs.classifier }}
-      shell: bash
-
+    # Gradle's native integration has no binaries for the 32-bit arm JDK, hence
+    # the switches.
     - name: Test
-      run: mvn -B -pl webrtc test -P${{ inputs.profile }}
+      run: ./gradlew :webrtc:test -Pnatives.dir=natives -Pwebrtc.platform=${{ inputs.classifier }} --no-daemon -Dorg.gradle.native=false -Dorg.gradle.vfs.watch=false
       shell: bash

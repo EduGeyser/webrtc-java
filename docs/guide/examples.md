@@ -1,6 +1,6 @@
 # Examples
 
-This section provides an overview of the example applications included in the `webrtc-examples` Maven module. These examples demonstrate various features and capabilities of the webrtc-java library.
+This section provides an overview of the example applications included in the `webrtc-examples` module. These examples demonstrate various features and capabilities of the webrtc-java library.
 
 ## PeerConnection
 
@@ -71,7 +71,7 @@ Before running the `WebClientExample`, you need to start the `WebServer` first. 
 :::
 
 ```bash
-mvn exec:java -D"exec.mainClass=dev.onvoid.webrtc.examples.web.server.WebServer"
+./gradlew :webrtc-examples:run -PmainClass=dev.onvoid.webrtc.examples.web.server.WebServer
 ```
 
 And the browser client is reachable at this url: `https://localhost:8443`
@@ -79,19 +79,18 @@ And the browser client is reachable at this url: `https://localhost:8443`
 
 ## Running the Examples
 
-To run these examples, you need to navigate into the directory `webrtc-java/webrtc-example` in the project.
-You can then execute the main method of each example class.
+To run these examples, run the `run` task of the `webrtc-examples` module from the project directory, naming the example class.
 
 For example, to run the `CodecListExample`:
 
 ```bash
-mvn exec:java -D"exec.mainClass=dev.onvoid.webrtc.examples.CodecListExample"
+./gradlew :webrtc-examples:run -PmainClass=dev.onvoid.webrtc.examples.CodecListExample
 ```
 
 Or to run the `WebClientExample`:
 
 ```bash
-mvn exec:java -D"exec.mainClass=dev.onvoid.webrtc.examples.web.WebClientExample"
+./gradlew :webrtc-examples:run -PmainClass=dev.onvoid.webrtc.examples.web.WebClientExample
 ```
 
 Note that these examples focus on setting up the local components for WebRTC communication. In a real application, you would need to establish a connection with a remote peer through a signaling channel (e.g., WebSocket). The `WebClientExample` demonstrates this by connecting to a signaling server.

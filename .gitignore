@@ -7,8 +7,10 @@
 **/*.iml
 **/.idea
 
-# Maven Build
-**/target
+# Gradle Build
+.gradle/
+**/build/
+!.github/actions/build/
 
 # Compiled Dynamic libraries
 *.so

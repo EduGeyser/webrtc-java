@@ -1,4 +1,4 @@
-name: 'Maven Build'
+name: 'Gradle Build'
 
 description: 'Build the platform dependent Java library'
 
@@ -23,23 +23,16 @@ inputs:
 runs:
   using: "composite"
   steps:
-    - name: Derive the WebRTC cache branch from the pom
-      run: echo "WEBRTC_CACHE_BRANCH=$(sed -n 's|.*<webrtc.branch>branch-heads/\([^<]*\)</webrtc.branch>.*|\1|p' webrtc-jni/pom.xml)" >> "$GITHUB_ENV"
+    - name: Derive the WebRTC cache branch from the build properties
+      run: echo "WEBRTC_CACHE_BRANCH=$(sed -n 's|^webrtc.branch=branch-heads/||p' gradle.properties)" >> "$GITHUB_ENV"
       shell: bash
 
     - name: Set up WebRTC cache
       uses: actions/cache@v4
       with:
         path: ~/${{ env.WEBRTC_INSTALL_FOLDER }}
-        key: webrtc-${{ env.WEBRTC_CACHE_BRANCH }}-${{ inputs.platform-name }}-${{ hashFiles('webrtc-jni/src/main/cpp/dependencies/webrtc/CMakeLists.txt') }}-${{ hashFiles('webrtc-jni/pom.xml') }}
+        key: webrtc-${{ env.WEBRTC_CACHE_BRANCH }}-${{ inputs.platform-name }}-${{ hashFiles('webrtc-jni/src/main/cpp/dependencies/webrtc/CMakeLists.txt') }}-${{ hashFiles('webrtc-jni/build.gradle.kts') }}
         restore-keys: webrtc-${{ env.WEBRTC_CACHE_BRANCH }}-${{ inputs.platform-name }}-${{ hashFiles('webrtc-jni/src/main/cpp/dependencies/webrtc/CMakeLists.txt') }}-
-
-    - name: Set up Maven cache
-      uses: actions/cache@v4
-      with:
-        path: ~/.m2/repository
-        key: maven-${{ inputs.platform-name }}-${{ hashFiles('**/pom.xml') }}
-        restore-keys: maven-${{ inputs.platform-name }}-
 
     - name: Set up JDK
       uses: actions/setup-java@v5
@@ -47,16 +40,16 @@ runs:
         architecture: 'x64'
         java-version: ${{ inputs.java-version }}
         distribution: 'temurin'
-        server-id: central
-        server-username: MAVEN_USERNAME
-        server-password: MAVEN_TOKEN
+
+    - name: Set up Gradle
+      uses: gradle/actions/setup-gradle@v6
 
     - name: Build
-      run: arch -x86_64 mvn package -DskipTests -Pmacos-cross-x86_64
+      run: arch -x86_64 ./gradlew assemble -Pwebrtc.platform=macos-x86_64
       shell: bash
 
     - name: Test
-      run: arch -x86_64 mvn -B jar:jar surefire:test -Pmacos-cross-x86_64
+      run: arch -x86_64 ./gradlew :webrtc:test -Pwebrtc.platform=macos-x86_64
       shell: bash
 
     - name: Deploy
@@ -64,5 +57,5 @@ runs:
       env:
         MAVEN_USERNAME: ${{ inputs.maven-username }}
         MAVEN_TOKEN: ${{ inputs.maven-password }}
-      run: arch -x86_64 mvn deploy -DskipTests -Pmacos-cross-x86_64
+      run: arch -x86_64 ./gradlew publishAggregationToCentralPortalSnapshots -Pwebrtc.platform=macos-x86_64
       shell: bash

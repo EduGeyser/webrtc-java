@@ -64,13 +64,7 @@ jobs:
     outputs:
       release_body: ${{ needs.changelog.outputs.release_body }}
       release_version: ${{ needs.changelog.outputs.release_version }}
-    strategy:
-      fail-fast: false
-      matrix:
-        platform:
-          - name: linux_x86-64
-            runs-on: ubuntu-22.04
-    runs-on: ${{ matrix.platform.runs-on }}
+    runs-on: ubuntu-22.04
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
@@ -80,38 +74,28 @@ jobs:
           git config --global user.name "${{ github.actor }}"
           git config --global user.email "${{ github.actor_id }}+${{ github.actor }}@users.noreply.github.com"
 
-      - id: prepare
-        name: Prepare release build
-        uses: ./.github/actions/prepare-linux
-
-      - name: Set up Java
-        uses: actions/setup-java@v5
-        with:
-          java-version: '21'
-          distribution: 'temurin'
-          server-id: central
-          server-username: MAVEN_USERNAME
-          server-password: MAVEN_TOKEN
-          gpg-private-key: ${{ secrets.MAVEN_GPG_PRIVATE_KEY }}
-          gpg-passphrase: MAVEN_GPG_PASSPHRASE
-
-      - name: Update development version
-        uses: actions/checkout@v6
-        with:
-          ref: main
-
-      # A dry run transforms the poms and writes release.properties, but creates no
-      # commit and no tag, so there is nothing to amend or push below.
+      # The release version is the current version without its -SNAPSHOT
+      # suffix. The release commit sets it and is tagged; the next commit moves
+      # on to the development version. A dry run only reports the versions.
       - name: Prepare release
         run: |
-          mvn release:prepare -DskipTests -DpushChanges=false \
-            -DdryRun=${{ inputs.dryRun }} \
-            -DdevelopmentVersion=${{ github.event.inputs.developmentVersion }}
+          current=$(sed -n 's/^version=//p' gradle.properties)
+          release="${current%-SNAPSHOT}"
+          development="${{ github.event.inputs.developmentVersion }}"
 
-          # Get the release version from the release.properties file
-          RELEASE_VERSION=$(grep "project.rel.dev.onvoid.webrtc\\\:webrtc-java=" release.properties 2>/dev/null | cut -d'=' -f2 || true)
-          echo "Extracted release version from release.properties: ${RELEASE_VERSION:-<none>}"
-          echo "RELEASE_VERSION=$RELEASE_VERSION" >> "$GITHUB_ENV"
+          echo "Release version: $release, next development version: $development"
+          echo "RELEASE_VERSION=$release" >> "$GITHUB_ENV"
+
+          if [ "${{ inputs.dryRun }}" == "true" ]; then
+            exit 0
+          fi
+
+          sed -i "s/^version=.*/version=$release/" gradle.properties
+          git commit -am "Prepare release v$release"
+          git tag -a "v$release" -m "v$release"
+
+          sed -i "s/^version=.*/version=$development/" gradle.properties
+          git commit -am "Prepare for next development iteration"
 
       - name: Push release commit and tag
         if: ${{ !inputs.dryRun }}
@@ -163,8 +147,8 @@ jobs:
         name: Prepare release build
         uses: ./.github/actions/prepare-windows
 
-      - id: maven-build
-        name: Maven build
+      - id: gradle-build
+        name: Gradle build
         uses: ./.github/actions/release
         with:
           java-version: ${{ matrix.java }}
@@ -203,8 +187,8 @@ jobs:
         name: Prepare release build
         uses: ./.github/actions/prepare-linux
 
-      - id: maven-build
-        name: Maven build
+      - id: gradle-build
+        name: Gradle build
         uses: ./.github/actions/release
         with:
           java-version: ${{ matrix.java }}
@@ -241,16 +225,16 @@ jobs:
         name: Prepare release build
         uses: ./.github/actions/prepare-macos
 
-      - id: maven-build-arm64
-        name: Maven build - Apple Silicon
+      - id: gradle-build-arm64
+        name: Gradle build - Apple Silicon
         if: matrix.platform.name == 'macos_arm64'
         uses: ./.github/actions/release
         with:
           java-version: ${{ matrix.java }}
           platform-name: ${{ matrix.platform.name }}
 
-      - id: maven-build-x86_64
-        name: Maven build - Intel
+      - id: gradle-build-x86_64
+        name: Gradle build - Intel
         if: matrix.platform.name == 'macos_x86-64'
         uses: ./.github/actions/release-macos-x86_64
         with:
@@ -271,35 +255,25 @@ jobs:
         with:
           fetch-tags: true
 
-      - name: Set up Maven cache
-        uses: actions/cache@v4
-        with:
-          path: ~/.m2/repository
-          key: maven-publish-${{ hashFiles('**/pom.xml') }}
-          restore-keys: maven-publish-
-
       - name: Set up JDK 17
         uses: actions/setup-java@v5
         with:
           java-version: '17'
           distribution: 'temurin'
-          server-id: central
-          server-username: MAVEN_USERNAME
-          server-password: MAVEN_TOKEN
-          gpg-private-key: ${{ secrets.MAVEN_GPG_PRIVATE_KEY }}
-          gpg-passphrase: MAVEN_GPG_PASSPHRASE
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v6
 
       - name: Determine the version to publish
         id: release-version
         run: |
-          if [ "${{ inputs.dryRun }}" == "true" ]; then
-            version=$(mvn -B -q -N help:evaluate -Dexpression=project.version -DforceStdout)
-          else
+          if [ "${{ inputs.dryRun }}" != "true" ]; then
             git fetch -a
             tag=$(git describe --tags `git rev-list --tags --max-count=1`)
             git checkout "$tag"
-            version="${tag#v}"
           fi
+
+          version=$(sed -n 's/^version=//p' gradle.properties)
 
           echo "Version to publish: $version"
           echo "version=$version" >> "$GITHUB_OUTPUT"
@@ -311,52 +285,23 @@ jobs:
           path: natives
           merge-multiple: true
 
-      - name: Verify that every platform is present
-        run: |
-          version="${{ steps.release-version.outputs.version }}"
-          status=0
-
-          for classifier in windows-x86_64 windows-aarch64 linux-x86_64 linux-aarch64 \
-                            linux-aarch32 macos-x86_64 macos-aarch64; do
-            if [ ! -f "natives/webrtc-java-$version-$classifier.jar" ]; then
-              echo "::error::Missing native library jar for $classifier"
-              status=1
-            fi
-          done
-
-          exit $status
-
-      # The webrtc module depends on its own native library jar for the host
-      # platform. That dependency is normally installed by webrtc-jni, which is kept
-      # out of the reactor here to avoid rebuilding the native libraries.
-      - name: Seed the local repository with the host native library
-        run: |
-          version="${{ steps.release-version.outputs.version }}"
-
-          mvn -B install:install-file \
-            -Dfile="natives/webrtc-java-$version-linux-x86_64.jar" \
-            -DgroupId=dev.onvoid.webrtc \
-            -DartifactId=webrtc-java \
-            -Dversion="$version" \
-            -Dclassifier=linux-x86_64 \
-            -Dpackaging=jar \
-            -DgeneratePom=false
-
-      # skipPublishing suppresses both the bundling and the upload, so a dry run
-      # still builds, signs and attaches everything without anything leaving the
-      # runner. As a second line of defence the Central credentials are replaced by
-      # a placeholder during a dry run: should the upload ever happen regardless, it
-      # fails on authentication instead of publishing a release. Signing does run, so
-      # the GPG passphrase stays intact.
+      # The build checks that natives holds the jar of every platform before it
+      # attaches them. A dry run assembles and signs the deployment bundle without
+      # uploading it; the Central credentials are replaced by a placeholder as a
+      # second line of defence, so an upload would fail on authentication instead
+      # of publishing a release. Signing does run, so the GPG key stays intact.
       - name: Deploy
         env:
           MAVEN_USERNAME: ${{ inputs.dryRun && 'dry-run-must-not-upload' || secrets.MAVEN_USERNAME }}
           MAVEN_TOKEN: ${{ inputs.dryRun && 'dry-run-must-not-upload' || secrets.MAVEN_TOKEN }}
+          MAVEN_GPG_PRIVATE_KEY: ${{ secrets.MAVEN_GPG_PRIVATE_KEY }}
           MAVEN_GPG_PASSPHRASE: ${{ secrets.MAVEN_GPG_PASSPHRASE }}
-        run: >
-          mvn -B deploy -pl .,webrtc -Prelease -DskipTests
-          -Dnatives.dir="$PWD/natives"
-          -DskipPublishing=${{ inputs.dryRun }}
+        run: |
+          if [ "${{ inputs.dryRun }}" == "true" ]; then
+            ./gradlew nmcpZipAggregation -Pnatives.dir=natives
+          else
+            ./gradlew publishAggregationToCentralPortal -Pnatives.dir=natives
+          fi
 
       - name: Summarize what would have been published
         if: ${{ inputs.dryRun }}
@@ -366,9 +311,9 @@ jobs:
             echo
             echo "Version: \`${{ steps.release-version.outputs.version }}\`"
             echo
-            echo "Artifacts destined for the deployment bundle:"
+            echo "Contents of the deployment bundle:"
             echo '```'
-            ls -1 webrtc/target/*.jar webrtc/target/*.asc natives/*.asc 2>/dev/null || true
+            unzip -Z1 build/nmcp/zip/aggregation.zip
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
 
@@ -377,12 +322,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: deployment-bundle-dry-run
-          path: |
-            target/central-*/**
-            webrtc/target/central-*/**
-            webrtc/target/*.jar
-            webrtc/target/*.asc
-            natives/*.asc
+          path: build/nmcp/zip/aggregation.zip
           if-no-files-found: warn
           retention-days: 7
 

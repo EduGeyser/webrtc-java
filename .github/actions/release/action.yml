@@ -1,4 +1,4 @@
-name: 'Maven Release'
+name: 'Gradle Release'
 
 description: 'Release the platform dependent Java library'
 
@@ -14,23 +14,16 @@ inputs:
 runs:
   using: "composite"
   steps:
-    - name: Derive the WebRTC cache branch from the pom
-      run: echo "WEBRTC_CACHE_BRANCH=$(sed -n 's|.*<webrtc.branch>branch-heads/\([^<]*\)</webrtc.branch>.*|\1|p' webrtc-jni/pom.xml)" >> "$GITHUB_ENV"
+    - name: Derive the WebRTC cache branch from the build properties
+      run: echo "WEBRTC_CACHE_BRANCH=$(sed -n 's|^webrtc.branch=branch-heads/||p' gradle.properties)" >> "$GITHUB_ENV"
       shell: bash
 
     - name: Set up WebRTC cache
       uses: actions/cache@v4
       with:
         path: ~/${{ env.WEBRTC_INSTALL_FOLDER }}
-        key: webrtc-${{ env.WEBRTC_CACHE_BRANCH }}-${{ inputs.platform-name }}-${{ hashFiles('webrtc-jni/src/main/cpp/dependencies/webrtc/CMakeLists.txt') }}-${{ hashFiles('webrtc-jni/pom.xml') }}
+        key: webrtc-${{ env.WEBRTC_CACHE_BRANCH }}-${{ inputs.platform-name }}-${{ hashFiles('webrtc-jni/src/main/cpp/dependencies/webrtc/CMakeLists.txt') }}-${{ hashFiles('webrtc-jni/build.gradle.kts') }}
         restore-keys: webrtc-${{ env.WEBRTC_CACHE_BRANCH }}-${{ inputs.platform-name }}-${{ hashFiles('webrtc-jni/src/main/cpp/dependencies/webrtc/CMakeLists.txt') }}-
-
-    - name: Set up Maven cache
-      uses: actions/cache@v4
-      with:
-        path: ~/.m2/repository
-        key: maven-${{ inputs.platform-name }}-${{ hashFiles('**/pom.xml') }}
-        restore-keys: maven-${{ inputs.platform-name }}-
 
     - name: Set up JDK ${{ inputs.java-version }}
       uses: actions/setup-java@v5
@@ -38,22 +31,29 @@ runs:
         java-version: ${{ inputs.java-version }}
         distribution: 'temurin'
 
-    - name: Build
+    - name: Set up Gradle
+      uses: gradle/actions/setup-gradle@v6
+
+    # The cross compiled platforms are selected explicitly, the others are the
+    # platform of the runner.
+    - name: Select the platform
       run: |
-        if [ "${{ inputs.platform-name }}" == "linux_arm" ]; then
-          mvn package -DskipTests -Plinux-aarch32
-        elif [ "${{ inputs.platform-name }}" == "linux_arm64" ]; then
-          mvn package -DskipTests -Plinux-aarch64
-        elif [ "${{ inputs.platform-name }}" == "windows_arm64" ]; then
-          mvn package -DskipTests -Pwindows-aarch64
-        else
-          mvn package -DskipTests
-        fi
+        case "${{ inputs.platform-name }}" in
+          linux_arm) platform="-Pwebrtc.platform=linux-aarch32" ;;
+          linux_arm64) platform="-Pwebrtc.platform=linux-aarch64" ;;
+          windows_arm64) platform="-Pwebrtc.platform=windows-aarch64" ;;
+          *) platform="" ;;
+        esac
+        echo "WEBRTC_PLATFORM=$platform" >> "$GITHUB_ENV"
+      shell: bash
+
+    - name: Build
+      run: ./gradlew assemble $WEBRTC_PLATFORM
       shell: bash
 
     - name: Test
       if: ${{ inputs.platform-name != 'linux_arm' && inputs.platform-name != 'linux_arm64' && inputs.platform-name != 'windows_arm64' }}
-      run: mvn -B jar:jar surefire:test
+      run: ./gradlew :webrtc:test
       shell: bash
 
     # Maven Central publishes a version as one atomic bundle, so this job must not
@@ -63,7 +63,7 @@ runs:
       uses: actions/upload-artifact@v4
       with:
         name: natives-${{ inputs.platform-name }}
-        path: webrtc-jni/target/webrtc-java-*.jar
+        path: webrtc-jni/build/libs/webrtc-java-*.jar
         if-no-files-found: error
         retention-days: 7
         overwrite: true
