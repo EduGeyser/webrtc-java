@@ -33,12 +33,32 @@ runs:
         sudo apt update
         sudo apt install -y binutils cmake git locales lsb-release ninja-build pipewire pipewire-pulse pkg-config python3 python3-setuptools rsync unzip wget xz-utils
 
-        # Chromium Clang to be used with the clang toolchain file
-        #curl -s https://raw.githubusercontent.com/chromium/chromium/main/tools/clang/scripts/update.py | python3 - --output-dir=/opt/clang
-        # Use a more stable version of Clang
+      shell: bash
+
+    # The JNI library is compiled against the libc++ bundled with WebRTC, which
+    # only accepts the clang of its own age. Install the clang the WebRTC branch
+    # is built with: its DEPS pins the tools revision whose update.py names the
+    # package.
+    - name: Install the clang of the WebRTC branch
+      run: |
+        branch=$(sed -n 's/^webrtc.branch=//p' gradle.properties)
+        case "$branch" in
+          */*) ref="refs/$branch" ;;
+          *) ref="$branch" ;;
+        esac
+
+        tools=$(curl -sSf "https://webrtc.googlesource.com/src/+/$ref/DEPS?format=TEXT" | base64 -d \
+          | grep -A1 "^  'src/tools':" | grep -oE '@[0-9a-f]{40}' | tr -d '@')
+        update=$(curl -sSf "https://chromium.googlesource.com/chromium/src/tools/+/$tools/clang/scripts/update.py?format=TEXT" | base64 -d)
+        revision=$(echo "$update" | sed -n "s/^CLANG_REVISION = '\(.*\)'/\1/p")
+        sub=$(echo "$update" | sed -n 's/^CLANG_SUB_REVISION = \([0-9]*\)/\1/p')
+        package="clang-$revision-$sub.tar.xz"
+        echo "WebRTC $branch is built with $package"
+
         sudo mkdir -p /opt/clang
-        wget https://commondatastorage.googleapis.com/chromium-browser-clang/Linux_x64/clang-llvmorg-20-init-9764-gb81d8e90-72.tar.xz
-        sudo tar -xvf clang-llvmorg-20-init-9764-gb81d8e90-72.tar.xz -C /opt/clang
+        wget -q "https://commondatastorage.googleapis.com/chromium-browser-clang/Linux_x64/$package"
+        sudo tar -xf "$package" -C /opt/clang
+        /opt/clang/bin/clang --version
       shell: bash
 
     - name: Install required packages for x86-64
