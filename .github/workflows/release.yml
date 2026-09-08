@@ -200,6 +200,7 @@ jobs:
       fail-fast: false
       matrix:
         platform:
+          # The Intel library is cross compiled on the arm64 runner.
           - name: macos_x86-64
             runs-on: macos-14
           - name: macos_arm64
@@ -225,18 +226,9 @@ jobs:
         name: Prepare release build
         uses: ./.github/actions/prepare-macos
 
-      - id: gradle-build-arm64
-        name: Gradle build - Apple Silicon
-        if: matrix.platform.name == 'macos_arm64'
+      - id: gradle-build
+        name: Gradle build
         uses: ./.github/actions/release
-        with:
-          java-version: ${{ matrix.java }}
-          platform-name: ${{ matrix.platform.name }}
-
-      - id: gradle-build-x86_64
-        name: Gradle build - Intel
-        if: matrix.platform.name == 'macos_x86-64'
-        uses: ./.github/actions/release-macos-x86_64
         with:
           java-version: ${{ matrix.java }}
           platform-name: ${{ matrix.platform.name }}

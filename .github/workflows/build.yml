@@ -110,6 +110,8 @@ jobs:
       fail-fast: false
       matrix:
         platform:
+          # The Intel library is cross compiled on the arm64 runner and tested
+          # on an Intel runner below.
           - name: macos_x86-64
             runs-on: macos-14
           - name: macos_arm64
@@ -124,9 +126,8 @@ jobs:
         name: Prepare build
         uses: ./.github/actions/prepare-macos
 
-      - id: gradle-build-arm64
-        name: Gradle build - Apple Silicon
-        if: matrix.platform.name == 'macos_arm64'
+      - id: gradle-build
+        name: Gradle build
         uses: ./.github/actions/build
         with:
           java-version: ${{ matrix.java }}
@@ -135,19 +136,16 @@ jobs:
           maven-username: ${{ secrets.MAVEN_USERNAME }}
           maven-password: ${{ secrets.MAVEN_TOKEN }}
 
-      - id: gradle-build-x86_64
-        name: Gradle build - Intel
+      - name: Upload natives for native testing
         if: matrix.platform.name == 'macos_x86-64'
-        uses: ./.github/actions/build-macos-x86_64
+        uses: actions/upload-artifact@v4
         with:
-          java-version: ${{ matrix.java }}
-          platform-name: ${{ matrix.platform.name }}
-          variant: ${{ inputs.variant }}
-          maven-username: ${{ secrets.MAVEN_USERNAME }}
-          maven-password: ${{ secrets.MAVEN_TOKEN }}
+          name: natives-${{ matrix.platform.name }}
+          path: webrtc-jni/build/libs/webrtc-java-*.jar
+          if-no-files-found: error
 
   test-natives:
-    needs: [build-windows, build-linux]
+    needs: [build-windows, build-linux, build-macos]
     strategy:
       fail-fast: false
       matrix:
@@ -167,6 +165,11 @@ jobs:
             classifier: linux-aarch32
             java-distribution: liberica
             java-architecture: armv7
+          - name: macos_x86-64
+            runs-on: macos-15-intel
+            classifier: macos-x86_64
+            java-distribution: temurin
+            java-architecture: ''
     runs-on: ${{ matrix.platform.runs-on }}
     steps:
       - name: Checkout code
