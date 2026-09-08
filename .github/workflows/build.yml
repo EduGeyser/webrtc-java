@@ -59,7 +59,6 @@ jobs:
           maven-password: ${{ secrets.MAVEN_TOKEN }}
 
       - name: Upload natives for native testing
-        if: matrix.platform.name == 'windows_arm64'
         uses: actions/upload-artifact@v4
         with:
           name: natives-${{ matrix.platform.name }}
@@ -98,7 +97,6 @@ jobs:
           maven-password: ${{ secrets.MAVEN_TOKEN }}
 
       - name: Upload natives for native testing
-        if: matrix.platform.name == 'linux_arm' || matrix.platform.name == 'linux_arm64'
         uses: actions/upload-artifact@v4
         with:
           name: natives-${{ matrix.platform.name }}
@@ -137,26 +135,42 @@ jobs:
           maven-password: ${{ secrets.MAVEN_TOKEN }}
 
       - name: Upload natives for native testing
-        if: matrix.platform.name == 'macos_x86-64'
         uses: actions/upload-artifact@v4
         with:
           name: natives-${{ matrix.platform.name }}
           path: webrtc-jni/build/libs/webrtc-java-*.jar
           if-no-files-found: error
 
+  # The native libraries of the cross compiled platforms are tested on native
+  # runners, the others on runner images the build lanes do not cover.
   test-natives:
     needs: [build-windows, build-linux, build-macos]
     strategy:
       fail-fast: false
       matrix:
         platform:
+          - name: windows_x86_64
+            runs-on: windows-2025
+            classifier: windows-x86_64
+            java-distribution: temurin
+            java-architecture: ''
           - name: windows_arm64
             runs-on: windows-11-arm
             classifier: windows-aarch64
             java-distribution: microsoft
             java-architecture: aarch64
+          - name: linux_x86-64
+            runs-on: ubuntu-24.04
+            classifier: linux-x86_64
+            java-distribution: temurin
+            java-architecture: ''
           - name: linux_arm64
             runs-on: ubuntu-22.04-arm
+            classifier: linux-aarch64
+            java-distribution: temurin
+            java-architecture: ''
+          - name: linux_arm64
+            runs-on: ubuntu-24.04-arm
             classifier: linux-aarch64
             java-distribution: temurin
             java-architecture: ''
@@ -165,9 +179,24 @@ jobs:
             classifier: linux-aarch32
             java-distribution: liberica
             java-architecture: armv7
+          - name: linux_arm
+            runs-on: ubuntu-24.04-arm
+            classifier: linux-aarch32
+            java-distribution: liberica
+            java-architecture: armv7
           - name: macos_x86-64
             runs-on: macos-15-intel
             classifier: macos-x86_64
+            java-distribution: temurin
+            java-architecture: ''
+          - name: macos_arm64
+            runs-on: macos-15
+            classifier: macos-aarch64
+            java-distribution: temurin
+            java-architecture: ''
+          - name: macos_arm64
+            runs-on: macos-26
+            classifier: macos-aarch64
             java-distribution: temurin
             java-architecture: ''
     runs-on: ${{ matrix.platform.runs-on }}

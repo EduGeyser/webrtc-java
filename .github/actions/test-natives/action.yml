@@ -40,33 +40,6 @@ runs:
         name: natives-${{ inputs.platform-name }}
         path: natives
 
-    # PulseAudio, libudev and libdbus are deliberately not installed here: the
-    # natives open them at runtime, and the armhf lane, whose image has none of
-    # them, proves that they load without them.
-    - name: Install 32-bit runtime libraries
-      if: runner.os == 'Linux' && inputs.java-architecture == 'armv7'
-      run: |
-        sudo dpkg --add-architecture armhf
-        sudo apt-get update
-        sudo apt-get install -y libc6:armhf libstdc++6:armhf zlib1g:armhf libx11-6:armhf libxext6:armhf libxfixes3:armhf libxdamage1:armhf libxtst6:armhf libxrandr2:armhf libxcomposite1:armhf libglib2.0-0:armhf libgbm1:armhf libdrm2:armhf
-      shell: bash
-
-    - name: Install runtime libraries
-      if: runner.os == 'Linux' && inputs.java-architecture != 'armv7'
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y libx11-6 libxext6 libxfixes3 libxdamage1 libxtst6 libxrandr2 libxcomposite1 libglib2.0-0 libgbm1 libdrm2
-      shell: bash
-
-    - name: Set up JDK ${{ inputs.java-version }}
-      uses: actions/setup-java@v5
-      with:
-        java-version: ${{ inputs.java-version }}
-        distribution: ${{ inputs.java-distribution }}
-        architecture: ${{ inputs.java-architecture }}
-
-    - name: Set up Gradle
-      uses: gradle/actions/setup-gradle@v6
 
     # The variant of the native library comes from the input, or else from
     # gradle.properties.
@@ -82,6 +55,44 @@ runs:
           echo "WEBRTC_VARIANT_ARG=" >> "$GITHUB_ENV"
         fi
       shell: bash
+
+    # The full variant links the X11, GLib, GBM and libdrm libraries; the data
+    # channels variant links nothing beyond libc. PulseAudio, libudev and libdbus
+    # are deliberately not installed: the natives open them at runtime, and
+    # the armhf lane, whose image has none of them, proves that they load
+    # without them. Ubuntu 24.04 renamed the GLib package.
+    - name: Install runtime libraries
+      if: runner.os == 'Linux'
+      run: |
+        if [ "${{ inputs.java-architecture }}" == "armv7" ]; then
+          arch=":armhf"
+          sudo dpkg --add-architecture armhf
+          sudo apt-get update
+          sudo apt-get install -y libc6:armhf libstdc++6:armhf zlib1g:armhf
+        else
+          arch=""
+          sudo apt-get update
+        fi
+
+        if [ -z "$WEBRTC_VARIANT_ARG" ]; then
+          glib=libglib2.0-0
+          if apt-cache show "libglib2.0-0t64$arch" >/dev/null 2>&1; then
+            glib=libglib2.0-0t64
+          fi
+          packages="libx11-6 libxext6 libxfixes3 libxdamage1 libxtst6 libxrandr2 libxcomposite1 $glib libgbm1 libdrm2"
+          sudo apt-get install -y $(for p in $packages; do echo "$p$arch"; done)
+        fi
+      shell: bash
+
+    - name: Set up JDK ${{ inputs.java-version }}
+      uses: actions/setup-java@v5
+      with:
+        java-version: ${{ inputs.java-version }}
+        distribution: ${{ inputs.java-distribution }}
+        architecture: ${{ inputs.java-architecture }}
+
+    - name: Set up Gradle
+      uses: gradle/actions/setup-gradle@v6
 
     # Gradle's native integration has no binaries for the 32-bit arm JDK, hence
     # the switches.
