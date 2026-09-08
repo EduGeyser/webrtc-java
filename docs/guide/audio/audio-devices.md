@@ -15,8 +15,8 @@ To enable audio device selection, you need to:
 The `MediaDevices` class provides methods to list available audio devices:
 
 ```java
-import dev.onvoid.webrtc.media.MediaDevices;
-import dev.onvoid.webrtc.media.audio.AudioDevice;
+import io.github.sendablemetatype.webrtc.media.MediaDevices;
+import io.github.sendablemetatype.webrtc.media.audio.AudioDevice;
 import java.util.List;
 
 // Get available microphones (capture devices)
@@ -43,7 +43,7 @@ AudioDevice defaultSpeaker = MediaDevices.getDefaultAudioRenderDevice();
 The `AudioDeviceModule` class allows you to select specific audio devices:
 
 ```java
-import dev.onvoid.webrtc.media.audio.AudioDeviceModule;
+import io.github.sendablemetatype.webrtc.media.audio.AudioDeviceModule;
 
 // Create an AudioDeviceModule
 AudioDeviceModule audioModule = new AudioDeviceModule();
@@ -75,8 +75,8 @@ PeerConnectionFactory factory = new PeerConnectionFactory(audioModule);
 If you want to completely disable audio processing in your WebRTC application, you can create an AudioDeviceModule with the `kDummyAudio` layer:
 
 ```java
-import dev.onvoid.webrtc.media.audio.AudioDeviceModule;
-import dev.onvoid.webrtc.media.audio.AudioLayer;
+import io.github.sendablemetatype.webrtc.media.audio.AudioDeviceModule;
+import io.github.sendablemetatype.webrtc.media.audio.AudioLayer;
 
 // Create an AudioDeviceModule with dummy audio (no real audio processing)
 AudioDeviceModule audioModule = new AudioDeviceModule(AudioLayer.kDummyAudio);

@@ -24,7 +24,7 @@
 #include "rtc_base/logging.h"
 #include "rtc_base/ref_counted_object.h"
 
-JNIEXPORT void JNICALL Java_dev_onvoid_webrtc_media_video_VideoDesktopSource_setSourceId
+JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_media_video_VideoDesktopSource_setSourceId
 (JNIEnv * env, jobject caller, jlong sourceId, jboolean isWindow)
 {
 	jni::VideoTrackDesktopSource * videoSource = GetHandle<jni::VideoTrackDesktopSource>(env, caller);
@@ -33,7 +33,7 @@ JNIEXPORT void JNICALL Java_dev_onvoid_webrtc_media_video_VideoDesktopSource_set
 	videoSource->setSourceId(static_cast<webrtc::DesktopCapturer::SourceId>(sourceId), static_cast<bool>(isWindow));
 }
 
-JNIEXPORT void JNICALL Java_dev_onvoid_webrtc_media_video_VideoDesktopSource_setFrameRate
+JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_media_video_VideoDesktopSource_setFrameRate
 (JNIEnv * env, jobject caller, jint frameRate)
 {
 	jni::VideoTrackDesktopSource * videoSource = GetHandle<jni::VideoTrackDesktopSource>(env, caller);
@@ -42,7 +42,7 @@ JNIEXPORT void JNICALL Java_dev_onvoid_webrtc_media_video_VideoDesktopSource_set
 	videoSource->setFrameRate(static_cast<uint16_t>(frameRate));
 }
 
-JNIEXPORT void JNICALL Java_dev_onvoid_webrtc_media_video_VideoDesktopSource_setMaxFrameSize
+JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_media_video_VideoDesktopSource_setMaxFrameSize
 (JNIEnv* env, jobject caller, jint width, jint height)
 {
 	jni::VideoTrackDesktopSource * videoSource = GetHandle<jni::VideoTrackDesktopSource>(env, caller);
@@ -51,7 +51,7 @@ JNIEXPORT void JNICALL Java_dev_onvoid_webrtc_media_video_VideoDesktopSource_set
 	videoSource->setMaxFrameSize(webrtc::DesktopSize(width, height));
 }
 
-JNIEXPORT void JNICALL Java_dev_onvoid_webrtc_media_video_VideoDesktopSource_setFocusSelectedSource
+JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_media_video_VideoDesktopSource_setFocusSelectedSource
 (JNIEnv * env, jobject caller, jboolean focus)
 {
 	jni::VideoTrackDesktopSource * videoSource = GetHandle<jni::VideoTrackDesktopSource>(env, caller);
@@ -60,7 +60,7 @@ JNIEXPORT void JNICALL Java_dev_onvoid_webrtc_media_video_VideoDesktopSource_set
 	videoSource->setFocusSelectedSource(focus);
 }
 
-JNIEXPORT void JNICALL Java_dev_onvoid_webrtc_media_video_VideoDesktopSource_start
+JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_media_video_VideoDesktopSource_start
 (JNIEnv * env, jobject caller)
 {
 	jni::VideoTrackDesktopSource * videoSource = GetHandle<jni::VideoTrackDesktopSource>(env, caller);
@@ -74,7 +74,7 @@ JNIEXPORT void JNICALL Java_dev_onvoid_webrtc_media_video_VideoDesktopSource_sta
 	}
 }
 
-JNIEXPORT void JNICALL Java_dev_onvoid_webrtc_media_video_VideoDesktopSource_stop
+JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_media_video_VideoDesktopSource_stop
 (JNIEnv * env, jobject caller)
 {
 	jni::VideoTrackDesktopSource * videoSource = GetHandle<jni::VideoTrackDesktopSource>(env, caller);
@@ -88,7 +88,7 @@ JNIEXPORT void JNICALL Java_dev_onvoid_webrtc_media_video_VideoDesktopSource_sto
 	}
 }
 
-JNIEXPORT void JNICALL Java_dev_onvoid_webrtc_media_video_VideoDesktopSource_dispose
+JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_media_video_VideoDesktopSource_dispose
 (JNIEnv * env, jobject caller)
 {
 	jni::VideoTrackDesktopSource * videoSource = GetHandle<jni::VideoTrackDesktopSource>(env, caller);
@@ -105,7 +105,7 @@ JNIEXPORT void JNICALL Java_dev_onvoid_webrtc_media_video_VideoDesktopSource_dis
 	videoSource = nullptr;
 }
 
-JNIEXPORT void JNICALL Java_dev_onvoid_webrtc_media_video_VideoDesktopSource_initialize
+JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_media_video_VideoDesktopSource_initialize
 (JNIEnv * env, jobject caller)
 {
 	webrtc::scoped_refptr<jni::VideoTrackDesktopSource> videoSource = webrtc::make_ref_counted<jni::VideoTrackDesktopSource>();

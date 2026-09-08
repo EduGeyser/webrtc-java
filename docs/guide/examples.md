@@ -4,7 +4,7 @@ This section provides an overview of the example applications included in the `w
 
 ## PeerConnection
 
-The [`PeerConnectionExample`](https://github.com/devopvoid/webrtc-java/blob/master/webrtc-examples/src/main/java/dev/onvoid/webrtc/examples/PeerConnectionExample.java) demonstrates how to set up a peer connection with audio and video tracks to be able to send and receive media.
+The [`PeerConnectionExample`](https://github.com/devopvoid/webrtc-java/blob/master/webrtc-examples/src/main/java/io/github/sendablemetatype/webrtc/examples/PeerConnectionExample.java) demonstrates how to set up a peer connection with audio and video tracks to be able to send and receive media.
 
 **Key features demonstrated:**
 - Creating a `PeerConnectionFactory`
@@ -17,7 +17,7 @@ This example provides a foundation for building WebRTC applications that need to
 
 ## WHEP
 
-The [`WhepExample`](https://github.com/devopvoid/webrtc-java/blob/master/webrtc-examples/src/main/java/dev/onvoid/webrtc/examples/WhepExample.java) demonstrates an implementation of WebRTC HTTP Egress Protocol (WHEP) client, which is a standardized protocol for WebRTC ingestion.
+The [`WhepExample`](https://github.com/devopvoid/webrtc-java/blob/master/webrtc-examples/src/main/java/io/github/sendablemetatype/webrtc/examples/WhepExample.java) demonstrates an implementation of WebRTC HTTP Egress Protocol (WHEP) client, which is a standardized protocol for WebRTC ingestion.
 
 **Key features demonstrated:**
 - Setting up a WebRTC peer connection
@@ -29,7 +29,7 @@ This example is useful for applications that need to receive media streams from 
 
 ## Codec List
 
-The [`CodecListExample`](https://github.com/devopvoid/webrtc-java/blob/master/webrtc-examples/src/main/java/dev/onvoid/webrtc/examples/CodecListExample.java) demonstrates how to list all supported codecs with the WebRTC peer-connection-factory.
+The [`CodecListExample`](https://github.com/devopvoid/webrtc-java/blob/master/webrtc-examples/src/main/java/io/github/sendablemetatype/webrtc/examples/CodecListExample.java) demonstrates how to list all supported codecs with the WebRTC peer-connection-factory.
 
 **Key features demonstrated:**
 - Creating a `PeerConnectionFactory`
@@ -40,7 +40,7 @@ This example is useful for understanding what codecs are available on the curren
 
 ## Desktop Video
 
-The [`DesktopVideoExample`](https://github.com/devopvoid/webrtc-java/blob/master/webrtc-examples/src/main/java/dev/onvoid/webrtc/examples/DesktopVideoExample.java) demonstrates how to set up a peer connection with a desktop video source for screen or window capture.
+The [`DesktopVideoExample`](https://github.com/devopvoid/webrtc-java/blob/master/webrtc-examples/src/main/java/io/github/sendablemetatype/webrtc/examples/DesktopVideoExample.java) demonstrates how to set up a peer connection with a desktop video source for screen or window capture.
 
 **Key features demonstrated:**
 - Creating a `PeerConnectionFactory`
@@ -54,7 +54,7 @@ This example is particularly useful for applications that need to implement scre
 
 ## Web Client
 
-The [`WebClientExample`](https://github.com/devopvoid/webrtc-java/blob/master/webrtc-examples/src/main/java/dev/onvoid/webrtc/examples/web/WebClientExample.java) demonstrates how to combine WebSocket signaling with WebRTC peer connections for real-time communication between web and Java clients.
+The [`WebClientExample`](https://github.com/devopvoid/webrtc-java/blob/master/webrtc-examples/src/main/java/io/github/sendablemetatype/webrtc/examples/web/WebClientExample.java) demonstrates how to combine WebSocket signaling with WebRTC peer connections for real-time communication between web and Java clients.
 
 **Key features demonstrated:**
 - Connecting to a signaling server using WebSockets
@@ -71,7 +71,7 @@ Before running the `WebClientExample`, you need to start the `WebServer` first. 
 :::
 
 ```bash
-./gradlew :webrtc-examples:run -PmainClass=dev.onvoid.webrtc.examples.web.server.WebServer
+./gradlew :webrtc-examples:run -PmainClass=io.github.sendablemetatype.webrtc.examples.web.server.WebServer
 ```
 
 And the browser client is reachable at this url: `https://localhost:8443`
@@ -84,13 +84,13 @@ To run these examples, run the `run` task of the `webrtc-examples` module from t
 For example, to run the `CodecListExample`:
 
 ```bash
-./gradlew :webrtc-examples:run -PmainClass=dev.onvoid.webrtc.examples.CodecListExample
+./gradlew :webrtc-examples:run -PmainClass=io.github.sendablemetatype.webrtc.examples.CodecListExample
 ```
 
 Or to run the `WebClientExample`:
 
 ```bash
-./gradlew :webrtc-examples:run -PmainClass=dev.onvoid.webrtc.examples.web.WebClientExample
+./gradlew :webrtc-examples:run -PmainClass=io.github.sendablemetatype.webrtc.examples.web.WebClientExample
 ```
 
 Note that these examples focus on setting up the local components for WebRTC communication. In a real application, you would need to establish a connection with a remote peer through a signaling channel (e.g., WebSocket). The `WebClientExample` demonstrates this by connecting to a signaling server.

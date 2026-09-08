@@ -1,6 +1,6 @@
 # Port Allocator Configuration (ICE)
 
-This guide explains how to configure the ICE port allocator using `dev.onvoid.webrtc.PortAllocatorConfig` and how to use it with `RTCConfiguration` when creating a peer connection.
+This guide explains how to configure the ICE port allocator using `io.github.sendablemetatype.webrtc.PortAllocatorConfig` and how to use it with `RTCConfiguration` when creating a peer connection.
 
 The Port Allocator controls:
 - The local ephemeral port range used for gathering ICE candidates (HOST, SRFLX, RELAY).

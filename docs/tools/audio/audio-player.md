@@ -2,7 +2,7 @@
 
 The AudioPlayer is a small helper that plays audio using a selected output device by pulling frames from your implementation of `AudioSource`. It manages a native `AudioDeviceModule` internally and provides idempotent start/stop.
 
-API: `dev.onvoid.webrtc.media.audio.AudioPlayer`
+API: `io.github.sendablemetatype.webrtc.media.audio.AudioPlayer`
 
 ## When to use it
 - You want to render raw PCM audio (generated or decoded by your app) to an OS output device.
@@ -18,10 +18,10 @@ See also: [Audio Device Selection](/guide/audio/audio-devices), [Custom Audio So
 ## Basic usage
 
 ```java
-import dev.onvoid.webrtc.media.audio.AudioPlayer;
-import dev.onvoid.webrtc.media.audio.AudioSource;
-import dev.onvoid.webrtc.media.audio.AudioDevice;
-import dev.onvoid.webrtc.media.audio.AudioDeviceModule;
+import io.github.sendablemetatype.webrtc.media.audio.AudioPlayer;
+import io.github.sendablemetatype.webrtc.media.audio.AudioSource;
+import io.github.sendablemetatype.webrtc.media.audio.AudioDevice;
+import io.github.sendablemetatype.webrtc.media.audio.AudioDeviceModule;
 
 import java.nio.ByteBuffer;
 

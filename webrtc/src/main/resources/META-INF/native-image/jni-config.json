@@ -16,146 +16,146 @@
 	]
   },
   {
-	"name":"dev.onvoid.webrtc.RTCBundlePolicy",
+	"name":"io.github.sendablemetatype.webrtc.RTCBundlePolicy",
 	"methods":[{"name":"values","parameterTypes":[] }]
   },
   {
-	"name":"dev.onvoid.webrtc.RTCDataChannel",
+	"name":"io.github.sendablemetatype.webrtc.RTCDataChannel",
 	"methods":[{"name":"<init>","parameterTypes":[] }]
   },
   {
-	"name":"dev.onvoid.webrtc.RTCDataChannelState",
+	"name":"io.github.sendablemetatype.webrtc.RTCDataChannelState",
 	"methods":[{"name":"values","parameterTypes":[] }]
   },
   {
-	"name":"dev.onvoid.webrtc.RTCDtlsTransport",
+	"name":"io.github.sendablemetatype.webrtc.RTCDtlsTransport",
 	"methods":[{"name":"<init>","parameterTypes":[] }]
   },
   {
-	"name":"dev.onvoid.webrtc.RTCDtlsTransportState",
+	"name":"io.github.sendablemetatype.webrtc.RTCDtlsTransportState",
 	"methods":[{"name":"values","parameterTypes":[] }]
   },
   {
-	"name":"dev.onvoid.webrtc.RTCDtxStatus",
+	"name":"io.github.sendablemetatype.webrtc.RTCDtxStatus",
 	"methods":[{"name":"values","parameterTypes":[] }]
   },
   {
-	"name":"dev.onvoid.webrtc.RTCIceConnectionState",
+	"name":"io.github.sendablemetatype.webrtc.RTCIceConnectionState",
 	"methods":[{"name":"values","parameterTypes":[] }]
   },
   {
-	"name":"dev.onvoid.webrtc.RTCIceGatheringState",
+	"name":"io.github.sendablemetatype.webrtc.RTCIceGatheringState",
 	"methods":[{"name":"values","parameterTypes":[] }]
   },
   {
-	"name":"dev.onvoid.webrtc.RTCIceTransport",
+	"name":"io.github.sendablemetatype.webrtc.RTCIceTransport",
 	"methods":[{"name":"<init>","parameterTypes":[] }]
   },
   {
-	"name":"dev.onvoid.webrtc.RTCIceTransportPolicy",
+	"name":"io.github.sendablemetatype.webrtc.RTCIceTransportPolicy",
 	"methods":[{"name":"values","parameterTypes":[] }]
   },
   {
-	"name":"dev.onvoid.webrtc.RTCPeerConnection",
+	"name":"io.github.sendablemetatype.webrtc.RTCPeerConnection",
 	"methods":[{"name":"<init>","parameterTypes":[] }]
   },
   {
-	"name":"dev.onvoid.webrtc.RTCPeerConnectionState",
+	"name":"io.github.sendablemetatype.webrtc.RTCPeerConnectionState",
 	"methods":[{"name":"values","parameterTypes":[] }]
   },
   {
-	"name":"dev.onvoid.webrtc.RTCRtcpMuxPolicy",
+	"name":"io.github.sendablemetatype.webrtc.RTCRtcpMuxPolicy",
 	"methods":[{"name":"values","parameterTypes":[] }]
   },
   {
-	"name":"dev.onvoid.webrtc.RTCRtpReceiver",
+	"name":"io.github.sendablemetatype.webrtc.RTCRtpReceiver",
 	"methods":[{"name":"<init>","parameterTypes":[] }]
   },
   {
-	"name":"dev.onvoid.webrtc.RTCRtpSender",
+	"name":"io.github.sendablemetatype.webrtc.RTCRtpSender",
 	"methods":[{"name":"<init>","parameterTypes":[] }]
   },
   {
-	"name":"dev.onvoid.webrtc.RTCRtpTransceiver",
+	"name":"io.github.sendablemetatype.webrtc.RTCRtpTransceiver",
 	"methods":[{"name":"<init>","parameterTypes":[] }]
   },
   {
-	"name":"dev.onvoid.webrtc.RTCRtpTransceiverDirection",
+	"name":"io.github.sendablemetatype.webrtc.RTCRtpTransceiverDirection",
 	"methods":[{"name":"values","parameterTypes":[] }]
   },
   {
-	"name":"dev.onvoid.webrtc.RTCSdpType",
+	"name":"io.github.sendablemetatype.webrtc.RTCSdpType",
 	"methods":[{"name":"values","parameterTypes":[] }]
   },
   {
-	"name":"dev.onvoid.webrtc.RTCSignalingState",
+	"name":"io.github.sendablemetatype.webrtc.RTCSignalingState",
 	"methods":[{"name":"values","parameterTypes":[] }]
   },
   {
-	"name":"dev.onvoid.webrtc.RTCStatsType",
+	"name":"io.github.sendablemetatype.webrtc.RTCStatsType",
 	"methods":[{"name":"values","parameterTypes":[] }]
   },
   {
-	"name":"dev.onvoid.webrtc.TlsCertPolicy",
+	"name":"io.github.sendablemetatype.webrtc.TlsCertPolicy",
 	"methods":[{"name":"values","parameterTypes":[] }]
   },
   {
-	"name":"dev.onvoid.webrtc.internal.NativeClassLoader",
+	"name":"io.github.sendablemetatype.webrtc.internal.NativeClassLoader",
 	"methods":[{"name":"getClassLoader","parameterTypes":[] }]
   },
   {
-	"name":"dev.onvoid.webrtc.logging.Logging$Severity",
+	"name":"io.github.sendablemetatype.webrtc.logging.Logging$Severity",
 	"methods":[{"name":"values","parameterTypes":[] }]
   },
   {
-	"name":"dev.onvoid.webrtc.media.Device",
+	"name":"io.github.sendablemetatype.webrtc.media.Device",
 	"fields":[
 	  {"name":"descriptor"},
 	  {"name":"name"}
 	]
   },
   {
-	"name":"dev.onvoid.webrtc.media.MediaSource$State",
+	"name":"io.github.sendablemetatype.webrtc.media.MediaSource$State",
 	"methods":[{"name":"values","parameterTypes":[] }]
   },
   {
-	"name":"dev.onvoid.webrtc.media.MediaStream",
+	"name":"io.github.sendablemetatype.webrtc.media.MediaStream",
 	"methods":[{"name":"<init>","parameterTypes":[] }]
   },
   {
-	"name":"dev.onvoid.webrtc.media.MediaStreamTrackState",
+	"name":"io.github.sendablemetatype.webrtc.media.MediaStreamTrackState",
 	"methods":[{"name":"values","parameterTypes":[] }]
   },
   {
-	"name":"dev.onvoid.webrtc.media.MediaType",
+	"name":"io.github.sendablemetatype.webrtc.media.MediaType",
 	"methods":[{"name":"values","parameterTypes":[] }]
   },
   {
-	"name":"dev.onvoid.webrtc.media.audio.AudioDevice",
+	"name":"io.github.sendablemetatype.webrtc.media.audio.AudioDevice",
 	"methods":[{"name":"<init>","parameterTypes":["java.lang.String","java.lang.String"] }]
   },
   {
-	"name":"dev.onvoid.webrtc.media.audio.AudioLayer",
+	"name":"io.github.sendablemetatype.webrtc.media.audio.AudioLayer",
 	"methods":[{"name":"values","parameterTypes":[] }]
   },
   {
-	"name":"dev.onvoid.webrtc.media.audio.AudioProcessingConfig$NoiseSuppression$Level",
+	"name":"io.github.sendablemetatype.webrtc.media.audio.AudioProcessingConfig$NoiseSuppression$Level",
 	"methods":[{"name":"values","parameterTypes":[] }]
   },
   {
-	"name":"dev.onvoid.webrtc.media.audio.AudioTrack",
+	"name":"io.github.sendablemetatype.webrtc.media.audio.AudioTrack",
 	"methods":[{"name":"<init>","parameterTypes":[] }]
   },
   {
-	"name":"dev.onvoid.webrtc.media.audio.AudioTrackSource",
+	"name":"io.github.sendablemetatype.webrtc.media.audio.AudioTrackSource",
 	"methods":[{"name":"<init>","parameterTypes":[] }]
   },
   {
-	"name":"dev.onvoid.webrtc.media.video.VideoTrack",
+	"name":"io.github.sendablemetatype.webrtc.media.video.VideoTrack",
 	"methods":[{"name":"<init>","parameterTypes":[] }]
   },
   {
-	"name":"dev.onvoid.webrtc.media.video.desktop.DesktopCapturer$Result",
+	"name":"io.github.sendablemetatype.webrtc.media.video.desktop.DesktopCapturer$Result",
 	"methods":[{"name":"values","parameterTypes":[] }]
   }
 ]

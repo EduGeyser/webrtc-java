@@ -24,7 +24,7 @@ This is particularly useful when you need to:
 To use a custom audio source, you first need to create an instance:
 
 ```java
-import dev.onvoid.webrtc.media.audio.CustomAudioSource;
+import io.github.sendablemetatype.webrtc.media.audio.CustomAudioSource;
 
 // Create a new CustomAudioSource instance
 CustomAudioSource audioSource = new CustomAudioSource();
@@ -35,8 +35,8 @@ CustomAudioSource audioSource = new CustomAudioSource();
 Once you have a custom audio source, you can create an audio track with it:
 
 ```java
-import dev.onvoid.webrtc.PeerConnectionFactory;
-import dev.onvoid.webrtc.media.audio.AudioTrack;
+import io.github.sendablemetatype.webrtc.PeerConnectionFactory;
+import io.github.sendablemetatype.webrtc.media.audio.AudioTrack;
 
 // Create a PeerConnectionFactory (you should already have this in your WebRTC setup)
 PeerConnectionFactory factory = new PeerConnectionFactory();
@@ -148,7 +148,7 @@ public class AudioStreamer {
 You can add sinks to the audio track to monitor the audio data:
 
 ```java
-import dev.onvoid.webrtc.media.audio.AudioTrackSink;
+import io.github.sendablemetatype.webrtc.media.audio.AudioTrackSink;
 
 // Create a sink to monitor the audio data
 AudioTrackSink monitorSink = (data, bitsPerSample, sampleRate, channels, frames) -> {

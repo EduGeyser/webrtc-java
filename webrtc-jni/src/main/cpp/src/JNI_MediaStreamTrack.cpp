@@ -27,7 +27,7 @@
 #include "api/media_stream_interface.h"
 #include "rtc_base/logging.h"
 
-JNIEXPORT void JNICALL Java_dev_onvoid_webrtc_media_MediaStreamTrack_dispose
+JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_media_MediaStreamTrack_dispose
 (JNIEnv * env, jobject caller)
 {
 	webrtc::MediaStreamTrackInterface * track = GetHandle<webrtc::MediaStreamTrackInterface>(env, caller);
@@ -44,7 +44,7 @@ JNIEXPORT void JNICALL Java_dev_onvoid_webrtc_media_MediaStreamTrack_dispose
 	}
 }
 
-JNIEXPORT jstring JNICALL Java_dev_onvoid_webrtc_media_MediaStreamTrack_getKind
+JNIEXPORT jstring JNICALL Java_io_github_sendablemetatype_webrtc_media_MediaStreamTrack_getKind
 (JNIEnv * env, jobject caller)
 {
 	webrtc::MediaStreamTrackInterface * track = GetHandle<webrtc::MediaStreamTrackInterface>(env, caller);
@@ -53,7 +53,7 @@ JNIEXPORT jstring JNICALL Java_dev_onvoid_webrtc_media_MediaStreamTrack_getKind
 	return jni::JavaString::toJava(env, track->kind()).release();
 }
 
-JNIEXPORT jstring JNICALL Java_dev_onvoid_webrtc_media_MediaStreamTrack_getId
+JNIEXPORT jstring JNICALL Java_io_github_sendablemetatype_webrtc_media_MediaStreamTrack_getId
 (JNIEnv * env, jobject caller)
 {
 	webrtc::MediaStreamTrackInterface * track = GetHandle<webrtc::MediaStreamTrackInterface>(env, caller);
@@ -62,7 +62,7 @@ JNIEXPORT jstring JNICALL Java_dev_onvoid_webrtc_media_MediaStreamTrack_getId
 	return jni::JavaString::toJava(env, track->id()).release();
 }
 
-JNIEXPORT jboolean JNICALL Java_dev_onvoid_webrtc_media_MediaStreamTrack_isEnabled
+JNIEXPORT jboolean JNICALL Java_io_github_sendablemetatype_webrtc_media_MediaStreamTrack_isEnabled
 (JNIEnv * env, jobject caller)
 {
 	webrtc::MediaStreamTrackInterface * track = GetHandle<webrtc::MediaStreamTrackInterface>(env, caller);
@@ -71,7 +71,7 @@ JNIEXPORT jboolean JNICALL Java_dev_onvoid_webrtc_media_MediaStreamTrack_isEnabl
 	return static_cast<jboolean>(track->enabled());
 }
 
-JNIEXPORT void JNICALL Java_dev_onvoid_webrtc_media_MediaStreamTrack_setEnabled
+JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_media_MediaStreamTrack_setEnabled
 (JNIEnv * env, jobject caller, jboolean enabled)
 {
 	webrtc::MediaStreamTrackInterface * track = GetHandle<webrtc::MediaStreamTrackInterface>(env, caller);
@@ -80,7 +80,7 @@ JNIEXPORT void JNICALL Java_dev_onvoid_webrtc_media_MediaStreamTrack_setEnabled
 	track->set_enabled(static_cast<bool>(enabled));
 }
 
-JNIEXPORT jobject JNICALL Java_dev_onvoid_webrtc_media_MediaStreamTrack_getState
+JNIEXPORT jobject JNICALL Java_io_github_sendablemetatype_webrtc_media_MediaStreamTrack_getState
 (JNIEnv * env, jobject caller)
 {
 	webrtc::MediaStreamTrackInterface * track = GetHandle<webrtc::MediaStreamTrackInterface>(env, caller);
@@ -89,7 +89,7 @@ JNIEXPORT jobject JNICALL Java_dev_onvoid_webrtc_media_MediaStreamTrack_getState
 	return jni::JavaEnums::toJava(env, track->state()).release();
 }
 
-JNIEXPORT void JNICALL Java_dev_onvoid_webrtc_media_MediaStreamTrack_addEndedEventListener
+JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_media_MediaStreamTrack_addEndedEventListener
 (JNIEnv * env, jobject caller, jobject jListener)
 {
 	webrtc::MediaStreamTrackInterface * track = GetHandle<webrtc::MediaStreamTrackInterface>(env, caller);
@@ -108,7 +108,7 @@ JNIEXPORT void JNICALL Java_dev_onvoid_webrtc_media_MediaStreamTrack_addEndedEve
 	}
 }
 
-JNIEXPORT void JNICALL Java_dev_onvoid_webrtc_media_MediaStreamTrack_removeEndedEventListener
+JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_media_MediaStreamTrack_removeEndedEventListener
 (JNIEnv * env, jobject caller, jobject jListener)
 {
 	webrtc::MediaStreamTrackInterface * track = GetHandle<webrtc::MediaStreamTrackInterface>(env, caller);
@@ -126,7 +126,7 @@ JNIEXPORT void JNICALL Java_dev_onvoid_webrtc_media_MediaStreamTrack_removeEnded
 	}
 }
 
-JNIEXPORT void JNICALL Java_dev_onvoid_webrtc_media_MediaStreamTrack_addMuteEventListener
+JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_media_MediaStreamTrack_addMuteEventListener
 (JNIEnv * env, jobject caller, jobject jListener)
 {
 	webrtc::MediaStreamTrackInterface * track = GetHandle<webrtc::MediaStreamTrackInterface>(env, caller);
@@ -145,7 +145,7 @@ JNIEXPORT void JNICALL Java_dev_onvoid_webrtc_media_MediaStreamTrack_addMuteEven
 	}
 }
 
-JNIEXPORT void JNICALL Java_dev_onvoid_webrtc_media_MediaStreamTrack_removeMuteEventListener
+JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_media_MediaStreamTrack_removeMuteEventListener
 (JNIEnv * env, jobject caller, jobject jListener)
 {
 	webrtc::MediaStreamTrackInterface * track = GetHandle<webrtc::MediaStreamTrackInterface>(env, caller);

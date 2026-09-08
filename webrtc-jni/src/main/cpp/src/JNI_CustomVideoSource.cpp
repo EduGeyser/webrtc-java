@@ -22,7 +22,7 @@
 
 #include "rtc_base/logging.h"
 
-JNIEXPORT void JNICALL Java_dev_onvoid_webrtc_media_video_CustomVideoSource_initialize
+JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_media_video_CustomVideoSource_initialize
 (JNIEnv * env, jobject caller)
 {
     std::shared_ptr<jni::SyncClock> sync_clock = std::make_shared<jni::SyncClock>();
@@ -31,7 +31,7 @@ JNIEXPORT void JNICALL Java_dev_onvoid_webrtc_media_video_CustomVideoSource_init
     SetHandle(env, caller, source.release());
 }
 
-JNIEXPORT void JNICALL Java_dev_onvoid_webrtc_media_video_CustomVideoSource_initializeWithClock
+JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_media_video_CustomVideoSource_initializeWithClock
 (JNIEnv * env, jobject caller, jobject javaClock)
 {
     jni::SyncClock * clock = GetHandle<jni::SyncClock>(env, javaClock);
@@ -43,7 +43,7 @@ JNIEXPORT void JNICALL Java_dev_onvoid_webrtc_media_video_CustomVideoSource_init
     SetHandle(env, caller, source.release());
 }
 
-JNIEXPORT void JNICALL Java_dev_onvoid_webrtc_media_video_CustomVideoSource_dispose
+JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_media_video_CustomVideoSource_dispose
 (JNIEnv * env, jobject caller)
 {
     jni::CustomVideoSource * source = GetHandle<jni::CustomVideoSource>(env, caller);
@@ -60,7 +60,7 @@ JNIEXPORT void JNICALL Java_dev_onvoid_webrtc_media_video_CustomVideoSource_disp
     source = nullptr;
 }
 
-JNIEXPORT void JNICALL Java_dev_onvoid_webrtc_media_video_CustomVideoSource_pushFrame
+JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_media_video_CustomVideoSource_pushFrame
 (JNIEnv * env, jobject caller, jobject javaFrame)
 {
     jni::CustomVideoSource * source = GetHandle<jni::CustomVideoSource>(env, caller);

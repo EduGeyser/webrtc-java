@@ -63,7 +63,7 @@
 #include "api/video_codecs/video_encoder_factory_template.h"
 #endif
 
-JNIEXPORT void JNICALL Java_dev_onvoid_webrtc_PeerConnectionFactory_initialize
+JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_PeerConnectionFactory_initialize
 (JNIEnv * env, jobject caller, jobject audioModule, jobject audioProcessing)
 {
 #ifndef WEBRTC_DATA_CHANNELS_ONLY
@@ -167,7 +167,7 @@ JNIEXPORT void JNICALL Java_dev_onvoid_webrtc_PeerConnectionFactory_initialize
 	}
 }
 
-JNIEXPORT void JNICALL Java_dev_onvoid_webrtc_PeerConnectionFactory_dispose
+JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_PeerConnectionFactory_dispose
 (JNIEnv * env, jobject caller)
 {
 	webrtc::PeerConnectionFactoryInterface * factory = GetHandle<webrtc::PeerConnectionFactoryInterface>(env, caller);
@@ -207,7 +207,7 @@ JNIEXPORT void JNICALL Java_dev_onvoid_webrtc_PeerConnectionFactory_dispose
 }
 
 #ifndef WEBRTC_DATA_CHANNELS_ONLY
-JNIEXPORT jobject JNICALL Java_dev_onvoid_webrtc_PeerConnectionFactory_createAudioSource
+JNIEXPORT jobject JNICALL Java_io_github_sendablemetatype_webrtc_PeerConnectionFactory_createAudioSource
 (JNIEnv * env, jobject caller, jobject jAudioOptions)
 {
 	if (jAudioOptions == nullptr) {
@@ -230,7 +230,7 @@ JNIEXPORT jobject JNICALL Java_dev_onvoid_webrtc_PeerConnectionFactory_createAud
 	return jni::JavaFactories::create(env, audioSource.release()).release();
 }
 
-JNIEXPORT jobject JNICALL Java_dev_onvoid_webrtc_PeerConnectionFactory_createAudioTrack
+JNIEXPORT jobject JNICALL Java_io_github_sendablemetatype_webrtc_PeerConnectionFactory_createAudioTrack
 (JNIEnv * env, jobject caller, jstring jlabel, jobject jsource)
 {
 	if (jlabel == nullptr) {
@@ -255,7 +255,7 @@ JNIEXPORT jobject JNICALL Java_dev_onvoid_webrtc_PeerConnectionFactory_createAud
 	return jni::JavaFactories::create(env, audioTrack.release()).release();
 }
 
-JNIEXPORT jobject JNICALL Java_dev_onvoid_webrtc_PeerConnectionFactory_createVideoTrack
+JNIEXPORT jobject JNICALL Java_io_github_sendablemetatype_webrtc_PeerConnectionFactory_createVideoTrack
 (JNIEnv * env, jobject caller, jstring jlabel, jobject jsource)
 {
 	if (jlabel == nullptr) {
@@ -282,7 +282,7 @@ JNIEXPORT jobject JNICALL Java_dev_onvoid_webrtc_PeerConnectionFactory_createVid
 }
 #endif
 
-JNIEXPORT jobject JNICALL Java_dev_onvoid_webrtc_PeerConnectionFactory_createPeerConnection
+JNIEXPORT jobject JNICALL Java_io_github_sendablemetatype_webrtc_PeerConnectionFactory_createPeerConnection
 (JNIEnv * env, jobject caller, jobject jConfig, jobject jobserver)
 {
 	if (jConfig == nullptr) {
@@ -324,7 +324,7 @@ JNIEXPORT jobject JNICALL Java_dev_onvoid_webrtc_PeerConnectionFactory_createPee
 }
 
 #ifndef WEBRTC_DATA_CHANNELS_ONLY
-JNIEXPORT jobject JNICALL Java_dev_onvoid_webrtc_PeerConnectionFactory_getRtpReceiverCapabilities
+JNIEXPORT jobject JNICALL Java_io_github_sendablemetatype_webrtc_PeerConnectionFactory_getRtpReceiverCapabilities
 (JNIEnv * env, jobject caller, jobject mediaType)
 {
 	webrtc::PeerConnectionFactoryInterface * factory = GetHandle<webrtc::PeerConnectionFactoryInterface>(env, caller);
@@ -336,7 +336,7 @@ JNIEXPORT jobject JNICALL Java_dev_onvoid_webrtc_PeerConnectionFactory_getRtpRec
 	return jni::RTCRtpCapabilities::toJava(env, capabilities).release();
 }
 
-JNIEXPORT jobject JNICALL Java_dev_onvoid_webrtc_PeerConnectionFactory_getRtpSenderCapabilities
+JNIEXPORT jobject JNICALL Java_io_github_sendablemetatype_webrtc_PeerConnectionFactory_getRtpSenderCapabilities
 (JNIEnv * env, jobject caller, jobject mediaType)
 {
 	webrtc::PeerConnectionFactoryInterface * factory = GetHandle<webrtc::PeerConnectionFactoryInterface>(env, caller);

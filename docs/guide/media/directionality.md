@@ -10,13 +10,13 @@ This guide explains how to configure WebRTC media to be receive-only or send-onl
 The examples build upon the RTCRtpTransceiver API, which is the recommended way to control directionality in modern WebRTC.
 
 Related API:
-- `dev.onvoid.webrtc.RTCRtpTransceiver`
-- `dev.onvoid.webrtc.RTCRtpTransceiverInit`
-- `dev.onvoid.webrtc.RTCRtpTransceiverDirection`
+- `io.github.sendablemetatype.webrtc.RTCRtpTransceiver`
+- `io.github.sendablemetatype.webrtc.RTCRtpTransceiverInit`
+- `io.github.sendablemetatype.webrtc.RTCRtpTransceiverDirection`
 
 References in the repository:
-- Tests: [RTCPeerConnectionTests.java](https://github.com/devopvoid/webrtc-java/blob/main/webrtc/src/test/java/dev/onvoid/webrtc/RTCPeerConnectionTests.java)
-- Example (receive-only with WHEP): [WhepExample.java](https://github.com/devopvoid/webrtc-java/blob/main/webrtc-examples/src/main/java/dev/onvoid/webrtc/examples/WhepExample.java)
+- Tests: [RTCPeerConnectionTests.java](https://github.com/devopvoid/webrtc-java/blob/main/webrtc/src/test/java/io/github/sendablemetatype/webrtc/RTCPeerConnectionTests.java)
+- Example (receive-only with WHEP): [WhepExample.java](https://github.com/devopvoid/webrtc-java/blob/main/webrtc-examples/src/main/java/io/github/sendablemetatype/webrtc/examples/WhepExample.java)
 
 ## Concepts overview
 
@@ -32,9 +32,9 @@ These map to the SDP attributes a=sendrecv, a=sendonly, a=recvonly, a=inactive.
 Use a transceiver with direction `RECV_ONLY` to indicate that you only want to receive media for a given kind (audio or video). You can optionally pass a dummy local track or omit sending entirely by not attaching a sending track.
 
 ```java
-import dev.onvoid.webrtc.*;
-import dev.onvoid.webrtc.media.video.VideoDeviceSource;
-import dev.onvoid.webrtc.media.video.VideoTrack;
+import io.github.sendablemetatype.webrtc.*;
+import io.github.sendablemetatype.webrtc.media.video.VideoDeviceSource;
+import io.github.sendablemetatype.webrtc.media.video.VideoTrack;
 
 PeerConnectionFactory factory = new PeerConnectionFactory();
 RTCConfiguration config = new RTCConfiguration();
@@ -51,7 +51,7 @@ RTCRtpTransceiver transceiver = pc.addTransceiver(videoTrack, init);
 
 // Access the receiving track and attach a sink
 MediaStreamTrack track = transceiver.getReceiver().getTrack();
-if (track instanceof dev.onvoid.webrtc.media.video.VideoTrack vTrack) {
+if (track instanceof io.github.sendablemetatype.webrtc.media.video.VideoTrack vTrack) {
     vTrack.addSink(frame -> {
         // Handle incoming frames
         System.out.println("Received frame: " + frame);
@@ -70,10 +70,10 @@ if (track instanceof dev.onvoid.webrtc.media.video.VideoTrack vTrack) {
 To send-only, set the transceiver direction to SEND_ONLY and provide a local track to send.
 
 ```java
-import dev.onvoid.webrtc.*;
-import dev.onvoid.webrtc.media.audio.AudioOptions;
-import dev.onvoid.webrtc.media.audio.AudioTrack;
-import dev.onvoid.webrtc.media.audio.AudioTrackSource;
+import io.github.sendablemetatype.webrtc.*;
+import io.github.sendablemetatype.webrtc.media.audio.AudioOptions;
+import io.github.sendablemetatype.webrtc.media.audio.AudioTrack;
+import io.github.sendablemetatype.webrtc.media.audio.AudioTrackSource;
 
 PeerConnectionFactory factory = new PeerConnectionFactory();
 RTCPeerConnection pc = factory.createPeerConnection(new RTCConfiguration(), candidate -> {});

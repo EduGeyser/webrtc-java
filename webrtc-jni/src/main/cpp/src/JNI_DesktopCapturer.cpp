@@ -24,7 +24,7 @@
 
 #include "modules/desktop_capture/desktop_capturer.h"
 
-JNIEXPORT void JNICALL Java_dev_onvoid_webrtc_media_video_desktop_DesktopCapturer_dispose
+JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_media_video_desktop_DesktopCapturer_dispose
 (JNIEnv * env, jobject caller)
 {
 	jni::DesktopCapturer * capturer = GetHandle<jni::DesktopCapturer>(env, caller);
@@ -41,7 +41,7 @@ JNIEXPORT void JNICALL Java_dev_onvoid_webrtc_media_video_desktop_DesktopCapture
 	}
 }
 
-JNIEXPORT jobject JNICALL Java_dev_onvoid_webrtc_media_video_desktop_DesktopCapturer_getDesktopSources
+JNIEXPORT jobject JNICALL Java_io_github_sendablemetatype_webrtc_media_video_desktop_DesktopCapturer_getDesktopSources
 (JNIEnv * env, jobject caller)
 {
 	jni::DesktopCapturer * capturer = GetHandle<jni::DesktopCapturer>(env, caller);
@@ -63,7 +63,7 @@ JNIEXPORT jobject JNICALL Java_dev_onvoid_webrtc_media_video_desktop_DesktopCapt
 	return sourceList.listObject().release();
 }
 
-JNIEXPORT void JNICALL Java_dev_onvoid_webrtc_media_video_desktop_DesktopCapturer_selectSource
+JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_media_video_desktop_DesktopCapturer_selectSource
 (JNIEnv * env, jobject caller, jobject jsource)
 {
 	jni::DesktopCapturer * capturer = GetHandle<jni::DesktopCapturer>(env, caller);
@@ -76,7 +76,7 @@ JNIEXPORT void JNICALL Java_dev_onvoid_webrtc_media_video_desktop_DesktopCapture
 	}
 }
 
-JNIEXPORT void JNICALL Java_dev_onvoid_webrtc_media_video_desktop_DesktopCapturer_setFocusSelectedSource
+JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_media_video_desktop_DesktopCapturer_setFocusSelectedSource
 (JNIEnv * env, jobject caller, jboolean focus)
 {
 	jni::DesktopCapturer * capturer = GetHandle<jni::DesktopCapturer>(env, caller);
@@ -85,7 +85,7 @@ JNIEXPORT void JNICALL Java_dev_onvoid_webrtc_media_video_desktop_DesktopCapture
 	capturer->setFocusSelectedSource(focus);
 }
 
-JNIEXPORT void JNICALL Java_dev_onvoid_webrtc_media_video_desktop_DesktopCapturer_setMaxFrameRate
+JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_media_video_desktop_DesktopCapturer_setMaxFrameRate
 (JNIEnv * env, jobject caller, jint maxFrameRate)
 {
 	jni::DesktopCapturer * capturer = GetHandle<jni::DesktopCapturer>(env, caller);
@@ -94,7 +94,7 @@ JNIEXPORT void JNICALL Java_dev_onvoid_webrtc_media_video_desktop_DesktopCapture
 	capturer->SetMaxFrameRate(maxFrameRate);
 }
 
-JNIEXPORT void JNICALL Java_dev_onvoid_webrtc_media_video_desktop_DesktopCapturer_start
+JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_media_video_desktop_DesktopCapturer_start
 (JNIEnv * env, jobject caller, jobject jcallback)
 {
 	if (jcallback == nullptr) {
@@ -117,7 +117,7 @@ JNIEXPORT void JNICALL Java_dev_onvoid_webrtc_media_video_desktop_DesktopCapture
 	}
 }
 
-JNIEXPORT void JNICALL Java_dev_onvoid_webrtc_media_video_desktop_DesktopCapturer_captureFrame
+JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_media_video_desktop_DesktopCapturer_captureFrame
 (JNIEnv * env, jobject caller)
 {
 	jni::DesktopCapturer * capturer = GetHandle<jni::DesktopCapturer>(env, caller);

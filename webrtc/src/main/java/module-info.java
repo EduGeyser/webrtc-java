@@ -1,12 +1,12 @@
-module webrtc.java {
+module io.github.sendablemetatype.webrtc {
 
 	requires java.desktop;
 
-	exports dev.onvoid.webrtc;
-	exports dev.onvoid.webrtc.logging;
-	exports dev.onvoid.webrtc.media;
-	exports dev.onvoid.webrtc.media.audio;
-	exports dev.onvoid.webrtc.media.video;
-	exports dev.onvoid.webrtc.media.video.desktop;
+	exports io.github.sendablemetatype.webrtc;
+	exports io.github.sendablemetatype.webrtc.logging;
+	exports io.github.sendablemetatype.webrtc.media;
+	exports io.github.sendablemetatype.webrtc.media.audio;
+	exports io.github.sendablemetatype.webrtc.media.video;
+	exports io.github.sendablemetatype.webrtc.media.video.desktop;
 
 }

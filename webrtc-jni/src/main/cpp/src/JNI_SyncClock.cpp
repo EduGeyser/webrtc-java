@@ -18,7 +18,7 @@
 #include "JavaUtils.h"
 #include "media/SyncClock.h"
 
-JNIEXPORT void JNICALL Java_dev_onvoid_webrtc_media_SyncClock_initialize
+JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_media_SyncClock_initialize
 (JNIEnv * env, jobject caller)
 {
     jni::SyncClock * clock = new jni::SyncClock();
@@ -26,7 +26,7 @@ JNIEXPORT void JNICALL Java_dev_onvoid_webrtc_media_SyncClock_initialize
     SetHandle(env, caller, clock);
 }
 
-JNIEXPORT jlong JNICALL Java_dev_onvoid_webrtc_media_SyncClock_getTimestampUs
+JNIEXPORT jlong JNICALL Java_io_github_sendablemetatype_webrtc_media_SyncClock_getTimestampUs
 (JNIEnv * env, jobject caller)
 {
     jni::SyncClock * clock = GetHandle<jni::SyncClock>(env, caller);
@@ -35,7 +35,7 @@ JNIEXPORT jlong JNICALL Java_dev_onvoid_webrtc_media_SyncClock_getTimestampUs
     return clock->GetTimestampUs();
 }
 
-JNIEXPORT jlong JNICALL Java_dev_onvoid_webrtc_media_SyncClock_getTimestampMs
+JNIEXPORT jlong JNICALL Java_io_github_sendablemetatype_webrtc_media_SyncClock_getTimestampMs
 (JNIEnv * env, jobject caller)
 {
     jni::SyncClock * clock = GetHandle<jni::SyncClock>(env, caller);
@@ -44,7 +44,7 @@ JNIEXPORT jlong JNICALL Java_dev_onvoid_webrtc_media_SyncClock_getTimestampMs
     return clock->GetTimestampMs();
 }
 
-JNIEXPORT jlong JNICALL Java_dev_onvoid_webrtc_media_SyncClock_getNtpTime
+JNIEXPORT jlong JNICALL Java_io_github_sendablemetatype_webrtc_media_SyncClock_getNtpTime
 (JNIEnv * env, jobject caller)
 {
     jni::SyncClock * clock = GetHandle<jni::SyncClock>(env, caller);
@@ -54,7 +54,7 @@ JNIEXPORT jlong JNICALL Java_dev_onvoid_webrtc_media_SyncClock_getNtpTime
     return ntpTime.ToMs();
 }
 
-JNIEXPORT void JNICALL Java_dev_onvoid_webrtc_media_SyncClock_dispose
+JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_media_SyncClock_dispose
 (JNIEnv * env, jobject caller)
 {
     jni::SyncClock * clock = GetHandle<jni::SyncClock>(env, caller);

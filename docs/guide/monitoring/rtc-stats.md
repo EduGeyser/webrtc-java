@@ -68,10 +68,10 @@ public enum RTCStatsType {
 To collect statistics for the entire peer connection:
 
 ```java
-import dev.onvoid.webrtc.RTCPeerConnection;
-import dev.onvoid.webrtc.RTCStats;
-import dev.onvoid.webrtc.RTCStatsReport;
-import dev.onvoid.webrtc.RTCStatsCollectorCallback;
+import io.github.sendablemetatype.webrtc.RTCPeerConnection;
+import io.github.sendablemetatype.webrtc.RTCStats;
+import io.github.sendablemetatype.webrtc.RTCStatsReport;
+import io.github.sendablemetatype.webrtc.RTCStatsCollectorCallback;
 
 // Assuming you already have an RTCPeerConnection
 RTCPeerConnection peerConnection = /* your peer connection */;

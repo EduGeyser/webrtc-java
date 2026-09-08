@@ -21,8 +21,8 @@ This is ideal for:
 Create the module and pass it to the `PeerConnectionFactory`. This ensures your peer connection stack uses a headless (dummy) audio backend.
 
 ```java
-import dev.onvoid.webrtc.PeerConnectionFactory;
-import dev.onvoid.webrtc.media.audio.HeadlessAudioDeviceModule;
+import io.github.sendablemetatype.webrtc.PeerConnectionFactory;
+import io.github.sendablemetatype.webrtc.media.audio.HeadlessAudioDeviceModule;
 
 // Create the headless ADM
 HeadlessAudioDeviceModule audioModule = new HeadlessAudioDeviceModule();

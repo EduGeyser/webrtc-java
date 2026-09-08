@@ -16,9 +16,9 @@ To enable desktop video capture, you need to:
 The library provides classes to list available screens and windows:
 
 ```java
-import dev.onvoid.webrtc.media.video.desktop.DesktopSource;
-import dev.onvoid.webrtc.media.video.desktop.ScreenCapturer;
-import dev.onvoid.webrtc.media.video.desktop.WindowCapturer;
+import io.github.sendablemetatype.webrtc.media.video.desktop.DesktopSource;
+import io.github.sendablemetatype.webrtc.media.video.desktop.ScreenCapturer;
+import io.github.sendablemetatype.webrtc.media.video.desktop.WindowCapturer;
 import java.util.List;
 
 // Get available screens
@@ -47,7 +47,7 @@ windowCapturer.dispose();
 The `VideoDesktopSource` class allows you to capture video from a desktop source:
 
 ```java
-import dev.onvoid.webrtc.media.video.VideoDesktopSource;
+import io.github.sendablemetatype.webrtc.media.video.VideoDesktopSource;
 
 // Create a desktop video source
 VideoDesktopSource videoSource = new VideoDesktopSource();
@@ -74,8 +74,8 @@ videoSource.start();
 Once you have configured your desktop video source, you can create a video track:
 
 ```java
-import dev.onvoid.webrtc.PeerConnectionFactory;
-import dev.onvoid.webrtc.media.video.VideoTrack;
+import io.github.sendablemetatype.webrtc.PeerConnectionFactory;
+import io.github.sendablemetatype.webrtc.media.video.VideoTrack;
 
 // Create a PeerConnectionFactory
 PeerConnectionFactory factory = new PeerConnectionFactory();
@@ -91,7 +91,7 @@ Add the video track to your peer connection:
 ```java
 import java.util.ArrayList;
 import java.util.List;
-import dev.onvoid.webrtc.RTCPeerConnection;
+import io.github.sendablemetatype.webrtc.RTCPeerConnection;
 
 // Assuming you already have a configured RTCPeerConnection
 RTCPeerConnection peerConnection = factory.createPeerConnection(config, observer);

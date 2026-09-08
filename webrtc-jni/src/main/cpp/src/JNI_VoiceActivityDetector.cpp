@@ -21,7 +21,7 @@
 
 #include "modules/audio_processing/vad/voice_activity_detector.h"
 
-JNIEXPORT void JNICALL Java_dev_onvoid_webrtc_media_audio_VoiceActivityDetector_process
+JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_media_audio_VoiceActivityDetector_process
 (JNIEnv * env, jobject caller, jbyteArray data, jint sampleCount, jint sampleRate)
 {
     webrtc::VoiceActivityDetector * activityDetector = GetHandle<webrtc::VoiceActivityDetector>(env, caller);
@@ -35,7 +35,7 @@ JNIEXPORT void JNICALL Java_dev_onvoid_webrtc_media_audio_VoiceActivityDetector_
 	env->ReleaseByteArrayElements(data, dataPtr, JNI_ABORT);
 }
 
-JNIEXPORT jfloat JNICALL Java_dev_onvoid_webrtc_media_audio_VoiceActivityDetector_getLastVoiceProbability
+JNIEXPORT jfloat JNICALL Java_io_github_sendablemetatype_webrtc_media_audio_VoiceActivityDetector_getLastVoiceProbability
 (JNIEnv * env, jobject caller)
 {
     webrtc::VoiceActivityDetector * activityDetector = GetHandle<webrtc::VoiceActivityDetector>(env, caller);
@@ -44,7 +44,7 @@ JNIEXPORT jfloat JNICALL Java_dev_onvoid_webrtc_media_audio_VoiceActivityDetecto
 	return activityDetector->last_voice_probability();
 }
 
-JNIEXPORT void JNICALL Java_dev_onvoid_webrtc_media_audio_VoiceActivityDetector_dispose
+JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_media_audio_VoiceActivityDetector_dispose
 (JNIEnv * env, jobject caller)
 {
     webrtc::VoiceActivityDetector * activityDetector = GetHandle<webrtc::VoiceActivityDetector>(env, caller);
@@ -55,7 +55,7 @@ JNIEXPORT void JNICALL Java_dev_onvoid_webrtc_media_audio_VoiceActivityDetector_
     delete activityDetector;
 }
 
-JNIEXPORT void JNICALL Java_dev_onvoid_webrtc_media_audio_VoiceActivityDetector_initialize
+JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_media_audio_VoiceActivityDetector_initialize
 (JNIEnv * env, jobject caller)
 {
     webrtc::VoiceActivityDetector * activityDetector = new webrtc::VoiceActivityDetector();

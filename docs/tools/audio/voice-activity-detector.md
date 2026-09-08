@@ -7,7 +7,7 @@ This can be used to:
 - Skip encoding/sending silence to save bandwidth
 - Trigger UI indicators when the user is speaking
 
-API: `dev.onvoid.webrtc.media.audio.VoiceActivityDetector`
+API: `io.github.sendablemetatype.webrtc.media.audio.VoiceActivityDetector`
 
 ## Overview
 
@@ -28,7 +28,7 @@ Internally, VAD uses a native implementation optimized for real-time analysis. T
 ## Basic usage
 
 ```java
-import dev.onvoid.webrtc.media.audio.VoiceActivityDetector;
+import io.github.sendablemetatype.webrtc.media.audio.VoiceActivityDetector;
 
 // Create the detector
 VoiceActivityDetector vad = new VoiceActivityDetector();

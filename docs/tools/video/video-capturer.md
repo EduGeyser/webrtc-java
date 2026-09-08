@@ -2,7 +2,7 @@
 
 The `VideoCapture` class represents a controllable video capture device and coordinates device selection, capability negotiation, frame delivery to a sink, and lifecycle/resource management.
 
-API: `dev.onvoid.webrtc.media.video.VideoCapture`
+API: `io.github.sendablemetatype.webrtc.media.video.VideoCapture`
 
 ## Overview
 
@@ -27,7 +27,7 @@ Related types:
 ## Typical usage
 
 ```java
-import dev.onvoid.webrtc.media.video.*;
+import io.github.sendablemetatype.webrtc.media.video.*;
 
 // 1) Create capture
 VideoCapture capture = new VideoCapture();

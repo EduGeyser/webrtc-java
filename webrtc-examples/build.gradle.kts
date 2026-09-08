@@ -25,7 +25,7 @@ dependencies {
 	}
 }
 
-// The examples are a module requiring webrtc.java, whose module-info.class is
+// The examples are a module requiring io.github.sendablemetatype.webrtc, whose module-info.class is
 // packaged into its jar only, so compile against the jar rather than the class
 // directories.
 configurations.compileClasspath {

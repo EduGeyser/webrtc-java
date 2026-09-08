@@ -35,7 +35,7 @@
 #include "modules/audio_processing/include/audio_processing.h"
 #include "rtc_base/logging.h"
 
-JNIEXPORT void JNICALL Java_dev_onvoid_webrtc_media_audio_AudioProcessing_applyConfig
+JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_media_audio_AudioProcessing_applyConfig
 (JNIEnv * env, jobject caller, jobject config)
 {
 	webrtc::AudioProcessing * apm = GetHandle<webrtc::AudioProcessing>(env, caller);
@@ -44,7 +44,7 @@ JNIEXPORT void JNICALL Java_dev_onvoid_webrtc_media_audio_AudioProcessing_applyC
 	apm->ApplyConfig(jni::AudioProcessingConfig::toNative(env, jni::JavaLocalRef<jobject>(env, config)));
 }
 
-JNIEXPORT void JNICALL Java_dev_onvoid_webrtc_media_audio_AudioProcessing_setStreamDelayMs
+JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_media_audio_AudioProcessing_setStreamDelayMs
 (JNIEnv * env, jobject caller, jint delayMs)
 {
 	webrtc::AudioProcessing * apm = GetHandle<webrtc::AudioProcessing>(env, caller);
@@ -53,7 +53,7 @@ JNIEXPORT void JNICALL Java_dev_onvoid_webrtc_media_audio_AudioProcessing_setStr
 	apm->set_stream_delay_ms(delayMs);
 }
 
-JNIEXPORT jint JNICALL Java_dev_onvoid_webrtc_media_audio_AudioProcessing_getStreamDelayMs
+JNIEXPORT jint JNICALL Java_io_github_sendablemetatype_webrtc_media_audio_AudioProcessing_getStreamDelayMs
 (JNIEnv * env, jobject caller)
 {
 	webrtc::AudioProcessing * apm = GetHandle<webrtc::AudioProcessing>(env, caller);
@@ -62,7 +62,7 @@ JNIEXPORT jint JNICALL Java_dev_onvoid_webrtc_media_audio_AudioProcessing_getStr
 	return apm->stream_delay_ms();
 }
 
-JNIEXPORT jint JNICALL Java_dev_onvoid_webrtc_media_audio_AudioProcessing_processStream
+JNIEXPORT jint JNICALL Java_io_github_sendablemetatype_webrtc_media_audio_AudioProcessing_processStream
 (JNIEnv * env, jobject caller, jbyteArray src, jobject inputConfig, jobject outputConfig, jbyteArray dest)
 {
 	webrtc::AudioProcessing * apm = GetHandle<webrtc::AudioProcessing>(env, caller);
@@ -120,7 +120,7 @@ JNIEXPORT jint JNICALL Java_dev_onvoid_webrtc_media_audio_AudioProcessing_proces
 	return result;
 }
 
-JNIEXPORT jint JNICALL Java_dev_onvoid_webrtc_media_audio_AudioProcessing_processReverseStream
+JNIEXPORT jint JNICALL Java_io_github_sendablemetatype_webrtc_media_audio_AudioProcessing_processReverseStream
 (JNIEnv * env, jobject caller, jbyteArray src, jobject inputConfig, jobject outputConfig, jbyteArray dest)
 {
 	webrtc::AudioProcessing * apm = GetHandle<webrtc::AudioProcessing>(env, caller);
@@ -178,7 +178,7 @@ JNIEXPORT jint JNICALL Java_dev_onvoid_webrtc_media_audio_AudioProcessing_proces
 	return result;
 }
 
-JNIEXPORT void JNICALL Java_dev_onvoid_webrtc_media_audio_AudioProcessing_dispose
+JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_media_audio_AudioProcessing_dispose
 (JNIEnv * env, jobject caller)
 {
 	webrtc::AudioProcessing * apm = GetHandle<webrtc::AudioProcessing>(env, caller);
@@ -195,7 +195,7 @@ JNIEXPORT void JNICALL Java_dev_onvoid_webrtc_media_audio_AudioProcessing_dispos
 	apm = nullptr;
 }
 
-JNIEXPORT void JNICALL Java_dev_onvoid_webrtc_media_audio_AudioProcessing_initialize
+JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_media_audio_AudioProcessing_initialize
 (JNIEnv * env, jobject caller)
 {
 	jni::WebRTCContext * context = static_cast<jni::WebRTCContext*>(javaContext);
@@ -210,7 +210,7 @@ JNIEXPORT void JNICALL Java_dev_onvoid_webrtc_media_audio_AudioProcessing_initia
 	SetHandle(env, caller, apm.release());
 }
 
-JNIEXPORT void JNICALL Java_dev_onvoid_webrtc_media_audio_AudioProcessing_updateStats
+JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_media_audio_AudioProcessing_updateStats
 (JNIEnv* env, jobject caller)
 {
 	webrtc::AudioProcessing * apm = GetHandle<webrtc::AudioProcessing>(env, caller);

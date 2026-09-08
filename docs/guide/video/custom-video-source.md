@@ -24,7 +24,7 @@ This is particularly useful when you need to:
 To use a custom video source, you first need to create an instance:
 
 ```java
-import dev.onvoid.webrtc.media.video.CustomVideoSource;
+import io.github.sendablemetatype.webrtc.media.video.CustomVideoSource;
 
 // Create a new CustomVideoSource instance
 CustomVideoSource videoSource = new CustomVideoSource();
@@ -35,8 +35,8 @@ CustomVideoSource videoSource = new CustomVideoSource();
 Once you have a custom video source, you can create a video track with it:
 
 ```java
-import dev.onvoid.webrtc.PeerConnectionFactory;
-import dev.onvoid.webrtc.media.video.VideoTrack;
+import io.github.sendablemetatype.webrtc.PeerConnectionFactory;
+import io.github.sendablemetatype.webrtc.media.video.VideoTrack;
 
 // Create a PeerConnectionFactory (you should already have this in your WebRTC setup)
 PeerConnectionFactory factory = new PeerConnectionFactory();
@@ -50,8 +50,8 @@ VideoTrack videoTrack = factory.createVideoTrack("video-track-id", videoSource);
 The key feature of `CustomVideoSource` is the ability to push video frames directly to the WebRTC pipeline:
 
 ```java
-import dev.onvoid.webrtc.media.video.VideoFrame;
-import dev.onvoid.webrtc.media.video.NativeI420Buffer;
+import io.github.sendablemetatype.webrtc.media.video.VideoFrame;
+import io.github.sendablemetatype.webrtc.media.video.NativeI420Buffer;
 
 // Create a video frame with appropriate dimensions and format
 int width = 640;
@@ -149,7 +149,7 @@ public class VideoStreamer {
 You can add sinks to the video track to monitor the video frames:
 
 ```java
-import dev.onvoid.webrtc.media.video.VideoTrackSink;
+import io.github.sendablemetatype.webrtc.media.video.VideoTrackSink;
 
 // Create a sink to monitor the video frames
 VideoTrackSink monitorSink = frame -> {

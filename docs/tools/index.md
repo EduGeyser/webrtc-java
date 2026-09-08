@@ -38,4 +38,4 @@ Use these pages to pick the right tool and jump straight to code examples.
 - [Audio Processing](/guide/audio/audio-processing)
 - [RTC Stats](/guide/monitoring/rtc-stats)
 
-For API details, see the [JavaDoc](https://javadoc.io/doc/dev.onvoid.webrtc/webrtc-java/latest/index.html).
+For API details, see the [JavaDoc](https://javadoc.io/doc/io.github.sendablemetatype.webrtc/webrtc-java/latest/index.html).

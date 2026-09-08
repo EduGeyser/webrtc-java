@@ -16,9 +16,9 @@ To enable camera video capture, you need to:
 Before configuring your camera source, you may want to check the supported resolutions and frame rates:
 
 ```java
-import dev.onvoid.webrtc.media.MediaDevices;
-import dev.onvoid.webrtc.media.video.VideoDevice;
-import dev.onvoid.webrtc.media.video.VideoCaptureCapability;
+import io.github.sendablemetatype.webrtc.media.MediaDevices;
+import io.github.sendablemetatype.webrtc.media.video.VideoDevice;
+import io.github.sendablemetatype.webrtc.media.video.VideoCaptureCapability;
 import java.util.List;
 
 // Get all cameras
@@ -47,9 +47,9 @@ for (VideoCaptureCapability capability : capabilities) {
 The `VideoDeviceSource` class allows you to capture video from a camera:
 
 ```java
-import dev.onvoid.webrtc.media.video.VideoDeviceSource;
-import dev.onvoid.webrtc.media.video.VideoDevice;
-import dev.onvoid.webrtc.media.video.VideoCaptureCapability;
+import io.github.sendablemetatype.webrtc.media.video.VideoDeviceSource;
+import io.github.sendablemetatype.webrtc.media.video.VideoDevice;
+import io.github.sendablemetatype.webrtc.media.video.VideoCaptureCapability;
 
 // Create a video device source
 VideoDeviceSource videoSource = new VideoDeviceSource();
@@ -72,8 +72,8 @@ videoSource.start();
 Once you have configured your camera video source, you can create a video track:
 
 ```java
-import dev.onvoid.webrtc.PeerConnectionFactory;
-import dev.onvoid.webrtc.media.video.VideoTrack;
+import io.github.sendablemetatype.webrtc.PeerConnectionFactory;
+import io.github.sendablemetatype.webrtc.media.video.VideoTrack;
 
 // Create a PeerConnectionFactory
 PeerConnectionFactory factory = new PeerConnectionFactory();
@@ -89,7 +89,7 @@ Add the video track to your peer connection:
 ```java
 import java.util.ArrayList;
 import java.util.List;
-import dev.onvoid.webrtc.RTCPeerConnection;
+import io.github.sendablemetatype.webrtc.RTCPeerConnection;
 
 // Assuming you already have a configured RTCPeerConnection
 RTCPeerConnection peerConnection = factory.createPeerConnection(config, observer);
@@ -123,8 +123,8 @@ Once you have set up your camera video source and peer connection, you'll likely
 To receive video frames, you need to implement the `VideoTrackSink` interface and add it to a video track:
 
 ```java
-import dev.onvoid.webrtc.media.video.VideoFrame;
-import dev.onvoid.webrtc.media.video.VideoTrackSink;
+import io.github.sendablemetatype.webrtc.media.video.VideoFrame;
+import io.github.sendablemetatype.webrtc.media.video.VideoTrackSink;
 
 // Create a class that implements VideoTrackSink
 public class MyVideoSink implements VideoTrackSink {
@@ -160,10 +160,10 @@ videoTrack.removeSink(localVideoSink);
 To receive frames from a remote peer, you need to add a sink to the remote video track when it's received. This is typically done in the `onTrack` method of your `PeerConnectionObserver`:
 
 ```java
-import dev.onvoid.webrtc.PeerConnectionObserver;
-import dev.onvoid.webrtc.RTCRtpTransceiver;
-import dev.onvoid.webrtc.media.MediaStreamTrack;
-import dev.onvoid.webrtc.media.video.VideoTrack;
+import io.github.sendablemetatype.webrtc.PeerConnectionObserver;
+import io.github.sendablemetatype.webrtc.RTCRtpTransceiver;
+import io.github.sendablemetatype.webrtc.media.MediaStreamTrack;
+import io.github.sendablemetatype.webrtc.media.video.VideoTrack;
 
 public class MyPeerConnectionObserver implements PeerConnectionObserver {
     private final MyVideoSink remoteVideoSink = new MyVideoSink();
@@ -217,9 +217,9 @@ For converting I420 frames to UI-friendly pixel formats (e.g., RGBA) and other p
 Sometimes you may need to resize video frames to a different resolution, either to reduce processing requirements or to fit a specific display area. The `VideoFrameBuffer` interface provides a `cropAndScale` method that can be used for both cropping and scaling operations:
 
 ```java
-import dev.onvoid.webrtc.media.video.VideoFrame;
-import dev.onvoid.webrtc.media.video.VideoFrameBuffer;
-import dev.onvoid.webrtc.media.video.VideoTrackSink;
+import io.github.sendablemetatype.webrtc.media.video.VideoFrame;
+import io.github.sendablemetatype.webrtc.media.video.VideoFrameBuffer;
+import io.github.sendablemetatype.webrtc.media.video.VideoTrackSink;
 
 public class ScalingVideoSink implements VideoTrackSink {
     private final int targetWidth;

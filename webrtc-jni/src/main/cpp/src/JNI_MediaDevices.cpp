@@ -26,7 +26,7 @@
 #include "media/video/VideoCaptureCapability.h"
 #include "WebRTCContext.h"
 
-JNIEXPORT void JNICALL Java_dev_onvoid_webrtc_media_MediaDevices_addDeviceChangeListener
+JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_media_MediaDevices_addDeviceChangeListener
 (JNIEnv * env, jclass caller, jobject jListener)
 {
 	jni::WebRTCContext * context = static_cast<jni::WebRTCContext *>(javaContext);
@@ -45,7 +45,7 @@ JNIEXPORT void JNICALL Java_dev_onvoid_webrtc_media_MediaDevices_addDeviceChange
 	}
 }
 
-JNIEXPORT void JNICALL Java_dev_onvoid_webrtc_media_MediaDevices_removeDeviceChangeListener
+JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_media_MediaDevices_removeDeviceChangeListener
 (JNIEnv * env, jclass caller, jobject jListener)
 {
 	jni::WebRTCContext * context = static_cast<jni::WebRTCContext *>(javaContext);
@@ -60,7 +60,7 @@ JNIEXPORT void JNICALL Java_dev_onvoid_webrtc_media_MediaDevices_removeDeviceCha
 	}
 }
 
-JNIEXPORT jobject JNICALL Java_dev_onvoid_webrtc_media_MediaDevices_getDefaultAudioRenderDevice
+JNIEXPORT jobject JNICALL Java_io_github_sendablemetatype_webrtc_media_MediaDevices_getDefaultAudioRenderDevice
 (JNIEnv * env, jclass caller)
 {
 	jni::WebRTCContext * context = static_cast<jni::WebRTCContext *>(javaContext);
@@ -77,7 +77,7 @@ JNIEXPORT jobject JNICALL Java_dev_onvoid_webrtc_media_MediaDevices_getDefaultAu
 	return nullptr;
 }
 
-JNIEXPORT jobject JNICALL Java_dev_onvoid_webrtc_media_MediaDevices_getDefaultAudioCaptureDevice
+JNIEXPORT jobject JNICALL Java_io_github_sendablemetatype_webrtc_media_MediaDevices_getDefaultAudioCaptureDevice
 (JNIEnv * env, jclass caller)
 {
 	jni::WebRTCContext * context = static_cast<jni::WebRTCContext *>(javaContext);
@@ -94,7 +94,7 @@ JNIEXPORT jobject JNICALL Java_dev_onvoid_webrtc_media_MediaDevices_getDefaultAu
 	return nullptr;
 }
 
-JNIEXPORT jobject JNICALL Java_dev_onvoid_webrtc_media_MediaDevices_getAudioRenderDevices
+JNIEXPORT jobject JNICALL Java_io_github_sendablemetatype_webrtc_media_MediaDevices_getAudioRenderDevices
 (JNIEnv * env, jclass caller)
 {
 	try {
@@ -117,7 +117,7 @@ JNIEXPORT jobject JNICALL Java_dev_onvoid_webrtc_media_MediaDevices_getAudioRend
 	return nullptr;
 }
 
-JNIEXPORT jobject JNICALL Java_dev_onvoid_webrtc_media_MediaDevices_getAudioCaptureDevices
+JNIEXPORT jobject JNICALL Java_io_github_sendablemetatype_webrtc_media_MediaDevices_getAudioCaptureDevices
 (JNIEnv * env, jclass caller)
 {
 	try {
@@ -140,7 +140,7 @@ JNIEXPORT jobject JNICALL Java_dev_onvoid_webrtc_media_MediaDevices_getAudioCapt
 	return nullptr;
 }
 
-JNIEXPORT jobject JNICALL Java_dev_onvoid_webrtc_media_MediaDevices_getVideoCaptureDevices
+JNIEXPORT jobject JNICALL Java_io_github_sendablemetatype_webrtc_media_MediaDevices_getVideoCaptureDevices
 (JNIEnv * env, jclass caller)
 {
 	try {
@@ -163,7 +163,7 @@ JNIEXPORT jobject JNICALL Java_dev_onvoid_webrtc_media_MediaDevices_getVideoCapt
 	return nullptr;
 }
 
-JNIEXPORT jobject JNICALL Java_dev_onvoid_webrtc_media_MediaDevices_getVideoCaptureCapabilities
+JNIEXPORT jobject JNICALL Java_io_github_sendablemetatype_webrtc_media_MediaDevices_getVideoCaptureCapabilities
 (JNIEnv * env, jclass caller, jobject device)
 {
 	if (!device) {

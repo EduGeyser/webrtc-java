@@ -14,7 +14,7 @@ val buildDate = rootProject.extra["buildDate"] as String
 val nativesDir = rootProject.extra["nativesDir"] as File?
 val dataChannelsOnly = rootProject.extra["dataChannelsOnly"] as Boolean
 
-val moduleName = "webrtc.java"
+val moduleName = "io.github.sendablemetatype.webrtc"
 val nativeClassifiers = listOf(
 	"windows-x86_64", "windows-aarch64",
 	"linux-x86_64", "linux-aarch64", "linux-aarch32",
@@ -105,7 +105,7 @@ tasks.javadoc {
 	// Exported packages only, as javadoc documents a module by default. The
 	// internal package is patched into the module from its class files, so the
 	// documented classes can still refer to it.
-	exclude("dev/onvoid/webrtc/internal/**")
+	exclude("io/github/sendablemetatype/webrtc/internal/**")
 	(options as StandardJavadocDocletOptions).apply {
 		encoding = "UTF-8"
 		addStringOption("-patch-module", "$moduleName=${sourceSets.main.get().output.classesDirs.asPath}")
@@ -145,11 +145,11 @@ tasks.test {
 	jvmArgumentProviders.add(CommandLineArgumentProvider {
 		val patch = testOutput.get().filter { it.exists() }.asPath
 		val opens = listOf(
-			"dev.onvoid.webrtc",
-			"dev.onvoid.webrtc.logging",
-			"dev.onvoid.webrtc.media",
-			"dev.onvoid.webrtc.media.audio",
-			"dev.onvoid.webrtc.media.video",
+			"io.github.sendablemetatype.webrtc",
+			"io.github.sendablemetatype.webrtc.logging",
+			"io.github.sendablemetatype.webrtc.media",
+			"io.github.sendablemetatype.webrtc.media.audio",
+			"io.github.sendablemetatype.webrtc.media.video",
 		)
 
 		listOf(

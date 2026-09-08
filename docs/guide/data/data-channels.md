@@ -17,9 +17,9 @@ Data channels are created through an `RTCPeerConnection` and use the SCTP protoc
 To create a data channel, you need an established `RTCPeerConnection`. You can then call the `createDataChannel` method with a label and optional configuration:
 
 ```java
-import dev.onvoid.webrtc.RTCPeerConnection;
-import dev.onvoid.webrtc.RTCDataChannel;
-import dev.onvoid.webrtc.RTCDataChannelInit;
+import io.github.sendablemetatype.webrtc.RTCPeerConnection;
+import io.github.sendablemetatype.webrtc.RTCDataChannel;
+import io.github.sendablemetatype.webrtc.RTCDataChannelInit;
 
 // Assuming you already have a PeerConnectionFactory and RTCConfiguration
 RTCPeerConnection peerConnection = factory.createPeerConnection(config, peerConnectionObserver);
@@ -74,9 +74,9 @@ RTCDataChannel dataChannel = peerConnection.createDataChannel("myChannel", confi
 To receive events from a data channel, you need to implement the `RTCDataChannelObserver` interface and register it with the data channel:
 
 ```java
-import dev.onvoid.webrtc.RTCDataChannelObserver;
-import dev.onvoid.webrtc.RTCDataChannelBuffer;
-import dev.onvoid.webrtc.RTCDataChannelState;
+import io.github.sendablemetatype.webrtc.RTCDataChannelObserver;
+import io.github.sendablemetatype.webrtc.RTCDataChannelBuffer;
+import io.github.sendablemetatype.webrtc.RTCDataChannelState;
 
 dataChannel.registerObserver(new RTCDataChannelObserver() {
     @Override
@@ -132,7 +132,7 @@ dataChannel.registerObserver(new RTCDataChannelObserver() {
 When the remote peer creates a data channel, the `onDataChannel` method of your `PeerConnectionObserver` will be called:
 
 ```java
-import dev.onvoid.webrtc.PeerConnectionObserver;
+import io.github.sendablemetatype.webrtc.PeerConnectionObserver;
 
 public class MyPeerConnectionObserver implements PeerConnectionObserver {
     // Other PeerConnectionObserver methods...

@@ -26,7 +26,7 @@
 
 #include <algorithm>
 
-JNIEXPORT jobject JNICALL Java_dev_onvoid_webrtc_RTCRtpReceiver_getTrack
+JNIEXPORT jobject JNICALL Java_io_github_sendablemetatype_webrtc_RTCRtpReceiver_getTrack
 (JNIEnv * env, jobject caller)
 {
 	webrtc::RtpReceiverInterface * receiver = GetHandle<webrtc::RtpReceiverInterface>(env, caller);
@@ -44,7 +44,7 @@ JNIEXPORT jobject JNICALL Java_dev_onvoid_webrtc_RTCRtpReceiver_getTrack
 	return nullptr;
 }
 
-JNIEXPORT jobject JNICALL Java_dev_onvoid_webrtc_RTCRtpReceiver_getTransport
+JNIEXPORT jobject JNICALL Java_io_github_sendablemetatype_webrtc_RTCRtpReceiver_getTransport
 (JNIEnv * env, jobject caller)
 {
 	webrtc::RtpReceiverInterface * receiver = GetHandle<webrtc::RtpReceiverInterface>(env, caller);
@@ -55,7 +55,7 @@ JNIEXPORT jobject JNICALL Java_dev_onvoid_webrtc_RTCRtpReceiver_getTransport
 	return jni::JavaFactories::create(env, transport.get()).release();
 }
 
-JNIEXPORT jobject JNICALL Java_dev_onvoid_webrtc_RTCRtpReceiver_getParameters
+JNIEXPORT jobject JNICALL Java_io_github_sendablemetatype_webrtc_RTCRtpReceiver_getParameters
 (JNIEnv * env, jobject caller)
 {
 	webrtc::RtpReceiverInterface * receiver = GetHandle<webrtc::RtpReceiverInterface>(env, caller);
@@ -64,7 +64,7 @@ JNIEXPORT jobject JNICALL Java_dev_onvoid_webrtc_RTCRtpReceiver_getParameters
 	return jni::RTCRtpParameters::toJava(env, receiver->GetParameters()).release();
 }
 
-JNIEXPORT jobject JNICALL Java_dev_onvoid_webrtc_RTCRtpReceiver_getContributingSources
+JNIEXPORT jobject JNICALL Java_io_github_sendablemetatype_webrtc_RTCRtpReceiver_getContributingSources
 (JNIEnv * env, jobject caller)
 {
 	webrtc::RtpReceiverInterface * receiver = GetHandle<webrtc::RtpReceiverInterface>(env, caller);
@@ -81,7 +81,7 @@ JNIEXPORT jobject JNICALL Java_dev_onvoid_webrtc_RTCRtpReceiver_getContributingS
 	return list.release();
 }
 
-JNIEXPORT jobject JNICALL Java_dev_onvoid_webrtc_RTCRtpReceiver_getSynchronizationSources
+JNIEXPORT jobject JNICALL Java_io_github_sendablemetatype_webrtc_RTCRtpReceiver_getSynchronizationSources
 (JNIEnv * env, jobject caller)
 {
 	webrtc::RtpReceiverInterface * receiver = GetHandle<webrtc::RtpReceiverInterface>(env, caller);

@@ -1,6 +1,6 @@
 # Logging
 
-This guide explains how to use the logging capabilities. The library provides native WebRTC logging through the `dev.onvoid.webrtc.logging.Logging` class.
+This guide explains how to use the logging capabilities. The library provides native WebRTC logging through the `io.github.sendablemetatype.webrtc.logging.Logging` class.
 
 ## Native WebRTC Logging
 
@@ -26,7 +26,7 @@ The `Logging` class defines the following severity levels (in order of increasin
 The `Logging` class provides several methods for logging messages:
 
 ```java
-import dev.onvoid.webrtc.logging.Logging;
+import io.github.sendablemetatype.webrtc.logging.Logging;
 
 // Log messages with different severity levels
 Logging.verbose("Detailed information for diagnostic purposes");
@@ -62,9 +62,9 @@ Logging.logTimestamps(true);
 You can implement custom log handlers by creating a class that implements the `LogSink` interface:
 
 ```java
-import dev.onvoid.webrtc.logging.LogSink;
-import dev.onvoid.webrtc.logging.Logging;
-import dev.onvoid.webrtc.logging.Logging.Severity;
+import io.github.sendablemetatype.webrtc.logging.LogSink;
+import io.github.sendablemetatype.webrtc.logging.Logging;
+import io.github.sendablemetatype.webrtc.logging.Logging.Severity;
 
 public class CustomLogSink implements LogSink {
     
@@ -92,8 +92,8 @@ The log sink will receive all log messages with a severity level equal to or hig
 If you're using a different logging framework like Log4j or SLF4J, you can create a bridge by implementing a custom `LogSink` that forwards messages to your preferred logging system:
 
 ```java
-import dev.onvoid.webrtc.logging.LogSink;
-import dev.onvoid.webrtc.logging.Logging;
+import io.github.sendablemetatype.webrtc.logging.LogSink;
+import io.github.sendablemetatype.webrtc.logging.Logging;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

@@ -27,7 +27,7 @@
 #include "media/video/macos/VideoCaptureMac.h"
 #endif
 
-JNIEXPORT void JNICALL Java_dev_onvoid_webrtc_media_video_VideoCapture_setVideoCaptureDevice
+JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_media_video_VideoCapture_setVideoCaptureDevice
 (JNIEnv * env, jobject caller, jobject device)
 {
 	if (!device) {
@@ -43,7 +43,7 @@ JNIEXPORT void JNICALL Java_dev_onvoid_webrtc_media_video_VideoCapture_setVideoC
 	videoSource->setDevice(std::make_shared<jni::avdev::VideoDevice>(dev.getName(), dev.getDescriptor()));
 }
 
-JNIEXPORT void JNICALL Java_dev_onvoid_webrtc_media_video_VideoCapture_setVideoCaptureCapability
+JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_media_video_VideoCapture_setVideoCaptureCapability
 (JNIEnv * env, jobject caller, jobject jcapability)
 {
 	jni::VideoCaptureBase * videoSource = GetHandle<jni::VideoCaptureBase>(env, caller);
@@ -66,7 +66,7 @@ JNIEXPORT void JNICALL Java_dev_onvoid_webrtc_media_video_VideoCapture_setVideoC
 	videoSource->setVideoCaptureCapability(capability);
 }
 
-JNIEXPORT void JNICALL Java_dev_onvoid_webrtc_media_video_VideoCapture_setVideoSink
+JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_media_video_VideoCapture_setVideoSink
 (JNIEnv * env, jobject caller, jobject jsink)
 {
 	if (jsink == nullptr) {
@@ -80,7 +80,7 @@ JNIEXPORT void JNICALL Java_dev_onvoid_webrtc_media_video_VideoCapture_setVideoS
 	videoSource->setVideoSink(std::make_unique<jni::VideoTrackSink>(env, jni::JavaGlobalRef<jobject>(env, jsink)));
 }
 
-JNIEXPORT void JNICALL Java_dev_onvoid_webrtc_media_video_VideoCapture_start
+JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_media_video_VideoCapture_start
 (JNIEnv * env, jobject caller)
 {
 	jni::VideoCaptureBase * videoSource = GetHandle<jni::VideoCaptureBase>(env, caller);
@@ -94,7 +94,7 @@ JNIEXPORT void JNICALL Java_dev_onvoid_webrtc_media_video_VideoCapture_start
 	}
 }
 
-JNIEXPORT void JNICALL Java_dev_onvoid_webrtc_media_video_VideoCapture_stop
+JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_media_video_VideoCapture_stop
 (JNIEnv * env, jobject caller)
 {
 	jni::VideoCaptureBase * videoSource = GetHandle<jni::VideoCaptureBase>(env, caller);
@@ -108,7 +108,7 @@ JNIEXPORT void JNICALL Java_dev_onvoid_webrtc_media_video_VideoCapture_stop
 	}
 }
 
-JNIEXPORT void JNICALL Java_dev_onvoid_webrtc_media_video_VideoCapture_dispose
+JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_media_video_VideoCapture_dispose
 (JNIEnv * env, jobject caller)
 {
 	jni::VideoCaptureBase * videoSource = GetHandle<jni::VideoCaptureBase>(env, caller);
@@ -119,7 +119,7 @@ JNIEXPORT void JNICALL Java_dev_onvoid_webrtc_media_video_VideoCapture_dispose
 	videoSource = nullptr;
 }
 
-JNIEXPORT void JNICALL Java_dev_onvoid_webrtc_media_video_VideoCapture_initialize
+JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_media_video_VideoCapture_initialize
 (JNIEnv * env, jobject caller)
 {
 #ifdef __APPLE__

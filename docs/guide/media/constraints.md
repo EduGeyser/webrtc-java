@@ -24,9 +24,9 @@ You can set both maximum and minimum bitrate constraints for a MediaStreamTrack.
 
 ```java
 // Import required classes
-import dev.onvoid.webrtc.RTCRtpSender;
-import dev.onvoid.webrtc.RTCRtpSendParameters;
-import dev.onvoid.webrtc.RTCRtpEncodingParameters;
+import io.github.sendablemetatype.webrtc.RTCRtpSender;
+import io.github.sendablemetatype.webrtc.RTCRtpSendParameters;
+import io.github.sendablemetatype.webrtc.RTCRtpEncodingParameters;
 
 // Assuming you have an RTCRtpSender instance
 RTCRtpSender sender = /* ... */;
@@ -57,9 +57,9 @@ You can also set a maximum framerate constraint for video tracks. This can be us
 
 ```java
 // Import required classes
-import dev.onvoid.webrtc.RTCRtpSender;
-import dev.onvoid.webrtc.RTCRtpSendParameters;
-import dev.onvoid.webrtc.RTCRtpEncodingParameters;
+import io.github.sendablemetatype.webrtc.RTCRtpSender;
+import io.github.sendablemetatype.webrtc.RTCRtpSendParameters;
+import io.github.sendablemetatype.webrtc.RTCRtpEncodingParameters;
 
 // Assuming you have an RTCRtpSender instance with a video track
 RTCRtpSender sender = /* ... */;
@@ -86,9 +86,9 @@ In addition to bitrate and framerate constraints, you can also scale down the re
 
 ```java
 // Import required classes
-import dev.onvoid.webrtc.RTCRtpSender;
-import dev.onvoid.webrtc.RTCRtpSendParameters;
-import dev.onvoid.webrtc.RTCRtpEncodingParameters;
+import io.github.sendablemetatype.webrtc.RTCRtpSender;
+import io.github.sendablemetatype.webrtc.RTCRtpSendParameters;
+import io.github.sendablemetatype.webrtc.RTCRtpEncodingParameters;
 
 // Assuming you have an RTCRtpSender instance with a video track
 RTCRtpSender sender = /* ... */;

@@ -37,4 +37,4 @@ This section provides detailed guides for various features of the webrtc-java li
 
 ## Additional Resources
 
-For a complete API reference, check the [JavaDoc](https://javadoc.io/doc/dev.onvoid.webrtc/webrtc-java/latest/index.html).
+For a complete API reference, check the [JavaDoc](https://javadoc.io/doc/io.github.sendablemetatype.webrtc/webrtc-java/latest/index.html).

@@ -20,7 +20,7 @@
 
 #include "api/media_stream_interface.h"
 
-JNIEXPORT jobject JNICALL Java_dev_onvoid_webrtc_media_MediaSource_getState
+JNIEXPORT jobject JNICALL Java_io_github_sendablemetatype_webrtc_media_MediaSource_getState
 (JNIEnv * env, jobject caller)
 {
 	webrtc::MediaSourceInterface * source = GetHandle<webrtc::MediaSourceInterface>(env, caller);

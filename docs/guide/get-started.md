@@ -32,7 +32,7 @@ Add the following dependency to your `pom.xml`:
 
 ```xml
 <dependency>
-    <groupId>dev.onvoid.webrtc</groupId>
+    <groupId>io.github.sendablemetatype.webrtc</groupId>
     <artifactId>webrtc-java</artifactId>
     <version>{{ VERSION }}</version>
 </dependency>
@@ -47,7 +47,7 @@ If you encounter issues loading the native library "webrtc-java", you can declar
 
 ```xml
 <dependency>
-    <groupId>dev.onvoid.webrtc</groupId>
+    <groupId>io.github.sendablemetatype.webrtc</groupId>
     <artifactId>webrtc-java</artifactId>
     <version>{{ VERSION }}</version>
     <classifier>windows-x86_64</classifier>
@@ -70,7 +70,7 @@ If you want to use the latest development version, you can use a SNAPSHOT releas
 
 ```xml
 <dependency>
-    <groupId>dev.onvoid.webrtc</groupId>
+    <groupId>io.github.sendablemetatype.webrtc</groupId>
     <artifactId>webrtc-java</artifactId>
     <version>{{ VERSION_SNAPSHOT }}</version>
 </dependency>
@@ -99,19 +99,19 @@ To use SNAPSHOT versions, you need to add the following repository configuration
 Add the following to your `build.gradle`:
 
 ```groovy
-implementation "dev.onvoid.webrtc:webrtc-java:{{ VERSION }}"
+implementation "io.github.sendablemetatype.webrtc:webrtc-java:{{ VERSION }}"
 ```
 
 For specific platforms, add the appropriate classifier:
 
 ```groovy
-implementation group: "dev.onvoid.webrtc", name: "webrtc-java", version: "{{ VERSION }}", classifier: "windows-x86_64"
-implementation group: "dev.onvoid.webrtc", name: "webrtc-java", version: "{{ VERSION }}", classifier: "windows-aarch64"
-implementation group: "dev.onvoid.webrtc", name: "webrtc-java", version: "{{ VERSION }}", classifier: "macos-x86_64"
-implementation group: "dev.onvoid.webrtc", name: "webrtc-java", version: "{{ VERSION }}", classifier: "macos-aarch64"
-implementation group: "dev.onvoid.webrtc", name: "webrtc-java", version: "{{ VERSION }}", classifier: "linux-x86_64"
-implementation group: "dev.onvoid.webrtc", name: "webrtc-java", version: "{{ VERSION }}", classifier: "linux-aarch64"
-implementation group: "dev.onvoid.webrtc", name: "webrtc-java", version: "{{ VERSION }}", classifier: "linux-aarch32"
+implementation group: "io.github.sendablemetatype.webrtc", name: "webrtc-java", version: "{{ VERSION }}", classifier: "windows-x86_64"
+implementation group: "io.github.sendablemetatype.webrtc", name: "webrtc-java", version: "{{ VERSION }}", classifier: "windows-aarch64"
+implementation group: "io.github.sendablemetatype.webrtc", name: "webrtc-java", version: "{{ VERSION }}", classifier: "macos-x86_64"
+implementation group: "io.github.sendablemetatype.webrtc", name: "webrtc-java", version: "{{ VERSION }}", classifier: "macos-aarch64"
+implementation group: "io.github.sendablemetatype.webrtc", name: "webrtc-java", version: "{{ VERSION }}", classifier: "linux-x86_64"
+implementation group: "io.github.sendablemetatype.webrtc", name: "webrtc-java", version: "{{ VERSION }}", classifier: "linux-aarch64"
+implementation group: "io.github.sendablemetatype.webrtc", name: "webrtc-java", version: "{{ VERSION }}", classifier: "linux-aarch32"
 ```
 
 ## Basic Setup
@@ -121,7 +121,7 @@ implementation group: "dev.onvoid.webrtc", name: "webrtc-java", version: "{{ VER
 First, create a `PeerConnectionFactory` which is the entry point for most WebRTC operations:
 
 ```java
-import dev.onvoid.webrtc.PeerConnectionFactory;
+import io.github.sendablemetatype.webrtc.PeerConnectionFactory;
 
 // Create a peer connection factory
 PeerConnectionFactory factory = new PeerConnectionFactory();
@@ -132,10 +132,10 @@ PeerConnectionFactory factory = new PeerConnectionFactory();
 To establish communication with another peer, you need to create a `RTCPeerConnection`:
 
 ```java
-import dev.onvoid.webrtc.RTCConfiguration;
-import dev.onvoid.webrtc.RTCIceServer;
-import dev.onvoid.webrtc.RTCPeerConnection;
-import dev.onvoid.webrtc.PeerConnectionObserver;
+import io.github.sendablemetatype.webrtc.RTCConfiguration;
+import io.github.sendablemetatype.webrtc.RTCIceServer;
+import io.github.sendablemetatype.webrtc.RTCPeerConnection;
+import io.github.sendablemetatype.webrtc.PeerConnectionObserver;
 
 // Configure ICE servers (STUN/TURN)
 RTCConfiguration config = new RTCConfiguration();
@@ -222,9 +222,9 @@ signalingChannel.onIceCandidate(candidateMessage -> {
 To query media devices (cameras and microphones):
 
 ```java
-import dev.onvoid.webrtc.media.MediaDevices;
-import dev.onvoid.webrtc.media.video.VideoDevice;
-import dev.onvoid.webrtc.media.audio.AudioDevice;
+import io.github.sendablemetatype.webrtc.media.MediaDevices;
+import io.github.sendablemetatype.webrtc.media.video.VideoDevice;
+import io.github.sendablemetatype.webrtc.media.audio.AudioDevice;
 
 // Get available video devices
 List<VideoDevice> videoDevices = MediaDevices.getVideoCaptureDevices();
@@ -244,10 +244,10 @@ for (AudioDevice device : audioDevices) {
 To create audio and video tracks:
 
 ```java
-import dev.onvoid.webrtc.media.video.VideoTrack;
-import dev.onvoid.webrtc.media.audio.AudioTrack;
-import dev.onvoid.webrtc.media.video.VideoDeviceSource;
-import dev.onvoid.webrtc.media.audio.AudioDeviceSource;
+import io.github.sendablemetatype.webrtc.media.video.VideoTrack;
+import io.github.sendablemetatype.webrtc.media.audio.AudioTrack;
+import io.github.sendablemetatype.webrtc.media.video.VideoDeviceSource;
+import io.github.sendablemetatype.webrtc.media.audio.AudioDeviceSource;
 
 // Create a video source and track
 VideoDeviceSource videoSource = new VideoDeviceSource();
@@ -317,4 +317,4 @@ For a complete API reference, check the [JavaDoc][javadoc].
 [rtc-stats]: /guide/monitoring/rtc-stats
 [desktop-capture]: /guide/video/desktop-capture
 [overview]: /guide/
-[javadoc]: https://javadoc.io/doc/dev.onvoid.webrtc/webrtc-java/latest/index.html
+[javadoc]: https://javadoc.io/doc/io.github.sendablemetatype.webrtc/webrtc-java/latest/index.html

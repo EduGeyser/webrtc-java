@@ -21,7 +21,7 @@
 
 #include "api/media_stream_interface.h"
 
-JNIEXPORT jlong JNICALL Java_dev_onvoid_webrtc_media_audio_AudioTrack_addSinkInternal
+JNIEXPORT jlong JNICALL Java_io_github_sendablemetatype_webrtc_media_audio_AudioTrack_addSinkInternal
 (JNIEnv * env, jobject caller, jobject jsink)
 {
 	if (jsink == nullptr) {
@@ -39,7 +39,7 @@ JNIEXPORT jlong JNICALL Java_dev_onvoid_webrtc_media_audio_AudioTrack_addSinkInt
 	return reinterpret_cast<jlong>(sink);
 }
 
-JNIEXPORT void JNICALL Java_dev_onvoid_webrtc_media_audio_AudioTrack_removeSinkInternal
+JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_media_audio_AudioTrack_removeSinkInternal
 (JNIEnv * env, jobject caller, jlong sinkHandle)
 {
 	webrtc::AudioTrackInterface * track = GetHandle<webrtc::AudioTrackInterface>(env, caller);
@@ -54,7 +54,7 @@ JNIEXPORT void JNICALL Java_dev_onvoid_webrtc_media_audio_AudioTrack_removeSinkI
 	}
 }
 
-JNIEXPORT jint JNICALL Java_dev_onvoid_webrtc_media_audio_AudioTrack_getSignalLevel
+JNIEXPORT jint JNICALL Java_io_github_sendablemetatype_webrtc_media_audio_AudioTrack_getSignalLevel
 (JNIEnv * env, jobject caller)
 {
 	int level = 0;

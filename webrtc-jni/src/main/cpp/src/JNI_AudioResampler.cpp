@@ -22,7 +22,7 @@
 
 #include "common_audio/resampler/include/push_resampler.h"
 
-JNIEXPORT void JNICALL Java_dev_onvoid_webrtc_media_audio_AudioResampler_dispose
+JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_media_audio_AudioResampler_dispose
 (JNIEnv * env, jobject caller)
 {
 	webrtc::PushResampler<int16_t> * resampler = GetHandle<webrtc::PushResampler<int16_t>>(env, caller);
@@ -33,7 +33,7 @@ JNIEXPORT void JNICALL Java_dev_onvoid_webrtc_media_audio_AudioResampler_dispose
 	SetHandle<std::nullptr_t>(env, caller, nullptr);
 }
 
-JNIEXPORT void JNICALL Java_dev_onvoid_webrtc_media_audio_AudioResampler_initialize
+JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_media_audio_AudioResampler_initialize
 (JNIEnv * env, jobject caller)
 {
 	webrtc::PushResampler<int16_t> * resampler = new webrtc::PushResampler<int16_t>();
@@ -41,7 +41,7 @@ JNIEXPORT void JNICALL Java_dev_onvoid_webrtc_media_audio_AudioResampler_initial
 	SetHandle(env, caller, resampler);
 }
 
-JNIEXPORT void JNICALL Java_dev_onvoid_webrtc_media_audio_AudioResampler_initialize
+JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_media_audio_AudioResampler_initialize
 (JNIEnv* env, jobject caller, jint srcSamplesPerChannel, jint dstSamplesPerChannel, jint channels)
 {
 	webrtc::PushResampler<int16_t> * resampler = new webrtc::PushResampler<int16_t>(srcSamplesPerChannel, dstSamplesPerChannel, channels);
@@ -49,7 +49,7 @@ JNIEXPORT void JNICALL Java_dev_onvoid_webrtc_media_audio_AudioResampler_initial
 	SetHandle(env, caller, resampler);
 }
 
-JNIEXPORT jint JNICALL Java_dev_onvoid_webrtc_media_audio_AudioResampler_resampleInternal
+JNIEXPORT jint JNICALL Java_io_github_sendablemetatype_webrtc_media_audio_AudioResampler_resampleInternal
 (JNIEnv * env, jobject caller, jbyteArray samplesIn, jint srcSamplesPerChannel, jbyteArray samplesOut, jint dstSamplesPerChannel, jint channels)
 {
 	webrtc::PushResampler<int16_t> * resampler = GetHandle<webrtc::PushResampler<int16_t>>(env, caller);

@@ -2,7 +2,7 @@
 
 The VideoBufferConverter provides fast pixel format conversions between WebRTC's internal I420 video frame buffers and other formats identified by a FourCC. Conversions are delegated to optimized native routines.
 
-API: `dev.onvoid.webrtc.media.video.VideoBufferConverter`
+API: `io.github.sendablemetatype.webrtc.media.video.VideoBufferConverter`
 
 ## When to use it
 - Rendering frames in UI toolkits that expect interleaved RGB(A) byte layouts.
@@ -27,7 +27,7 @@ Notes:
 
 ## FourCC formats
 
-The target/source pixel layout is selected with `dev.onvoid.webrtc.media.FourCC`. Common values include:
+The target/source pixel layout is selected with `io.github.sendablemetatype.webrtc.media.FourCC`. Common values include:
 - `FourCC.RGBA` – 4 bytes per pixel, RGBA order (commonly used with BufferedImage TYPE_4BYTE_ABGR interop, see example below)
 - `FourCC.ARGB`, `FourCC.ABGR`, `FourCC.BGRA` – other 32-bit packed variants
 - `FourCC.NV12`, `FourCC.NV21` – 4:2:0 semi-planar YUV formats
@@ -48,10 +48,10 @@ Attempting to convert into undersized buffers will result in an error.
 This example demonstrates converting a WebRTC `VideoFrame` to a Java `BufferedImage` using RGBA output.
 
 ```java
-import dev.onvoid.webrtc.media.FourCC;
-import dev.onvoid.webrtc.media.video.VideoBufferConverter;
-import dev.onvoid.webrtc.media.video.VideoFrame;
-import dev.onvoid.webrtc.media.video.VideoFrameBuffer;
+import io.github.sendablemetatype.webrtc.media.FourCC;
+import io.github.sendablemetatype.webrtc.media.video.VideoBufferConverter;
+import io.github.sendablemetatype.webrtc.media.video.VideoFrame;
+import io.github.sendablemetatype.webrtc.media.video.VideoFrameBuffer;
 
 import java.awt.image.BufferedImage;
 import java.awt.image.DataBufferByte;
@@ -96,10 +96,10 @@ Tip: If you have a direct NIO ByteBuffer (e.g., for native interop), use the Byt
 ## Example: Import RGBA data into I420
 
 ```java
-import dev.onvoid.webrtc.media.FourCC;
-import dev.onvoid.webrtc.media.video.VideoBufferConverter;
-import dev.onvoid.webrtc.media.video.VideoFrame;
-import dev.onvoid.webrtc.media.video.VideoFrameBuffer;
+import io.github.sendablemetatype.webrtc.media.FourCC;
+import io.github.sendablemetatype.webrtc.media.video.VideoBufferConverter;
+import io.github.sendablemetatype.webrtc.media.video.VideoFrame;
+import io.github.sendablemetatype.webrtc.media.video.VideoFrameBuffer;
 
 import java.awt.image.BufferedImage;
 import java.awt.image.DataBufferByte;

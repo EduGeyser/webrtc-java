@@ -2,7 +2,7 @@
 
 The `PowerManagement` utility allows your application to keep the display awake and prevent the operating system from idling to sleep while the user is considered "active" by your app. This is especially useful during screen sharing, presentations, or long-running desktop capture sessions where user input may be minimal.
 
-API: `dev.onvoid.webrtc.media.video.desktop.PowerManagement`
+API: `io.github.sendablemetatype.webrtc.media.video.desktop.PowerManagement`
 
 ## Overview
 
@@ -20,7 +20,7 @@ Key methods:
 Call `enableUserActivity()` when you start an operation that must keep the display awake (e.g., desktop capture or a presentation). Always pair it with `disableUserActivity()` (for example, in a `finally` block) to restore the normal power behavior.
 
 ```java
-import dev.onvoid.webrtc.media.video.desktop.PowerManagement;
+import io.github.sendablemetatype.webrtc.media.video.desktop.PowerManagement;
 
 PowerManagement pm = new PowerManagement();
 

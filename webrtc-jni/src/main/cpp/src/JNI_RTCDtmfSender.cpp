@@ -21,7 +21,7 @@
 
 #include "api/dtmf_sender_interface.h"
 
-JNIEXPORT jboolean JNICALL Java_dev_onvoid_webrtc_RTCDtmfSender_canInsertDtmf
+JNIEXPORT jboolean JNICALL Java_io_github_sendablemetatype_webrtc_RTCDtmfSender_canInsertDtmf
 (JNIEnv * env, jobject caller)
 {
 	webrtc::DtmfSenderInterface * sender = GetHandle<webrtc::DtmfSenderInterface>(env, caller);
@@ -30,7 +30,7 @@ JNIEXPORT jboolean JNICALL Java_dev_onvoid_webrtc_RTCDtmfSender_canInsertDtmf
 	return static_cast<jboolean>(sender->CanInsertDtmf());
 }
 
-JNIEXPORT jboolean JNICALL Java_dev_onvoid_webrtc_RTCDtmfSender_insertDtmf
+JNIEXPORT jboolean JNICALL Java_io_github_sendablemetatype_webrtc_RTCDtmfSender_insertDtmf
 (JNIEnv * env, jobject caller, jstring jTones, jint duration, jint interToneGap)
 {
 	webrtc::DtmfSenderInterface * sender = GetHandle<webrtc::DtmfSenderInterface>(env, caller);
@@ -41,7 +41,7 @@ JNIEXPORT jboolean JNICALL Java_dev_onvoid_webrtc_RTCDtmfSender_insertDtmf
 	return static_cast<jboolean>(sender->InsertDtmf(tones, static_cast<int>(duration), static_cast<int>(interToneGap)));
 }
 
-JNIEXPORT jstring JNICALL Java_dev_onvoid_webrtc_RTCDtmfSender_tones
+JNIEXPORT jstring JNICALL Java_io_github_sendablemetatype_webrtc_RTCDtmfSender_tones
 (JNIEnv * env, jobject caller)
 {
 	webrtc::DtmfSenderInterface * sender = GetHandle<webrtc::DtmfSenderInterface>(env, caller);
@@ -50,7 +50,7 @@ JNIEXPORT jstring JNICALL Java_dev_onvoid_webrtc_RTCDtmfSender_tones
 	return jni::JavaString::toJava(env, sender->tones()).release();
 }
 
-JNIEXPORT jint JNICALL Java_dev_onvoid_webrtc_RTCDtmfSender_duration
+JNIEXPORT jint JNICALL Java_io_github_sendablemetatype_webrtc_RTCDtmfSender_duration
 (JNIEnv * env, jobject caller)
 {
 	webrtc::DtmfSenderInterface * sender = GetHandle<webrtc::DtmfSenderInterface>(env, caller);
@@ -59,7 +59,7 @@ JNIEXPORT jint JNICALL Java_dev_onvoid_webrtc_RTCDtmfSender_duration
 	return static_cast<jint>(sender->duration());
 }
 
-JNIEXPORT jint JNICALL Java_dev_onvoid_webrtc_RTCDtmfSender_interToneGap
+JNIEXPORT jint JNICALL Java_io_github_sendablemetatype_webrtc_RTCDtmfSender_interToneGap
 (JNIEnv * env, jobject caller)
 {
 	webrtc::DtmfSenderInterface * sender = GetHandle<webrtc::DtmfSenderInterface>(env, caller);
@@ -68,7 +68,7 @@ JNIEXPORT jint JNICALL Java_dev_onvoid_webrtc_RTCDtmfSender_interToneGap
 	return static_cast<jint>(sender->inter_tone_gap());
 }
 
-JNIEXPORT void JNICALL Java_dev_onvoid_webrtc_RTCDtmfSender_registerObserver
+JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_RTCDtmfSender_registerObserver
 (JNIEnv * env, jobject caller, jobject jObserver)
 {
 	webrtc::DtmfSenderInterface * sender = GetHandle<webrtc::DtmfSenderInterface>(env, caller);
@@ -77,7 +77,7 @@ JNIEXPORT void JNICALL Java_dev_onvoid_webrtc_RTCDtmfSender_registerObserver
 	sender->RegisterObserver(new jni::RTCDtmfSenderObserver(env, jni::JavaGlobalRef<jobject>(env, jObserver)));
 }
 
-JNIEXPORT void JNICALL Java_dev_onvoid_webrtc_RTCDtmfSender_unregisterObserver
+JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_RTCDtmfSender_unregisterObserver
 (JNIEnv * env, jobject caller)
 {
 	webrtc::DtmfSenderInterface * sender = GetHandle<webrtc::DtmfSenderInterface>(env, caller);

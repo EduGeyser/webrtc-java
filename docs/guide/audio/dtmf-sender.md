@@ -17,10 +17,10 @@ DTMF tones are the audible tones generated when pressing keys on a telephone key
 To use DTMF functionality, you need an established `RTCPeerConnection` with an audio track. You can then get the DTMF sender from the RTP sender associated with the audio track:
 
 ```java
-import dev.onvoid.webrtc.RTCPeerConnection;
-import dev.onvoid.webrtc.RTCRtpSender;
-import dev.onvoid.webrtc.RTCDtmfSender;
-import dev.onvoid.webrtc.media.audio.AudioTrack;
+import io.github.sendablemetatype.webrtc.RTCPeerConnection;
+import io.github.sendablemetatype.webrtc.RTCRtpSender;
+import io.github.sendablemetatype.webrtc.RTCDtmfSender;
+import io.github.sendablemetatype.webrtc.media.audio.AudioTrack;
 
 // Assuming you already have a PeerConnectionFactory and RTCConfiguration
 RTCPeerConnection peerConnection = factory.createPeerConnection(config, peerConnectionObserver);
@@ -96,7 +96,7 @@ If these constraints are not met, the `insertDtmf` method will return `false`.
 To receive notifications about DTMF tone events, implement the `RTCDtmfSenderObserver` interface and register it with the DTMF sender:
 
 ```java
-import dev.onvoid.webrtc.RTCDtmfSenderObserver;
+import io.github.sendablemetatype.webrtc.RTCDtmfSenderObserver;
 
 dtmfSender.registerObserver(new RTCDtmfSenderObserver() {
     @Override

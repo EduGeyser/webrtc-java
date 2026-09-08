@@ -21,7 +21,7 @@
 
 #include "rtc_base/logging.h"
 
-JNIEXPORT void JNICALL Java_dev_onvoid_webrtc_media_audio_CustomAudioSource_initialize
+JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_media_audio_CustomAudioSource_initialize
 (JNIEnv * env, jobject caller)
 {
     std::shared_ptr<jni::SyncClock> sync_clock = std::make_shared<jni::SyncClock>();
@@ -30,7 +30,7 @@ JNIEXPORT void JNICALL Java_dev_onvoid_webrtc_media_audio_CustomAudioSource_init
     SetHandle(env, caller, source.release());
 }
 
-JNIEXPORT void JNICALL Java_dev_onvoid_webrtc_media_audio_CustomAudioSource_initializeWithClock
+JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_media_audio_CustomAudioSource_initializeWithClock
 (JNIEnv * env, jobject caller, jobject javaClock)
 {
     jni::SyncClock * clock = GetHandle<jni::SyncClock>(env, javaClock);
@@ -42,7 +42,7 @@ JNIEXPORT void JNICALL Java_dev_onvoid_webrtc_media_audio_CustomAudioSource_init
     SetHandle(env, caller, source.release());
 }
 
-JNIEXPORT void JNICALL Java_dev_onvoid_webrtc_media_audio_CustomAudioSource_dispose
+JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_media_audio_CustomAudioSource_dispose
 (JNIEnv * env, jobject caller)
 {
     jni::CustomAudioSource * source = GetHandle<jni::CustomAudioSource>(env, caller);
@@ -59,7 +59,7 @@ JNIEXPORT void JNICALL Java_dev_onvoid_webrtc_media_audio_CustomAudioSource_disp
 	source = nullptr;
 }
 
-JNIEXPORT void JNICALL Java_dev_onvoid_webrtc_media_audio_CustomAudioSource_pushAudio
+JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_media_audio_CustomAudioSource_pushAudio
 (JNIEnv * env, jobject caller, jbyteArray audioData, jint bits_per_sample, jint sampleRate, jint channels, jint frameCount)
 {
     jni::CustomAudioSource * source = GetHandle<jni::CustomAudioSource>(env, caller);

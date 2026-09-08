@@ -21,7 +21,7 @@
 
 #include "api/media_stream_interface.h"
 
-JNIEXPORT jlong JNICALL Java_dev_onvoid_webrtc_media_video_VideoTrack_addSinkInternal
+JNIEXPORT jlong JNICALL Java_io_github_sendablemetatype_webrtc_media_video_VideoTrack_addSinkInternal
 (JNIEnv * env, jobject caller, jobject jsink)
 {
 	if (jsink == nullptr) {
@@ -39,7 +39,7 @@ JNIEXPORT jlong JNICALL Java_dev_onvoid_webrtc_media_video_VideoTrack_addSinkInt
 	return reinterpret_cast<jlong>(sink);
 }
 
-JNIEXPORT void JNICALL Java_dev_onvoid_webrtc_media_video_VideoTrack_removeSinkInternal
+JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_media_video_VideoTrack_removeSinkInternal
 (JNIEnv * env, jobject caller, jlong sinkHandle)
 {
 	webrtc::VideoTrackInterface * track = GetHandle<webrtc::VideoTrackInterface>(env, caller);

@@ -2,7 +2,7 @@
 
 The AudioRecorder is a small helper that captures audio from a selected input device and forwards PCM frames to your implementation of `AudioSink`. It manages a native `AudioDeviceModule` internally and provides idempotent start/stop.
 
-API: `dev.onvoid.webrtc.media.audio.AudioRecorder`
+API: `io.github.sendablemetatype.webrtc.media.audio.AudioRecorder`
 
 ## When to use it
 - You want a simple way to record microphone input without wiring a full PeerConnection.
@@ -18,10 +18,10 @@ See also: [Audio Device Selection](/guide/audio/audio-devices), [Audio Processin
 ## Basic usage
 
 ```java
-import dev.onvoid.webrtc.media.audio.AudioRecorder;
-import dev.onvoid.webrtc.media.audio.AudioSink;
-import dev.onvoid.webrtc.media.audio.AudioDevice;
-import dev.onvoid.webrtc.media.audio.AudioDeviceModule;
+import io.github.sendablemetatype.webrtc.media.audio.AudioRecorder;
+import io.github.sendablemetatype.webrtc.media.audio.AudioSink;
+import io.github.sendablemetatype.webrtc.media.audio.AudioDevice;
+import io.github.sendablemetatype.webrtc.media.audio.AudioDeviceModule;
 
 public class MicRecorderExample {
     public static void main(String[] args) {

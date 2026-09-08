@@ -29,7 +29,7 @@
 #include "JavaString.h"
 #include "JavaUtils.h"
 
-JNIEXPORT void JNICALL Java_dev_onvoid_webrtc_media_video_VideoDeviceSource_setVideoCaptureDevice
+JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_media_video_VideoDeviceSource_setVideoCaptureDevice
 (JNIEnv * env, jobject caller, jobject device)
 {
 	if (!device) {
@@ -50,7 +50,7 @@ JNIEXPORT void JNICALL Java_dev_onvoid_webrtc_media_video_VideoDeviceSource_setV
 	videoSource->setVideoDevice(std::make_shared<jni::avdev::VideoDevice>(dev.getName(), dev.getDescriptor()));
 }
 
-JNIEXPORT void JNICALL Java_dev_onvoid_webrtc_media_video_VideoDeviceSource_setVideoCaptureCapability
+JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_media_video_VideoDeviceSource_setVideoCaptureCapability
 (JNIEnv * env, jobject caller, jobject jcapability)
 {
 #ifdef __APPLE__
@@ -78,7 +78,7 @@ JNIEXPORT void JNICALL Java_dev_onvoid_webrtc_media_video_VideoDeviceSource_setV
 	videoSource->setVideoCaptureCapability(capability);
 }
 
-JNIEXPORT void JNICALL Java_dev_onvoid_webrtc_media_video_VideoDeviceSource_start
+JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_media_video_VideoDeviceSource_start
 (JNIEnv * env, jobject caller)
 {
 #ifdef __APPLE__
@@ -97,7 +97,7 @@ JNIEXPORT void JNICALL Java_dev_onvoid_webrtc_media_video_VideoDeviceSource_star
 	}
 }
 
-JNIEXPORT void JNICALL Java_dev_onvoid_webrtc_media_video_VideoDeviceSource_stop
+JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_media_video_VideoDeviceSource_stop
 (JNIEnv * env, jobject caller)
 {
 #ifdef __APPLE__
@@ -116,7 +116,7 @@ JNIEXPORT void JNICALL Java_dev_onvoid_webrtc_media_video_VideoDeviceSource_stop
 	}
 }
 
-JNIEXPORT void JNICALL Java_dev_onvoid_webrtc_media_video_VideoDeviceSource_dispose
+JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_media_video_VideoDeviceSource_dispose
 (JNIEnv * env, jobject caller)
 {
 #ifdef __APPLE__
@@ -138,7 +138,7 @@ JNIEXPORT void JNICALL Java_dev_onvoid_webrtc_media_video_VideoDeviceSource_disp
 	videoSource = nullptr;
 }
 
-JNIEXPORT void JNICALL Java_dev_onvoid_webrtc_media_video_VideoDeviceSource_initialize
+JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_media_video_VideoDeviceSource_initialize
 (JNIEnv * env, jobject caller)
 {
 #ifdef __APPLE__

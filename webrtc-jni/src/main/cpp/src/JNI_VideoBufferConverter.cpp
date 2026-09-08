@@ -60,7 +60,7 @@ size_t CalcBufferSize(int width, int height, int fourCC) {
 	return bufferSize;
 }
 
-JNIEXPORT void JNICALL Java_dev_onvoid_webrtc_media_video_VideoBufferConverter_I420toByteArray
+JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_media_video_VideoBufferConverter_I420toByteArray
 (JNIEnv * env, jclass cls, jobject jSrcY, jint srcStrideY, jobject jSrcU, jint srcStrideU,
 	jobject jSrcV, jint srcStrideV, jbyteArray dst, jint width, jint height, jint fourCC)
 {
@@ -94,7 +94,7 @@ JNIEXPORT void JNICALL Java_dev_onvoid_webrtc_media_video_VideoBufferConverter_I
 	env->ReleaseByteArrayElements(dst, arrayPtr, JNI_ABORT);
 }
 
-JNIEXPORT void JNICALL Java_dev_onvoid_webrtc_media_video_VideoBufferConverter_I420toDirectBuffer
+JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_media_video_VideoBufferConverter_I420toDirectBuffer
 (JNIEnv * env, jclass, jobject jSrcY, jint srcStrideY, jobject jSrcU, jint srcStrideU,
 	jobject jSrcV, jint srcStrideV, jobject dst, jint width, jint height, jint fourCC)
 {
@@ -127,7 +127,7 @@ JNIEXPORT void JNICALL Java_dev_onvoid_webrtc_media_video_VideoBufferConverter_I
 	}
 }
 
-JNIEXPORT void JNICALL Java_dev_onvoid_webrtc_media_video_VideoBufferConverter_byteArrayToI420
+JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_media_video_VideoBufferConverter_byteArrayToI420
 (JNIEnv * env, jclass cls, jbyteArray src, jint width, jint height, jobject jDstY, jint dstStrideY,
 	jobject jDstU, jint dstStrideU, jobject jDstV, jint dstStrideV, jint fourCC)
 {
@@ -163,7 +163,7 @@ JNIEXPORT void JNICALL Java_dev_onvoid_webrtc_media_video_VideoBufferConverter_b
 	env->ReleaseByteArrayElements(src, arrayPtr, JNI_ABORT);
 }
 
-JNIEXPORT void JNICALL Java_dev_onvoid_webrtc_media_video_VideoBufferConverter_directBufferToI420
+JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_media_video_VideoBufferConverter_directBufferToI420
 (JNIEnv * env, jclass, jobject src, jint width, jint height, jobject jDstY, jint dstStrideY,
 	jobject jDstU, jint dstStrideU, jobject jDstV, jint dstStrideV, jint fourCC)
 {

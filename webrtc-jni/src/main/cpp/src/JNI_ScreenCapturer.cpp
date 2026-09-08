@@ -18,7 +18,7 @@
 #include "JavaUtils.h"
 #include "media/video/desktop/DesktopCapturer.h"
 
-JNIEXPORT void JNICALL Java_dev_onvoid_webrtc_media_video_desktop_ScreenCapturer_initialize
+JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_media_video_desktop_ScreenCapturer_initialize
 (JNIEnv * env, jobject caller)
 {
 	try {

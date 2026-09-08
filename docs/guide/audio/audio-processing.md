@@ -1,6 +1,6 @@
 # Audio Processing
 
-This guide explains how to use the audio processing capabilities provided by the `dev.onvoid.webrtc.media.audio.AudioProcessing` class. The library provides a collection of voice processing components designed for real-time communications software.
+This guide explains how to use the audio processing capabilities provided by the `io.github.sendablemetatype.webrtc.media.audio.AudioProcessing` class. The library provides a collection of voice processing components designed for real-time communications software.
 
 ## Overview
 
@@ -25,10 +25,10 @@ There are two main approaches to using audio processing in the library:
 The simplest way to use audio processing is to set a configured `AudioProcessing` instance to the `PeerConnectionFactory`:
 
 ```java
-import dev.onvoid.webrtc.PeerConnectionFactory;
-import dev.onvoid.webrtc.media.audio.AudioProcessing;
-import dev.onvoid.webrtc.media.audio.AudioProcessingConfig;
-import dev.onvoid.webrtc.media.audio.NoiseSuppression;
+import io.github.sendablemetatype.webrtc.PeerConnectionFactory;
+import io.github.sendablemetatype.webrtc.media.audio.AudioProcessing;
+import io.github.sendablemetatype.webrtc.media.audio.AudioProcessingConfig;
+import io.github.sendablemetatype.webrtc.media.audio.NoiseSuppression;
 
 // Create and configure an AudioProcessing instance
 AudioProcessing audioProcessing = new AudioProcessing();
@@ -62,9 +62,9 @@ With this approach, the WebRTC framework automatically applies the audio process
 For more control, you can manually process audio streams:
 
 ```java
-import dev.onvoid.webrtc.media.audio.AudioProcessing;
-import dev.onvoid.webrtc.media.audio.AudioProcessingConfig;
-import dev.onvoid.webrtc.media.audio.AudioProcessingStreamConfig;
+import io.github.sendablemetatype.webrtc.media.audio.AudioProcessing;
+import io.github.sendablemetatype.webrtc.media.audio.AudioProcessingConfig;
+import io.github.sendablemetatype.webrtc.media.audio.AudioProcessingStreamConfig;
 
 // Create an AudioProcessing instance
 AudioProcessing audioProcessing = new AudioProcessing();

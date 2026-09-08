@@ -22,8 +22,8 @@ To get a list of all available microphones:
 
 ```java
 // Import required classes
-import dev.onvoid.webrtc.media.MediaDevices;
-import dev.onvoid.webrtc.media.audio.AudioDevice;
+import io.github.sendablemetatype.webrtc.media.MediaDevices;
+import io.github.sendablemetatype.webrtc.media.audio.AudioDevice;
 import java.util.List;
 
 // Get all microphones
@@ -48,8 +48,8 @@ To get a list of all available speakers:
 
 ```java
 // Import required classes
-import dev.onvoid.webrtc.media.MediaDevices;
-import dev.onvoid.webrtc.media.audio.AudioDevice;
+import io.github.sendablemetatype.webrtc.media.MediaDevices;
+import io.github.sendablemetatype.webrtc.media.audio.AudioDevice;
 import java.util.List;
 
 // Get all speakers
@@ -74,8 +74,8 @@ To get a list of all available cameras:
 
 ```java
 // Import required classes
-import dev.onvoid.webrtc.media.MediaDevices;
-import dev.onvoid.webrtc.media.video.VideoDevice;
+import io.github.sendablemetatype.webrtc.media.MediaDevices;
+import io.github.sendablemetatype.webrtc.media.video.VideoDevice;
 import java.util.List;
 
 // Get all cameras
@@ -94,9 +94,9 @@ You can query the capabilities of a specific camera to determine the supported r
 
 ```java
 // Import required classes
-import dev.onvoid.webrtc.media.MediaDevices;
-import dev.onvoid.webrtc.media.video.VideoDevice;
-import dev.onvoid.webrtc.media.video.VideoCaptureCapability;
+import io.github.sendablemetatype.webrtc.media.MediaDevices;
+import io.github.sendablemetatype.webrtc.media.video.VideoDevice;
+import io.github.sendablemetatype.webrtc.media.video.VideoCaptureCapability;
 import java.util.List;
 
 // Get all cameras
@@ -126,11 +126,11 @@ You can listen for device hotplug events to be notified when devices are connect
 
 ```java
 // Import required classes
-import dev.onvoid.webrtc.media.Device;
-import dev.onvoid.webrtc.media.DeviceChangeListener;
-import dev.onvoid.webrtc.media.MediaDevices;
-import dev.onvoid.webrtc.media.audio.AudioDevice;
-import dev.onvoid.webrtc.media.video.VideoDevice;
+import io.github.sendablemetatype.webrtc.media.Device;
+import io.github.sendablemetatype.webrtc.media.DeviceChangeListener;
+import io.github.sendablemetatype.webrtc.media.MediaDevices;
+import io.github.sendablemetatype.webrtc.media.audio.AudioDevice;
+import io.github.sendablemetatype.webrtc.media.video.VideoDevice;
 
 // Create a device change listener
 DeviceChangeListener listener = new DeviceChangeListener() {

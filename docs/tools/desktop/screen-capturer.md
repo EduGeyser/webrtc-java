@@ -2,7 +2,7 @@
 
 The `ScreenCapturer` enumerates and captures full desktop screens/monitors. Use it to list available screens and to drive screen-source selection for desktop capture workflows.
 
-API: `dev.onvoid.webrtc.media.video.desktop.ScreenCapturer`
+API: `io.github.sendablemetatype.webrtc.media.video.desktop.ScreenCapturer`
 
 ## Overview
 
@@ -23,8 +23,8 @@ Key methods (inherited from `DesktopCapturer`):
 ## Typical usage: enumerate screens
 
 ```java
-import dev.onvoid.webrtc.media.video.desktop.DesktopSource;
-import dev.onvoid.webrtc.media.video.desktop.ScreenCapturer;
+import io.github.sendablemetatype.webrtc.media.video.desktop.DesktopSource;
+import io.github.sendablemetatype.webrtc.media.video.desktop.ScreenCapturer;
 import java.util.List;
 
 ScreenCapturer screenCapturer = new ScreenCapturer();
@@ -42,8 +42,8 @@ finally {
 ## Selecting a screen and starting capture with a callback
 
 ```java
-import dev.onvoid.webrtc.media.video.desktop.*;
-import dev.onvoid.webrtc.media.video.VideoFrame;
+import io.github.sendablemetatype.webrtc.media.video.desktop.*;
+import io.github.sendablemetatype.webrtc.media.video.VideoFrame;
 
 ScreenCapturer capturer = new ScreenCapturer();
 try {
@@ -76,8 +76,8 @@ finally {
 For most WebRTC pipelines, you will create a `VideoDesktopSource` and set the selected screen ID:
 
 ```java
-import dev.onvoid.webrtc.media.video.VideoDesktopSource;
-import dev.onvoid.webrtc.media.video.desktop.*;
+import io.github.sendablemetatype.webrtc.media.video.VideoDesktopSource;
+import io.github.sendablemetatype.webrtc.media.video.desktop.*;
 
 ScreenCapturer sc = new ScreenCapturer();
 DesktopSource screen = sc.getDesktopSources().get(0);

@@ -28,7 +28,7 @@
 
 #include "api/rtp_transceiver_interface.h"
 
-JNIEXPORT jstring JNICALL Java_dev_onvoid_webrtc_RTCRtpTransceiver_getMid
+JNIEXPORT jstring JNICALL Java_io_github_sendablemetatype_webrtc_RTCRtpTransceiver_getMid
 (JNIEnv * env, jobject caller)
 {
 	webrtc::RtpTransceiverInterface * transceiver = GetHandle<webrtc::RtpTransceiverInterface>(env, caller);
@@ -37,7 +37,7 @@ JNIEXPORT jstring JNICALL Java_dev_onvoid_webrtc_RTCRtpTransceiver_getMid
 	return jni::JavaString::toJava(env, transceiver->mid().value_or("")).release();
 }
 
-JNIEXPORT jobject JNICALL Java_dev_onvoid_webrtc_RTCRtpTransceiver_getSender
+JNIEXPORT jobject JNICALL Java_io_github_sendablemetatype_webrtc_RTCRtpTransceiver_getSender
 (JNIEnv * env, jobject caller)
 {
 	webrtc::RtpTransceiverInterface * transceiver = GetHandle<webrtc::RtpTransceiverInterface>(env, caller);
@@ -48,7 +48,7 @@ JNIEXPORT jobject JNICALL Java_dev_onvoid_webrtc_RTCRtpTransceiver_getSender
 	return jni::JavaFactories::create(env, sender.get()).release();
 }
 
-JNIEXPORT jobject JNICALL Java_dev_onvoid_webrtc_RTCRtpTransceiver_getReceiver
+JNIEXPORT jobject JNICALL Java_io_github_sendablemetatype_webrtc_RTCRtpTransceiver_getReceiver
 (JNIEnv * env, jobject caller)
 {
 	webrtc::RtpTransceiverInterface * transceiver = GetHandle<webrtc::RtpTransceiverInterface>(env, caller);
@@ -59,7 +59,7 @@ JNIEXPORT jobject JNICALL Java_dev_onvoid_webrtc_RTCRtpTransceiver_getReceiver
 	return jni::JavaFactories::create(env, receiver.get()).release();
 }
 
-JNIEXPORT jobject JNICALL Java_dev_onvoid_webrtc_RTCRtpTransceiver_getDirection
+JNIEXPORT jobject JNICALL Java_io_github_sendablemetatype_webrtc_RTCRtpTransceiver_getDirection
 (JNIEnv * env, jobject caller)
 {
 	webrtc::RtpTransceiverInterface * transceiver = GetHandle<webrtc::RtpTransceiverInterface>(env, caller);
@@ -68,7 +68,7 @@ JNIEXPORT jobject JNICALL Java_dev_onvoid_webrtc_RTCRtpTransceiver_getDirection
 	return jni::JavaEnums::toJava(env, transceiver->direction()).release();
 }
 
-JNIEXPORT void JNICALL Java_dev_onvoid_webrtc_RTCRtpTransceiver_setDirection
+JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_RTCRtpTransceiver_setDirection
 (JNIEnv * env, jobject caller, jobject jDirection)
 {
 	webrtc::RtpTransceiverInterface * transceiver = GetHandle<webrtc::RtpTransceiverInterface>(env, caller);
@@ -82,7 +82,7 @@ JNIEXPORT void JNICALL Java_dev_onvoid_webrtc_RTCRtpTransceiver_setDirection
 	}
 }
 
-JNIEXPORT jobject JNICALL Java_dev_onvoid_webrtc_RTCRtpTransceiver_getCurrentDirection
+JNIEXPORT jobject JNICALL Java_io_github_sendablemetatype_webrtc_RTCRtpTransceiver_getCurrentDirection
 (JNIEnv * env, jobject caller)
 {
 	webrtc::RtpTransceiverInterface * transceiver = GetHandle<webrtc::RtpTransceiverInterface>(env, caller);
@@ -97,7 +97,7 @@ JNIEXPORT jobject JNICALL Java_dev_onvoid_webrtc_RTCRtpTransceiver_getCurrentDir
 	return jni::JavaEnums::toJava(env, directionOpt.value()).release();
 }
 
-JNIEXPORT void JNICALL Java_dev_onvoid_webrtc_RTCRtpTransceiver_stop
+JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_RTCRtpTransceiver_stop
 (JNIEnv * env, jobject caller)
 {
 	webrtc::RtpTransceiverInterface * transceiver = GetHandle<webrtc::RtpTransceiverInterface>(env, caller);
@@ -111,7 +111,7 @@ JNIEXPORT void JNICALL Java_dev_onvoid_webrtc_RTCRtpTransceiver_stop
 	}
 }
 
-JNIEXPORT jboolean JNICALL Java_dev_onvoid_webrtc_RTCRtpTransceiver_stopped
+JNIEXPORT jboolean JNICALL Java_io_github_sendablemetatype_webrtc_RTCRtpTransceiver_stopped
 (JNIEnv * env, jobject caller)
 {
 	webrtc::RtpTransceiverInterface * transceiver = GetHandle<webrtc::RtpTransceiverInterface>(env, caller);
@@ -120,7 +120,7 @@ JNIEXPORT jboolean JNICALL Java_dev_onvoid_webrtc_RTCRtpTransceiver_stopped
 	return static_cast<jboolean>(transceiver->stopped());
 }
 
-JNIEXPORT jobject JNICALL Java_dev_onvoid_webrtc_RTCRtpTransceiver_getCodecPreferences
+JNIEXPORT jobject JNICALL Java_io_github_sendablemetatype_webrtc_RTCRtpTransceiver_getCodecPreferences
 (JNIEnv * env, jobject caller)
 {
 	webrtc::RtpTransceiverInterface * transceiver = GetHandle<webrtc::RtpTransceiverInterface>(env, caller);
@@ -131,7 +131,7 @@ JNIEXPORT jobject JNICALL Java_dev_onvoid_webrtc_RTCRtpTransceiver_getCodecPrefe
 	return capabilities.get();
 }
 
-JNIEXPORT void JNICALL Java_dev_onvoid_webrtc_RTCRtpTransceiver_setCodecPreferences
+JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_RTCRtpTransceiver_setCodecPreferences
 (JNIEnv * env, jobject caller, jobject jPreferences)
 {
 	webrtc::RtpTransceiverInterface * transceiver = GetHandle<webrtc::RtpTransceiverInterface>(env, caller);

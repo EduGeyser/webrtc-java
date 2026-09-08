@@ -2,7 +2,7 @@
 
 The `AudioConverter` remixes and resamples PCM audio frames to a target sample rate and channel count. It operates on 10 ms frames of 16‑bit PCM data and returns the number of output samples produced for each 10 ms frame.
 
-API: `dev.onvoid.webrtc.media.audio.AudioConverter`
+API: `io.github.sendablemetatype.webrtc.media.audio.AudioConverter`
 
 ## Overview
 
@@ -36,7 +36,7 @@ The method `getTargetBufferSize()` returns the exact number of bytes you need fo
 ## Basic usage
 
 ```java
-import dev.onvoid.webrtc.media.audio.AudioConverter;
+import io.github.sendablemetatype.webrtc.media.audio.AudioConverter;
 
 // Convert 48 kHz stereo to 16 kHz mono
 int srcSampleRate = 48000;

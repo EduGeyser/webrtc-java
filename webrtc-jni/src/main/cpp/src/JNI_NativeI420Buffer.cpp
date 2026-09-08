@@ -21,7 +21,7 @@
 #include "api/video/i420_buffer.h"
 #include "libyuv/scale.h"
 
-JNIEXPORT jobject JNICALL Java_dev_onvoid_webrtc_media_video_NativeI420Buffer_allocate
+JNIEXPORT jobject JNICALL Java_io_github_sendablemetatype_webrtc_media_video_NativeI420Buffer_allocate
 (JNIEnv * env, jclass caller, jint width, jint height)
 {
 	webrtc::scoped_refptr<webrtc::I420BufferInterface> i420Buffer = webrtc::I420Buffer::Create(width, height);
@@ -33,7 +33,7 @@ JNIEXPORT jobject JNICALL Java_dev_onvoid_webrtc_media_video_NativeI420Buffer_al
 	return jBuffer.release();
 }
 
-JNIEXPORT jobject JNICALL Java_dev_onvoid_webrtc_media_video_NativeI420Buffer_copy
+JNIEXPORT jobject JNICALL Java_io_github_sendablemetatype_webrtc_media_video_NativeI420Buffer_copy
 (JNIEnv* env, jclass caller, jint width, jint height, jobject jSrcY, jint srcStrideY,
 	jobject jSrcU, jint srcStrideU, jobject jSrcV, jint srcStrideV)
 {
@@ -51,7 +51,7 @@ JNIEXPORT jobject JNICALL Java_dev_onvoid_webrtc_media_video_NativeI420Buffer_co
 	return jBuffer.release();
 }
 
-JNIEXPORT void JNICALL Java_dev_onvoid_webrtc_media_video_NativeI420Buffer_cropAndScale
+JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_media_video_NativeI420Buffer_cropAndScale
 (JNIEnv * env, jclass caller, jobject jSrcY, jint srcStrideY, jobject jSrcU, jint srcStrideU,
 	jobject jSrcV, jint srcStrideV, jint cropX, jint cropY, jint cropW, jint cropH,
 	jobject jDstY, jint dstStrideY, jobject jDstU, jint dstStrideU, jobject jDstV, jint dstStrideV,

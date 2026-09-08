@@ -2,7 +2,7 @@
 
 The `WindowCapturer` enumerates and captures individual application windows. Use it to list open windows and to drive window-source selection for desktop capture workflows.
 
-API: `dev.onvoid.webrtc.media.video.desktop.WindowCapturer`
+API: `io.github.sendablemetatype.webrtc.media.video.desktop.WindowCapturer`
 
 ## Overview
 
@@ -23,8 +23,8 @@ Key methods (inherited from `DesktopCapturer`):
 ## Typical usage: enumerate windows
 
 ```java
-import dev.onvoid.webrtc.media.video.desktop.DesktopSource;
-import dev.onvoid.webrtc.media.video.desktop.WindowCapturer;
+import io.github.sendablemetatype.webrtc.media.video.desktop.DesktopSource;
+import io.github.sendablemetatype.webrtc.media.video.desktop.WindowCapturer;
 import java.util.List;
 
 WindowCapturer windowCapturer = new WindowCapturer();
@@ -42,8 +42,8 @@ finally {
 ## Selecting a window and starting capture with a callback
 
 ```java
-import dev.onvoid.webrtc.media.video.desktop.*;
-import dev.onvoid.webrtc.media.video.VideoFrame;
+import io.github.sendablemetatype.webrtc.media.video.desktop.*;
+import io.github.sendablemetatype.webrtc.media.video.VideoFrame;
 
 WindowCapturer capturer = new WindowCapturer();
 try {
@@ -71,8 +71,8 @@ finally {
 ## Using with VideoDesktopSource to create a VideoTrack
 
 ```java
-import dev.onvoid.webrtc.media.video.VideoDesktopSource;
-import dev.onvoid.webrtc.media.video.desktop.*;
+import io.github.sendablemetatype.webrtc.media.video.VideoDesktopSource;
+import io.github.sendablemetatype.webrtc.media.video.desktop.*;
 
 WindowCapturer wc = new WindowCapturer();
 DesktopSource window = wc.getDesktopSources().get(0);

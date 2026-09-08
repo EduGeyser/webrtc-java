@@ -19,7 +19,7 @@
 #include "media/audio/AudioConverter.h"
 #include "JavaUtils.h"
 
-JNIEXPORT void JNICALL Java_dev_onvoid_webrtc_media_audio_AudioConverter_convertInternal
+JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_media_audio_AudioConverter_convertInternal
 (JNIEnv * env, jobject caller, jbyteArray src, jint nSrcSamples, jbyteArray dst, jint nDstSamples)
 {
 	jni::AudioConverter * converter = GetHandle<jni::AudioConverter>(env, caller);
@@ -42,7 +42,7 @@ JNIEXPORT void JNICALL Java_dev_onvoid_webrtc_media_audio_AudioConverter_convert
 	env->ReleaseByteArrayElements(dst, dstPtr, JNI_ABORT);
 }
 
-JNIEXPORT void JNICALL Java_dev_onvoid_webrtc_media_audio_AudioConverter_dispose
+JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_media_audio_AudioConverter_dispose
 (JNIEnv * env, jobject caller)
 {
 	jni::AudioConverter * converter = GetHandle<jni::AudioConverter>(env, caller);
@@ -53,7 +53,7 @@ JNIEXPORT void JNICALL Java_dev_onvoid_webrtc_media_audio_AudioConverter_dispose
 	delete converter;
 }
 
-JNIEXPORT void JNICALL Java_dev_onvoid_webrtc_media_audio_AudioConverter_initialize
+JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_media_audio_AudioConverter_initialize
 (JNIEnv * env, jobject caller, jint srcSampleRate, jint srcChannels, jint dstSampleRate, jint dstChannels)
 {
 	// 10 ms frames

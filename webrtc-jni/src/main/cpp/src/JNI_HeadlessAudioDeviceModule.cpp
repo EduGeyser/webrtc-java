@@ -24,7 +24,7 @@
 
 #include "api/scoped_refptr.h"
 
-JNIEXPORT void JNICALL Java_dev_onvoid_webrtc_media_audio_HeadlessAudioDeviceModule_initialize
+JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_media_audio_HeadlessAudioDeviceModule_initialize
 (JNIEnv* env, jobject caller)
 {
 	jni::WebRTCContext * context = static_cast<jni::WebRTCContext*>(javaContext);
