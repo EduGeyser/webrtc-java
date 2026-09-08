@@ -19,3 +19,7 @@
 
 # Sysroots installed beside the WebRTC build script
 webrtc-jni/src/main/cpp/dependencies/webrtc/linux/debian*
+
+# clangd
+compile_commands.json
+.cache/

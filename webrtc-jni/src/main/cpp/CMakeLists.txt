@@ -7,6 +7,8 @@ endif()
 
 project(webrtc-java)
 
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
 option(WEBRTC_DATA_CHANNELS_ONLY "Build without audio and video support, for applications that use data channels only" OFF)
 
 if(UNIX AND NOT APPLE)
@@ -149,3 +151,22 @@ install(TARGETS ${PROJECT_NAME}
     RUNTIME DESTINATION ${CMAKE_INSTALL_PREFIX} COMPONENT Runtime
     LIBRARY DESTINATION ${CMAKE_INSTALL_PREFIX} COMPONENT Runtime
 )
+
+# The compile commands at the repository root, where clangd looks for them.
+if(PROJECT_IS_TOP_LEVEL)
+    get_filename_component(REPOSITORY_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../../../.." ABSOLUTE)
+
+    if(WIN32)
+        execute_process(
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                "${CMAKE_BINARY_DIR}/compile_commands.json"
+                "${REPOSITORY_DIR}/compile_commands.json"
+        )
+    else()
+        execute_process(
+            COMMAND ${CMAKE_COMMAND} -E create_symlink
+                "${CMAKE_BINARY_DIR}/compile_commands.json"
+                "${REPOSITORY_DIR}/compile_commands.json"
+        )
+    endif()
+endif()
