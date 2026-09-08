@@ -1,34 +1,37 @@
-[![Build Status](https://img.shields.io/github/actions/workflow/status/devopvoid/webrtc-java/build.yml?label=Build&logo=github)](https://github.com/devopvoid/webrtc-java/actions)
-[![Maven Central](https://img.shields.io/maven-central/v/io.github.sendablemetatype.webrtc/webrtc-java?label=Maven%20Central&logo=apache-maven)](https://search.maven.org/artifact/io.github.sendablemetatype.webrtc/webrtc-java)
+# webrtc-java, data channels only
 
-<p align="center">
-  <img alt="webrtc-java" width="100px" src="https://jrtc.dev/logo.png" />
-  <h2 align="center">Connecting the Java world through WebRTC</h2>
-</p>
+A fork of [devopvoid/webrtc-java](https://github.com/devopvoid/webrtc-java), the Java wrapper for the [WebRTC Native API](https://webrtc.github.io/webrtc-org/native-code/native-apis), built for applications that only exchange data. The native library carries no codecs, audio processing, audio devices, cameras or desktop capture, which makes it a fraction of the size of the full one. The Java API is the one of upstream; the audio and video classes throw an `UnsatisfiedLinkError` with this library.
 
-webrtc-java is a Java wrapper for the [WebRTC Native API](https://webrtc.github.io/webrtc-org/native-code/native-apis), providing similar functionality to the [W3C JavaScript API](https://w3c.github.io/webrtc-pc). It allows Java developers to build real-time communication applications for desktop platforms without having to work directly with native code.
+The fork follows upstream closely: it is upstream's `main` with the [data channels only variant](docs/guide/build.md#data-channels-only) selected, its own package and coordinates, and at times a newer WebRTC branch.
 
-The library provides a comprehensive set of Java classes that map to the WebRTC C++ API, making it possible to establish peer-to-peer connections, transmit audio and video, share screens, and exchange arbitrary data between applications.
+## Usage
 
-## Features
+The library is published to Maven Central as `io.github.sendablemetatype.webrtc:webrtc-java`. The native library for each platform is a separate artifact with a classifier:
 
-- **Complete WebRTC API implementation** - Includes peer connections, media devices, data channels, and more
-- **Cross-platform support** - Works on Windows, macOS, and Linux (x64, ARM, ARM64)
-- **Media capabilities** - Audio and video capture from cameras and microphones
-- **Desktop capture** - Screen and application window sharing
-- **Data channels** - Bidirectional peer-to-peer data exchange
-- **Statistics API** - Detailed metrics for monitoring connection quality
-- **Simple integration** - Available as a Maven dependency
-- **Native performance** - Thin JNI layer with minimal overhead
+- `windows-x86_64`
+- `windows-aarch64`
+- `linux-x86_64`
+- `linux-aarch32`
+- `linux-aarch64`
+- `macos-x86_64`
+- `macos-aarch64`
 
-## Getting Started
+Maven resolves the classifier of the build machine automatically. Gradle does not, so declare the platforms you need:
 
-For more detailed information, check out the documentation:
+```kotlin
+implementation("io.github.sendablemetatype.webrtc:webrtc-java:VERSION")
+runtimeOnly("io.github.sendablemetatype.webrtc:webrtc-java:VERSION:linux-x86_64")
+```
 
-- [Quickstart](https://jrtc.dev/guide/get-started) - Get up and running quickly with webrtc-java
-- [Guides](https://jrtc.dev/guide/) - Comprehensive documentation on using the library
-- [Examples](https://jrtc.dev/guide/examples) - Sample code demonstrating various features
-- [Build Notes](https://jrtc.dev/guide/build) - Instructions for building the library from source
+The main module is named `io.github.sendablemetatype.webrtc`, the native library modules `io.github.sendablemetatype.webrtc.natives.<os>.<arch>`.
+
+Versions are `<upstream version>-sm.<n>`: the upstream version the fork is based on, then the fork's own iteration.
+
+## Building
+
+See the [build notes](docs/guide/build.md). The variant is preselected in `gradle.properties`.
+
+The Java packages are renamed from upstream's `dev.onvoid.webrtc` with `tools/rename-packages.py`. After merging from upstream, run it from the repository root; it moves and renames whatever arrived and leaves the rest alone.
 
 ## License
 

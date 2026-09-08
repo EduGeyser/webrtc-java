@@ -9,8 +9,8 @@ plugins {
 	alias(libs.plugins.nmcp.aggregation)
 }
 
-description = "Java native interface implementation based on the free, open WebRTC project. " +
-		"The goal of this project is to enable development of RTC applications for desktop platforms running Java."
+description = "Java native interface implementation based on the free, open WebRTC project, " +
+		"built for data channels only. A fork of devopvoid/webrtc-java."
 
 /**
  * The platform the native library is built for, in the form of the artifact
@@ -97,13 +97,17 @@ publishing {
 				packaging = "pom"
 				name = "webrtc-java-parent"
 				description = project.description
-				url = "https://github.com/devopvoid/webrtc-java"
+				url = "https://github.com/EduGeyser/webrtc-java"
 
 				developers {
 					developer {
 						id = "a.andres"
 						name = "Alex Andres"
 						email = "andres.alex@pm.me"
+					}
+					developer {
+						id = "sendablemetatype"
+						name = "SendableMetatype"
 					}
 				}
 				licenses {
@@ -115,12 +119,12 @@ publishing {
 				}
 				issueManagement {
 					system = "GitHub"
-					url = "https://github.com/devopvoid/webrtc-java/issues"
+					url = "https://github.com/EduGeyser/webrtc-java/issues"
 				}
 				scm {
-					connection = "scm:git:git://github.com/devopvoid/webrtc-java.git"
-					developerConnection = "scm:git:ssh://git@github.com/devopvoid/webrtc-java.git"
-					url = "https://github.com/devopvoid/webrtc-java/tree/main"
+					connection = "scm:git:git://github.com/EduGeyser/webrtc-java.git"
+					developerConnection = "scm:git:ssh://git@github.com/EduGeyser/webrtc-java.git"
+					url = "https://github.com/EduGeyser/webrtc-java/tree/main"
 					tag = "HEAD"
 				}
 
@@ -154,8 +158,7 @@ nmcpAggregation {
 	centralPortal {
 		username = providers.environmentVariable("MAVEN_USERNAME")
 		password = providers.environmentVariable("MAVEN_TOKEN")
-		// The deployment waits in the portal until it is released by hand.
-		publishingType = "USER_MANAGED"
+		publishingType = "AUTOMATIC"
 		publicationName = "${project.group}:webrtc-java:${project.version}"
 	}
 }

@@ -88,7 +88,7 @@ runs:
       shell: bash
 
     - name: Deploy
-      if: ${{ github.event_name != 'pull_request' && github.repository == 'devopvoid/webrtc-java' }}
+      if: ${{ github.event_name != 'pull_request' && github.repository == 'EduGeyser/webrtc-java' }}
       env:
         MAVEN_USERNAME: ${{ inputs.maven-username }}
         MAVEN_TOKEN: ${{ inputs.maven-password }}

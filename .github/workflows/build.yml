@@ -22,7 +22,7 @@ on:
         options:
           - full
           - data-channels
-        default: full
+        default: data-channels
 
 env:
   WEBRTC_CHECKOUT_FOLDER: webrtc
