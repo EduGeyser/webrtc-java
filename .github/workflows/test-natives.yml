@@ -1,0 +1,105 @@
+name: Test Natives
+
+# Runs the test suite against the native library jars a build uploaded, on a
+# runner of each platform and on every runner image in use.
+
+on:
+  workflow_call:
+    inputs:
+      variant:
+        description: "The variant of the native library, when not the one gradle.properties selects."
+        required: false
+        type: string
+        default: ''
+      ref:
+        description: "The ref to test, when not the ref of the workflow."
+        required: false
+        type: string
+        default: ''
+
+jobs:
+  test-natives:
+    strategy:
+      fail-fast: false
+      matrix:
+        platform:
+          - name: windows_x86_64
+            runs-on: windows-2022
+            classifier: windows-x86_64
+            java-distribution: temurin
+            java-architecture: ''
+          - name: windows_x86_64
+            runs-on: windows-2025
+            classifier: windows-x86_64
+            java-distribution: temurin
+            java-architecture: ''
+          - name: windows_arm64
+            runs-on: windows-11-arm
+            classifier: windows-aarch64
+            java-distribution: microsoft
+            java-architecture: aarch64
+          - name: linux_x86-64
+            runs-on: ubuntu-22.04
+            classifier: linux-x86_64
+            java-distribution: temurin
+            java-architecture: ''
+          - name: linux_x86-64
+            runs-on: ubuntu-24.04
+            classifier: linux-x86_64
+            java-distribution: temurin
+            java-architecture: ''
+          - name: linux_arm64
+            runs-on: ubuntu-22.04-arm
+            classifier: linux-aarch64
+            java-distribution: temurin
+            java-architecture: ''
+          - name: linux_arm64
+            runs-on: ubuntu-24.04-arm
+            classifier: linux-aarch64
+            java-distribution: temurin
+            java-architecture: ''
+          - name: linux_arm
+            runs-on: ubuntu-22.04-arm
+            classifier: linux-aarch32
+            java-distribution: liberica
+            java-architecture: armv7
+          - name: linux_arm
+            runs-on: ubuntu-24.04-arm
+            classifier: linux-aarch32
+            java-distribution: liberica
+            java-architecture: armv7
+          - name: macos_x86-64
+            runs-on: macos-15-intel
+            classifier: macos-x86_64
+            java-distribution: temurin
+            java-architecture: ''
+          - name: macos_arm64
+            runs-on: macos-14
+            classifier: macos-aarch64
+            java-distribution: temurin
+            java-architecture: ''
+          - name: macos_arm64
+            runs-on: macos-15
+            classifier: macos-aarch64
+            java-distribution: temurin
+            java-architecture: ''
+          - name: macos_arm64
+            runs-on: macos-26
+            classifier: macos-aarch64
+            java-distribution: temurin
+            java-architecture: ''
+    runs-on: ${{ matrix.platform.runs-on }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.ref }}
+
+      - name: Test natives
+        uses: ./.github/actions/test-natives
+        with:
+          platform-name: ${{ matrix.platform.name }}
+          classifier: ${{ matrix.platform.classifier }}
+          variant: ${{ inputs.variant }}
+          java-distribution: ${{ matrix.platform.java-distribution }}
+          java-architecture: ${{ matrix.platform.java-architecture }}

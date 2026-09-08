@@ -64,11 +64,6 @@ runs:
       run: ./gradlew assemble $WEBRTC_PLATFORM
       shell: bash
 
-    - name: Test
-      if: ${{ inputs.platform-name != 'linux_arm' && inputs.platform-name != 'linux_arm64' && inputs.platform-name != 'windows_arm64' && inputs.platform-name != 'macos_x86-64' }}
-      run: ./gradlew :webrtc:test
-      shell: bash
-
     # Maven Central publishes a version as one atomic bundle, so this job must not
     # deploy. The native library jar is handed to the aggregating publish-central
     # job instead, which attaches every platform to a single deployment.

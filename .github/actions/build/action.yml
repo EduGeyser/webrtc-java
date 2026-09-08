@@ -17,14 +17,6 @@ inputs:
     required: false
     default: ''
 
-  maven-username:
-    description: 'The Maven username.'
-    required: true
-
-  maven-password:
-    description: 'The Maven password.'
-    required: true
-
 runs:
   using: "composite"
   steps:
@@ -79,19 +71,15 @@ runs:
         echo "WEBRTC_PLATFORM=$platform" >> "$GITHUB_ENV"
       shell: bash
 
+    # The tests run in the test workflow, on every runner image, against the
+    # uploaded jar.
     - name: Build
       run: ./gradlew assemble $WEBRTC_PLATFORM $WEBRTC_VARIANT_ARG
       shell: bash
 
-    - name: Test
-      if: ${{ inputs.platform-name != 'linux_arm' && inputs.platform-name != 'linux_arm64' && inputs.platform-name != 'windows_arm64' && inputs.platform-name != 'macos_x86-64' }}
-      run: ./gradlew :webrtc:test $WEBRTC_VARIANT_ARG
-      shell: bash
-
-    - name: Deploy
-      if: ${{ github.event_name != 'pull_request' && github.repository == 'EduGeyser/webrtc-java' }}
-      env:
-        MAVEN_USERNAME: ${{ inputs.maven-username }}
-        MAVEN_TOKEN: ${{ inputs.maven-password }}
-      run: ./gradlew publishAggregationToCentralPortalSnapshots $WEBRTC_PLATFORM $WEBRTC_VARIANT_ARG
-      shell: bash
+    - name: Upload native library jar
+      uses: actions/upload-artifact@v4
+      with:
+        name: natives-${{ inputs.platform-name }}
+        path: webrtc-jni/build/libs/webrtc-java-*.jar
+        if-no-files-found: error

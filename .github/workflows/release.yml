@@ -156,6 +156,8 @@ jobs:
 
   build-linux:
     needs: prepare-release
+    outputs:
+      tag: ${{ steps.tag-selector.outputs.tag }}
     strategy:
       fail-fast: false
       matrix:
@@ -233,9 +235,16 @@ jobs:
           java-version: ${{ matrix.java }}
           platform-name: ${{ matrix.platform.name }}
 
+  test-natives:
+    name: Test natives
+    needs: [build-windows, build-linux, build-macos]
+    uses: ./.github/workflows/test-natives.yml
+    with:
+      ref: ${{ needs.build-linux.outputs.tag }}
+
   publish-central:
     name: Publish to Maven Central
-    needs: [build-windows, build-linux, build-macos]
+    needs: [build-windows, test-natives]
     outputs:
       release_body: ${{ needs.build-windows.outputs.release_body }}
       release_version: ${{ needs.build-windows.outputs.release_version }}
