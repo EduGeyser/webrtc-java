@@ -5,32 +5,32 @@ All notable changes to this project will be documented in this file.
 ## [0.17.0-sm.1] - 2026-09-10
 
 ### Features
-- Expose asynchronous data channel send results by @SendableMetatype
-- Add windows arm64 platform support by @SendableMetatype
-- Offer both screens and windows in the Wayland portal picker by @B077AS
+- Expose asynchronous data channel send results by @SendableMetatype in [#281](https://github.com/devopvoid/webrtc-java/pull/281)
+- Add windows arm64 platform support by @SendableMetatype in [#266](https://github.com/devopvoid/webrtc-java/pull/266)
+- Offer both screens and windows in the Wayland portal picker by @B077AS in [#264](https://github.com/devopvoid/webrtc-java/pull/264)
 
 ### Bug Fixes
 - Isolate native variants and track build configuration by @SendableMetatype
 - Honor the full variant in CI by @SendableMetatype
-- Report rejected synchronous data channel sends by @SendableMetatype
-- Throw instead of aborting when the default audio device module fails to initialize by @SendableMetatype
-- Keep the desktop capture frame rate at the configured value by @SendableMetatype
-- Keep libwebrtc quiet by default and make logToDebug work again by @SendableMetatype
-- Delete the local references created for received data channel messages by @SendableMetatype
-- Load libudev and libdbus at runtime instead of linking them by @SendableMetatype
+- Report rejected synchronous data channel sends by @SendableMetatype in [#278](https://github.com/devopvoid/webrtc-java/pull/278)
+- Throw instead of aborting when the default audio device module fails to initialize by @SendableMetatype in [#276](https://github.com/devopvoid/webrtc-java/pull/276)
+- Keep the desktop capture frame rate at the configured value by @SendableMetatype in [#274](https://github.com/devopvoid/webrtc-java/pull/274)
+- Keep libwebrtc quiet by default and make logToDebug work again by @SendableMetatype in [#273](https://github.com/devopvoid/webrtc-java/pull/273)
+- Delete the local references created for received data channel messages by @SendableMetatype in [#272](https://github.com/devopvoid/webrtc-java/pull/272)
+- Load libudev and libdbus at runtime instead of linking them by @SendableMetatype in [#271](https://github.com/devopvoid/webrtc-java/pull/271)
 
 ### Refactor
 - Move the fork into the io.github.sendablemetatype.webrtc package by @SendableMetatype
 
 ### Documentation
-- Correct data channel buffered amount semantics by @SendableMetatype
-- List the Linux runtime dependencies of the native library by @SendableMetatype
+- Correct data channel buffered amount semantics by @SendableMetatype in [#279](https://github.com/devopvoid/webrtc-java/pull/279)
+- List the Linux runtime dependencies of the native library by @SendableMetatype in [#275](https://github.com/devopvoid/webrtc-java/pull/275)
 
 ### Performance
-- Avoid redundant data channel buffer copies by @SendableMetatype
+- Avoid redundant data channel buffer copies by @SendableMetatype in [#280](https://github.com/devopvoid/webrtc-java/pull/280)
 
 ### Testing
-- Give the DTMF completion wait more headroom by @SendableMetatype
+- Give the DTMF completion wait more headroom by @SendableMetatype in [#268](https://github.com/devopvoid/webrtc-java/pull/268)
 
 ### Miscellaneous Tasks
 - Release the version gradle.properties carries instead of a computed one by @SendableMetatype
@@ -39,8 +39,8 @@ All notable changes to this project will be documented in this file.
 - Test the native libraries on more runner images by @SendableMetatype
 - Build the macOS Intel library on the arm64 runner by @SendableMetatype
 - Install the clang of the WebRTC branch by @SendableMetatype
-- Test the windows arm64 natives on a native runner by @SendableMetatype
-- Test cross compiled natives on native runners by @SendableMetatype
+- Test the windows arm64 natives on a native runner by @SendableMetatype in [#270](https://github.com/devopvoid/webrtc-java/pull/270)
+- Test cross compiled natives on native runners by @SendableMetatype in [#267](https://github.com/devopvoid/webrtc-java/pull/267)
 
 ### Other
 - Export the compile commands for clangd by @SendableMetatype
@@ -52,66 +52,105 @@ All notable changes to this project will be documented in this file.
 - Publish the fork under io.github.sendablemetatype.webrtc by @SendableMetatype
 - Add a data channels only variant of the native library by @SendableMetatype
 - Migrate the build from Maven to Gradle by @SendableMetatype
-- Bootstrap depot_tools before fetching the WebRTC source by @SendableMetatype
-- Suppress stdout for failed to attach threads on jvm shutdown by @SendableMetatype
-- Fix/windows desktop capture by @B077AS
+- Bootstrap depot_tools before fetching the WebRTC source by @SendableMetatype in [#277](https://github.com/devopvoid/webrtc-java/pull/277)
+- Suppress stdout for failed to attach threads on jvm shutdown by @SendableMetatype in [#269](https://github.com/devopvoid/webrtc-java/pull/269)
+- Fix/windows desktop capture by @B077AS in [#263](https://github.com/devopvoid/webrtc-java/pull/263)
 - Prepare for next development iteration by @devopvoid
 
 
-## [0.16.0] - 2026-08-24
+# Changelog
+
+All notable changes to this project will be documented in this file.
+
+## [0.15.1] - 2026-08-24
+
+### Other
+- Add Wayland/PipeWire desktop capture support by @B077AS in [#261](https://github.com/devopvoid/webrtc-java/pull/261)
+- Improve release workflow reliability and artifact management by @devopvoid in [#260](https://github.com/devopvoid/webrtc-java/pull/260)
+- Refactor release workflows and setup for multi-platform deployment by @devopvoid in [#259](https://github.com/devopvoid/webrtc-java/pull/259)
+- Prepare for next development iteration by @devopvoid
+
+## New Contributors
+* @B077AS made their first contribution in [#261](https://github.com/devopvoid/webrtc-java/pull/261)
+
+## [0.15.0] - 2026-08-16
 
 ### Features
-- Bridge OnIceSelectedCandidatePairChanged to Java observers by @SendableMetatype
-- Add asynchronous sendAsync to RTCDataChannel by @SendableMetatype
-- Device transport and form factor types by @Stasyanych
+- Bridge OnIceSelectedCandidatePairChanged to Java observers by @SendableMetatype in [#247](https://github.com/devopvoid/webrtc-java/pull/247)
+- Add asynchronous sendAsync to RTCDataChannel by @SendableMetatype in [#246](https://github.com/devopvoid/webrtc-java/pull/246)
+- Device transport and form factor types by @Stasyanych in [#203](https://github.com/devopvoid/webrtc-java/pull/203)
 - Add funding information to support development by @devopvoid
-- Add legacy AGC1 and update AGC2 in the AudioProcessingConfig by @devopvoid
-- Restrict ICE port ranges and control candidate gathering behavior by @devopvoid
-- Push or pull audio frames with a headless audio device module by @devopvoid
-- Add guide for configuring send-only and receive-only media by @devopvoid
-- Add the platform classifier to the native library filename by @SnirDecartAI
-- Add VideoBufferConverter.convertToI420 by @SnirDecartAI
-- Add SyncClock for audio and video synchronization support by @devopvoid
-- Add CustomVideoSource and related JNI bindings for video frame handling by @devopvoid
-- Added a new web-based example by @devopvoid
-- Custom audio source that can be provided to audio tracks by @devopvoid
-- Add H.264 support and improve linking options for Apple platforms by @devopvoid
-- Add RTCDtmfSender implementation for sending DTMF tones #115 by @devopvoid
-- Enable H.264 support for Linux and Windows builds #155 #168 #169 by @devopvoid
-- Add copy method for NativeI420Buffer and VideoFrame by @devopvoid
-- Added the missing macOS camera capture functionality by @devopvoid
+- Add legacy AGC1 and update AGC2 in the AudioProcessingConfig by @devopvoid in [#205](https://github.com/devopvoid/webrtc-java/pull/205)
 
 ### Bug Fixes
-- Honor the buffer window in every send path by @SendableMetatype
-- Add OnBufferedAmountChange callback to RTCDataChannelObserver by @devopvoid
-- RTCDtmfSenderTests timeouts by @devopvoid
-- Update error handling to stop capturing on permanent errors #186 by @devopvoid
-- Ensure JNIEnv is properly attached before deleting global reference 146 by @devopvoid
-- Return a valid NtpTime from SyncClock::GetNtpTime by @SnirDecartAI
-- Release video frame after processing in WHEP example #191 by @devopvoid
-- Made RTCRtpCodecCapability's int fields optional by @SnirDecartAI
-- Update references from master to main in build configuration and documentation by @devopvoid
-- Enhance documentation for audio related topics by @devopvoid
-- Validate COM initialization in audio device management #181 by @devopvoid
-- MacOS screen capturing with iOSurface and platform thread management by @devopvoid
-- Add Maven release action for macOS platforms by @devopvoid
-- Windows clang profile activation by @devopvoid
-- Added missing libx libraries to be installed in linux release workflow by @devopvoid
-- Added missing libx libraries to be installed in GH actions by @devopvoid
-- Crashes caused by video frame conversion by @devopvoid
-- Linux crashes caused by unlinked libraries by @devopvoid
-- Fix memory leak by @kalgecin
-
-### Refactor
-- Updated native interface to m138 by @devopvoid
-- VideoTrackDesktopSource extends AdaptedVideoTrackSource by @devopvoid
-- Rtc and cricket to webrtc namespace by @devopvoid
+- Honor the buffer window in every send path by @SendableMetatype in [#245](https://github.com/devopvoid/webrtc-java/pull/245)
+- Add OnBufferedAmountChange callback to RTCDataChannelObserver by @devopvoid in [#206](https://github.com/devopvoid/webrtc-java/pull/206)
 
 ### Documentation
 - Add sponsorship link to index page by @devopvoid
-- Recreated using VitePress by @devopvoid
+- Recreated using VitePress by @devopvoid in [#210](https://github.com/devopvoid/webrtc-java/pull/210)
 - Add notes on native library classifiers for webrtc-java by @devopvoid
 - Reorganize guide links by @devopvoid
+
+### Testing
+- Buffer trickled candidates until both descriptions are applied by @SendableMetatype in [#256](https://github.com/devopvoid/webrtc-java/pull/256)
+
+### Miscellaneous Tasks
+- Update CHANGELOG.md for v0.15.0 by @github-actions[bot]
+
+### Other
+- Prepare release v0.15.0 by @devopvoid
+- Update versions of dependencies and plugins by @devopvoid in [#257](https://github.com/devopvoid/webrtc-java/pull/257)
+- Fix/linux desktop capturer x11 abi by @Isacco-B in [#236](https://github.com/devopvoid/webrtc-java/pull/236)
+- Update WebRTC branch version from 7339 to 7977 (m152) by @SendableMetatype in [#249](https://github.com/devopvoid/webrtc-java/pull/249)
+- Derive the WebRTC cache branch from the pom and guard deploys by @SendableMetatype in [#248](https://github.com/devopvoid/webrtc-java/pull/248)
+- Fix headless ADM playout drift below 100 Hz by @jonathannaguin in [#244](https://github.com/devopvoid/webrtc-java/pull/244)
+- Bump org.eclipse.jetty:jetty-server in /webrtc-examples by @dependabot[bot] in [#255](https://github.com/devopvoid/webrtc-java/pull/255)
+- Bump com.fasterxml.jackson.core:jackson-databind by @dependabot[bot] in [#254](https://github.com/devopvoid/webrtc-java/pull/254)
+- Bump picomatch from 4.0.3 to 4.0.5 in /docs by @dependabot[bot] in [#253](https://github.com/devopvoid/webrtc-java/pull/253)
+- Merge pull request #241 by @Stasyanych in [#241](https://github.com/devopvoid/webrtc-java/pull/241)
+- Bump rollup from 4.50.0 to 4.59.0 in /docs by @dependabot[bot] in [#235](https://github.com/devopvoid/webrtc-java/pull/235)
+- Bump vite from 7.1.11 to 7.3.6 in /docs by @dependabot[bot] in [#252](https://github.com/devopvoid/webrtc-java/pull/252)
+- Merge pull request #231 by @westernbear in [#231](https://github.com/devopvoid/webrtc-java/pull/231)
+- Bump postcss from 8.5.6 to 8.5.26 in /docs by @dependabot[bot] in [#251](https://github.com/devopvoid/webrtc-java/pull/251)
+- Bump org.eclipse.jetty:jetty-util in /webrtc-examples by @dependabot[bot] in [#250](https://github.com/devopvoid/webrtc-java/pull/250)
+- Updates all checkout GitHub Actions to v6 by @maxkratz in [#226](https://github.com/devopvoid/webrtc-java/pull/226)
+- Bump mdast-util-to-hast from 13.2.0 to 13.2.1 in /docs by @dependabot[bot] in [#230](https://github.com/devopvoid/webrtc-java/pull/230)
+- Bump vite from 7.1.5 to 7.1.11 in /docs by @dependabot[bot] in [#218](https://github.com/devopvoid/webrtc-java/pull/218)
+- Update WebRTC branch version from 7204 to 7339 (m140) by @devopvoid
+- Bump vite from 7.1.4 to 7.1.5 in /docs by @dependabot[bot] in [#211](https://github.com/devopvoid/webrtc-java/pull/211)
+- Prepare for next development iteration by @devopvoid
+
+## New Contributors
+* @Isacco-B made their first contribution in [#236](https://github.com/devopvoid/webrtc-java/pull/236)
+* @SendableMetatype made their first contribution in [#249](https://github.com/devopvoid/webrtc-java/pull/249)
+* @jonathannaguin made their first contribution in [#244](https://github.com/devopvoid/webrtc-java/pull/244)
+* @dependabot[bot] made their first contribution in [#255](https://github.com/devopvoid/webrtc-java/pull/255)
+* @Stasyanych made their first contribution in [#241](https://github.com/devopvoid/webrtc-java/pull/241)
+* @westernbear made their first contribution in [#231](https://github.com/devopvoid/webrtc-java/pull/231)
+
+## [0.14.0] - 2025-08-28
+
+### Features
+- Restrict ICE port ranges and control candidate gathering behavior by @devopvoid in [#202](https://github.com/devopvoid/webrtc-java/pull/202)
+- Push or pull audio frames with a headless audio device module by @devopvoid in [#201](https://github.com/devopvoid/webrtc-java/pull/201)
+- Add guide for configuring send-only and receive-only media by @devopvoid
+- Add the platform classifier to the native library filename by @SnirDecartAI in [#194](https://github.com/devopvoid/webrtc-java/pull/194)
+- Add VideoBufferConverter.convertToI420 by @SnirDecartAI in [#192](https://github.com/devopvoid/webrtc-java/pull/192)
+- Add SyncClock for audio and video synchronization support by @devopvoid
+- Add CustomVideoSource and related JNI bindings for video frame handling by @devopvoid
+- Added a new web-based example by @devopvoid
+- Custom audio source that can be provided to audio tracks by @devopvoid in [#188](https://github.com/devopvoid/webrtc-java/pull/188)
+
+### Bug Fixes
+- RTCDtmfSenderTests timeouts by @devopvoid
+- Update error handling to stop capturing on permanent errors #186 by @devopvoid
+- Ensure JNIEnv is properly attached before deleting global reference 146 by @devopvoid
+- Return a valid NtpTime from SyncClock::GetNtpTime by @SnirDecartAI in [#193](https://github.com/devopvoid/webrtc-java/pull/193)
+- Release video frame after processing in WHEP example #191 by @devopvoid
+- Made RTCRtpCodecCapability's int fields optional by @SnirDecartAI in [#190](https://github.com/devopvoid/webrtc-java/pull/190)
+
+### Documentation
 - Add AudioRecorder and AudioPlayer documentation by @devopvoid
 - Documentation for VideoBufferConverter by @devopvoid
 - Documentation for MediaStreamTrack, VideoBufferConverter, and VideoCapture by @devopvoid
@@ -125,94 +164,132 @@ All notable changes to this project will be documented in this file.
 - Add Custom Video Source guide and update documentation by @devopvoid
 - Update example descriptions and add WebClientExample by @devopvoid
 - Add Custom Audio Source guide by @devopvoid
-- Update asset paths and add a privacy policy by @devopvoid
+- Update asset paths and add a privacy policy by @devopvoid in [#187](https://github.com/devopvoid/webrtc-java/pull/187)
 - Add camera capture guide by @devopvoid
 - Update CHANGELOG.md by @devopvoid
+
+### Miscellaneous Tasks
+- Update CHANGELOG.md for v0.14.0 by @github-actions[bot]
+- Add custom video source and generator to the web example by @devopvoid
+
+### Other
+- Prepare release v0.14.0 by @devopvoid
+- Update release workflow to use main branch by @devopvoid
+- Update GitHub Actions workflows to use changelog generation by @devopvoid
+- Update all GitHub Actions setup-java to v5 by @maxkratz in [#200](https://github.com/devopvoid/webrtc-java/pull/200)
+- Prepare for next development iteration by @devopvoid
+
+## New Contributors
+* @github-actions[bot] made their first contribution
+* @maxkratz made their first contribution in [#200](https://github.com/devopvoid/webrtc-java/pull/200)
+* @SnirDecartAI made their first contribution in [#194](https://github.com/devopvoid/webrtc-java/pull/194)
+
+## [0.13.0] - 2025-07-25
+
+### Features
+- Add H.264 support and improve linking options for Apple platforms by @devopvoid
+- Add RTCDtmfSender implementation for sending DTMF tones #115 by @devopvoid in [#183](https://github.com/devopvoid/webrtc-java/pull/183)
+- Enable H.264 support for Linux and Windows builds #155 #168 #169 by @devopvoid
+
+### Bug Fixes
+- Update references from master to main in build configuration and documentation by @devopvoid
+- Enhance documentation for audio related topics by @devopvoid
+- Validate COM initialization in audio device management #181 by @devopvoid
+- MacOS screen capturing with iOSurface and platform thread management by @devopvoid
+
+### Documentation
 - Update README with logo by @devopvoid
 - Improve responsive design for the cover by @devopvoid
 - Enhance coverpage and sidebar styles with new logo and theme colors by @devopvoid
 - Update homepage and quickstart guide links in documentation by @devopvoid
-- Comprehensive guide and examples by @devopvoid
-- Update badge links in README for build status and Maven Central by @devopvoid
-- Update README for version 0.11.0 and clarify build notes by @devopvoid
-
-### Testing
-- Buffer trickled candidates until both descriptions are applied by @SendableMetatype
+- Comprehensive guide and examples by @devopvoid in [#182](https://github.com/devopvoid/webrtc-java/pull/182)
 
 ### Miscellaneous Tasks
-- Update CHANGELOG.md for v0.15.1 by @github-actions[bot]
-- Update CHANGELOG.md for v0.15.0 by @github-actions[bot]
-- Update CHANGELOG.md for v0.14.0 by @github-actions[bot]
-- Add custom video source and generator to the web example by @devopvoid
 - Update readme to 0.12.0 and update changelog by @devopvoid
 
 ### Other
-- Prepare release v0.16.0 by @devopvoid
-- Add Wayland/PipeWire desktop capture support by @B077AS
-- Improve release workflow reliability and artifact management by @devopvoid
-- Refactor release workflows and setup for multi-platform deployment by @devopvoid
-- Prepare for next development iteration by @devopvoid
-- Prepare release v0.15.0 by @devopvoid
-- Update versions of dependencies and plugins by @devopvoid
-- Fix/linux desktop capturer x11 abi by @Isacco-B
-- Update WebRTC branch version from 7339 to 7977 (m152) by @SendableMetatype
-- Derive the WebRTC cache branch from the pom and guard deploys by @SendableMetatype
-- Fix headless ADM playout drift below 100 Hz by @jonathannaguin
-- Bump org.eclipse.jetty:jetty-server in /webrtc-examples by @dependabot[bot]
-- Bump com.fasterxml.jackson.core:jackson-databind by @dependabot[bot]
-- Bump picomatch from 4.0.3 to 4.0.5 in /docs by @dependabot[bot]
-- Merge pull request #241 by @Stasyanych
-- Bump rollup from 4.50.0 to 4.59.0 in /docs by @dependabot[bot]
-- Bump vite from 7.1.11 to 7.3.6 in /docs by @dependabot[bot]
-- Merge pull request #231 by @westernbear
-- Bump postcss from 8.5.6 to 8.5.26 in /docs by @dependabot[bot]
-- Bump org.eclipse.jetty:jetty-util in /webrtc-examples by @dependabot[bot]
-- Updates all checkout GitHub Actions to v6 by @maxkratz
-- Bump mdast-util-to-hast from 13.2.0 to 13.2.1 in /docs by @dependabot[bot]
-- Bump vite from 7.1.5 to 7.1.11 in /docs by @dependabot[bot]
-- Update WebRTC branch version from 7204 to 7339 (m140) by @devopvoid
-- Bump vite from 7.1.4 to 7.1.5 in /docs by @dependabot[bot]
-- Prepare for next development iteration by @devopvoid
-- Prepare release v0.14.0 by @devopvoid
-- Update release workflow to use main branch by @devopvoid
-- Update GitHub Actions workflows to use changelog generation by @devopvoid
-- Update all GitHub Actions setup-java to v5 by @maxkratz
-- Prepare for next development iteration by @devopvoid
 - Prepare release v0.13.0 by @devopvoid
 - Update release workflow to update versions.js in docs by @devopvoid
 - Create CNAME by @devopvoid
 - Prepare for next development iteration by @devopvoid
+
+
+## [0.12.0] - 2025-07-18
+
+### Features
+- Add copy method for NativeI420Buffer and VideoFrame by @devopvoid
+- Added the missing macOS camera capture functionality by @devopvoid in [#180](https://github.com/devopvoid/webrtc-java/pull/180)
+
+### Bug Fixes
+- Add Maven release action for macOS platforms by @devopvoid
+
+### Refactor
+- Updated native interface to m138 by @devopvoid in [#179](https://github.com/devopvoid/webrtc-java/pull/179)
+
+### Documentation
+- Update badge links in README for build status and Maven Central by @devopvoid
+- Update README for version 0.11.0 and clarify build notes by @devopvoid
+
+### Other
 - Prepare release v0.12.0 by @devopvoid
 - Fix release workflow to support matrix.platform.name by @devopvoid
-- Update package installation commands and enhance sysroot configuration by @devopvoid
+- Update package installation commands and enhance sysroot configuration by @devopvoid in [#178](https://github.com/devopvoid/webrtc-java/pull/178)
 - Prepare for next development iteration by @devopvoid
+
+
+## [0.11.0] - 2025-07-02
+
+### Bug Fixes
+- Windows clang profile activation by @devopvoid
+
+### Refactor
+- VideoTrackDesktopSource extends AdaptedVideoTrackSource by @devopvoid
+- Rtc and cricket to webrtc namespace by @devopvoid
+
+### Other
 - Prepare release v0.11.0 by @devopvoid
 - Add project name to pom.xml by @devopvoid
 - Update release workflow to include code checkout and linux arm support by @devopvoid
-- Link with libc++ and libc++abi on Linux and Windows by @devopvoid
+- Link with libc++ and libc++abi on Linux and Windows by @devopvoid in [#175](https://github.com/devopvoid/webrtc-java/pull/175)
 - Do not build with clang-cl on main by @devopvoid
-- Fix screen-share memory leak by @devopvoid
+- Fix screen-share memory leak by @devopvoid in [#174](https://github.com/devopvoid/webrtc-java/pull/174)
 - Revert "refactor: rtc and cricket to webrtc namespace" by @devopvoid
 - Revert "build: updated webrtc version to m137 in GitHub workflows" by @devopvoid
 - Updated webrtc version to m137 in GitHub workflows by @devopvoid
-- Updated project to the stable WebRTC branch 6998 by @devopvoid
+- Updated project to the stable WebRTC branch 6998 by @devopvoid in [#163](https://github.com/devopvoid/webrtc-java/pull/163)
 - Build.yml pipewire activated by @devopvoid
 - Update README.md by @devopvoid
 - Prepare for next development iteration by @devopvoid
+
+
+## [0.10.0] - 2025-03-18
+
+### Bug Fixes
+- Added missing libx libraries to be installed in linux release workflow by @devopvoid
+- Added missing libx libraries to be installed in GH actions by @devopvoid
+- Crashes caused by video frame conversion by @devopvoid
+- Linux crashes caused by unlinked libraries by @devopvoid
+
+### Other
 - Prepare release v0.10.0 by @devopvoid
 - Update README.md by @devopvoid
 - Prepare for next development iteration by @devopvoid
+
+
+## [0.9.0] - 2025-01-02
+
+### Other
 - Prepare release v0.9.0 by @devopvoid
-- Crash after java callback if exception occurred by @arosov
-- Workflow build and release fixes by @devopvoid
+- Crash after java callback if exception occurred by @arosov in [#154](https://github.com/devopvoid/webrtc-java/pull/154)
+- Workflow build and release fixes by @devopvoid in [#156](https://github.com/devopvoid/webrtc-java/pull/156)
 - Removed gpg from action workflow by @devopvoid
 - Fixed action workflow deployment by @devopvoid
 - Update action.yml by @devopvoid
 - Updated build badge in README.md by @devopvoid
 - Linux pm rtc logging by @devopvoid
 - Fixed build workflow by @devopvoid
-- Fixed and improved GitHub build workflow by @devopvoid
-- Screen inhibition by @devopvoid
+- Fixed and improved GitHub build workflow by @devopvoid in [#152](https://github.com/devopvoid/webrtc-java/pull/152)
+- Screen inhibition by @devopvoid in [#150](https://github.com/devopvoid/webrtc-java/pull/150)
 - Fixed crash with jdk version > 17 by @devopvoid
 - Revert version of cmake-maven-plugin for compatibility with older maven by @devopvoid
 - Updated maven plugin versions. by @devopvoid
@@ -223,13 +300,20 @@ All notable changes to this project will be documented in this file.
 - Update README.md macOS arm64 release by @devopvoid
 - Updated CHANGELOG and README by @devopvoid
 - Prepare for next development iteration by @devopvoid
+
+## New Contributors
+* @arosov made their first contribution in [#154](https://github.com/devopvoid/webrtc-java/pull/154)
+
+## [0.8.0] - 2023-10-14
+
+### Other
 - Prepare release v0.8.0 by @devopvoid
 - Updated action runners by @devopvoid
 - Dropped old demo code. New demo will be in a new repository by @devopvoid
 - Added setFocusSelectedSource to DesktopCapturer and capture with DesktopAndCursorComposer by @devopvoid
-- Add a build support for mac/aarch64 by @stevebriskin
+- Add a build support for mac/aarch64 by @stevebriskin in [#109](https://github.com/devopvoid/webrtc-java/pull/109)
 - Merge remote-tracking branch 'origin/master' by @devopvoid
-- Update README.md by @doctorpangloss
+- Update README.md by @doctorpangloss in [#96](https://github.com/devopvoid/webrtc-java/pull/96)
 - Initialized configs to be used with GraalVM by @devopvoid
 - Set linux version to ubuntu-20.04 due to audio system tests by @devopvoid
 - Link libm from sysroot to increase GLIBC (<= 2.18) compatibility #108 by @devopvoid
@@ -237,6 +321,17 @@ All notable changes to this project will be documented in this file.
 - Added workflow_dispatch to the release workflow by @devopvoid
 - Removed demo tasks from the release workflow by @devopvoid
 - Prepare for next development iteration by @devopvoid
+
+## New Contributors
+* @stevebriskin made their first contribution in [#109](https://github.com/devopvoid/webrtc-java/pull/109)
+* @doctorpangloss made their first contribution in [#96](https://github.com/devopvoid/webrtc-java/pull/96)
+
+## [0.7.0] - 2022-11-14
+
+### Bug Fixes
+- Fix memory leak by @kalgecin in [#86](https://github.com/devopvoid/webrtc-java/pull/86)
+
+### Other
 - Prepare release v0.7.0 by @devopvoid
 - Fixed audio device names on mac #28 by @devopvoid
 - Compile with backward compatibility for Java 8 by @devopvoid
@@ -277,9 +372,16 @@ All notable changes to this project will be documented in this file.
 - Fixed desktop capturing by @devopvoid
 - Updated CHANGELOG and README by @devopvoid
 - Prepare for next development iteration by @devopvoid
+
+## New Contributors
+* @kalgecin made their first contribution in [#86](https://github.com/devopvoid/webrtc-java/pull/86)
+
+## [0.6.0] - 2022-01-17
+
+### Other
 - Prepare release v0.6.0 by @devopvoid
 - Fixed camera device selection for a video track on Unix systems #30 by @devopvoid
-- Get default audio devices by @devopvoid
+- Get default audio devices by @devopvoid in [#50](https://github.com/devopvoid/webrtc-java/pull/50)
 - Lazy-load audio/video managers #44 by @devopvoid
 - Fixed loading classes from native threads with detached class-loaders #49 by @devopvoid
 - Moved to WebRTC branch 4692 (M97) by @devopvoid
@@ -288,6 +390,11 @@ All notable changes to this project will be documented in this file.
 - Fixed AudioProcessing native ProcessReverseStream function call #46 by @devopvoid
 - Updated CHANGELOG and README by @devopvoid
 - Prepare for next development iteration by @devopvoid
+
+
+## [0.5.0] - 2021-11-25
+
+### Other
 - Prepare release v0.5.0 by @devopvoid
 - Use new api calls which support RTCError by @devopvoid
 - Fixed AudioTransportSource.cpp buffer passing by @devopvoid
@@ -303,6 +410,11 @@ All notable changes to this project will be documented in this file.
 - Fixed CoInitialize has not been called #43 by @devopvoid
 - Updated CHANGELOG and README by @devopvoid
 - Prepare for next development iteration by @devopvoid
+
+
+## [0.4.0] - 2021-11-21
+
+### Other
 - Prepare release v0.4.0 by @devopvoid
 - Add settings-path for JDK setup to the release workflow by @devopvoid
 - Split AudioProcessingConfig into individual config classes. Added get/set of stream-delay to AudioProcessing. by @devopvoid
@@ -326,6 +438,11 @@ All notable changes to this project will be documented in this file.
 - Updated CHANGELOG and README by @devopvoid
 - Updated CHANGELOG and README by @devopvoid
 - Prepare for next development iteration by @devopvoid
+
+
+## [0.3.0] - 2021-08-19
+
+### Other
 - Prepare release v0.3.0 by @devopvoid
 - Fixed local video is sometimes empty #9 by @devopvoid
 - Fixed WebRTC cmake build by @devopvoid
@@ -339,7 +456,7 @@ All notable changes to this project will be documented in this file.
 - Audio/video device (Windows) handling consistent with the internal API by @devopvoid
 - Audio device retrieval with the AudioDeviceModule by @devopvoid
 - Removed Azure Pipelines by @devopvoid
-- Merge pull request #20 from rmberne/dummy-audio-for-testing by @devopvoid
+- Merge pull request #20 from rmberne/dummy-audio-for-testing by @devopvoid in [#20](https://github.com/devopvoid/webrtc-java/pull/20)
 - Use dummy audio in the unit test by @rmberne
 - Add possibility to use dummy audio for testing purposes by @rmberne
 - Fixed NativeI420Buffer allocate by @devopvoid
@@ -361,7 +478,7 @@ All notable changes to this project will be documented in this file.
 - Fixed possible arithmetic overflow by @devopvoid
 - Linux M88 patch. Updated pipelines. by @devopvoid
 - Bump WebRTC branch to 4324 (M88) by @devopvoid
-- Merge pull request #6 from averyzhong/master by @devopvoid
+- Merge pull request #6 from averyzhong/master by @devopvoid in [#6](https://github.com/devopvoid/webrtc-java/pull/6)
 - Update AVFVideoDeviceManager.cpp by @averyzhong
 - Change GitHub Actions env names for Maven credentials by @devopvoid
 - Fixed MF init scope by @devopvoid
@@ -374,6 +491,14 @@ All notable changes to this project will be documented in this file.
 - Add Maven Central badge to README by @devopvoid
 - Reference javafx demo app name to 'webrtc-javafx-demo-(platform)' by @devopvoid
 - Prepare for next development iteration by @devopvoid
+
+## New Contributors
+* @rmberne made their first contribution
+* @averyzhong made their first contribution
+
+## [0.2.0] - 2020-02-25
+
+### Other
 - Prepare release v0.2.0 by @devopvoid
 - Added CHANGELOG by @devopvoid
 - Update README by @devopvoid
@@ -436,28 +561,17 @@ All notable changes to this project will be documented in this file.
 - Improved test cases by @devopvoid
 - Fixed non-Windows build by @lectureStudio
 - Prepare for next development iteration by @lectureStudio
+
+
+## [0.1.0] - 2019-12-22
+
+### Other
 - Prepare release webrtc-java-0.1.0 by @lectureStudio
 - Minor changes to the NOTICE and parent POM by @lectureStudio
 - Initial commit by @devopvoid
 
 ## New Contributors
-* @devopvoid made their first contribution
-* @github-actions[bot] made their first contribution
-* @B077AS made their first contribution
-* @Isacco-B made their first contribution
-* @SendableMetatype made their first contribution
-* @jonathannaguin made their first contribution
-* @dependabot[bot] made their first contribution
-* @Stasyanych made their first contribution
-* @westernbear made their first contribution
-* @maxkratz made their first contribution
-* @SnirDecartAI made their first contribution
-* @arosov made their first contribution
-* @stevebriskin made their first contribution
-* @doctorpangloss made their first contribution
-* @kalgecin made their first contribution
-* @rmberne made their first contribution
-* @averyzhong made their first contribution
 * @lectureStudio made their first contribution
+* @devopvoid made their first contribution
 
 

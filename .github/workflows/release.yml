@@ -56,13 +56,13 @@ jobs:
           config: .github/changelog/cliff-release.toml
           args: -v -u --strip footer --tag ${{ steps.version.outputs.release_version }} --use-branch-tags
 
+      # The new release's section is added on top of the file; the older
+      # sections are left as they are.
       - name: Update CHANGELOG.md
         uses: orhun/git-cliff-action@v4
         with:
           config: .github/changelog/cliff.toml
-          args: -v --tag ${{ steps.version.outputs.release_version }} --use-branch-tags
-        env:
-          OUTPUT: CHANGELOG.md
+          args: -v --prepend CHANGELOG.md -u --tag ${{ steps.version.outputs.release_version }} --use-branch-tags
 
       - name: Commit CHANGELOG.md
         if: ${{ !inputs.dryRun }}
