@@ -33,10 +33,10 @@ extern "C" {
 
 	/*
 	 * Class:     io_github_sendablemetatype_webrtc_RTCPeerConnection
-	 * Method:    addTrack
+	 * Method:    addTrackInternal
 	 * Signature: (Lio/github/sendablemetatype/webrtc/media/MediaStreamTrack;Ljava/util/List;)Lio/github/sendablemetatype/webrtc/RTCRtpSender;
 	 */
-	JNIEXPORT jobject JNICALL Java_io_github_sendablemetatype_webrtc_RTCPeerConnection_addTrack
+	JNIEXPORT jobject JNICALL Java_io_github_sendablemetatype_webrtc_RTCPeerConnection_addTrackInternal
 	(JNIEnv *, jobject, jobject, jobject);
 
 	/*
@@ -49,10 +49,10 @@ extern "C" {
 
 	/*
 	 * Class:     io_github_sendablemetatype_webrtc_RTCPeerConnection
-	 * Method:    addTransceiver
+	 * Method:    addTransceiverInternal
 	 * Signature: (Lio/github/sendablemetatype/webrtc/media/MediaStreamTrack;Lio/github/sendablemetatype/webrtc/RTCRtpTransceiverInit;)Lio/github/sendablemetatype/webrtc/RTCRtpTransceiver;
 	 */
-	JNIEXPORT jobject JNICALL Java_io_github_sendablemetatype_webrtc_RTCPeerConnection_addTransceiver
+	JNIEXPORT jobject JNICALL Java_io_github_sendablemetatype_webrtc_RTCPeerConnection_addTransceiverInternal
 	(JNIEnv *, jobject, jobject, jobject);
 
 	/*

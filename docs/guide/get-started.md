@@ -7,9 +7,9 @@ Maven Central artifacts contain native libraries that can be loaded on the follo
 
 |           | x64     | arm     | arm64   |
 |-----------|---------|---------|---------|
-| Linux     | ✔       | ✔       | ✔       |
-| macOS     | ✔       | -       | ✔       |
-| Windows   | ✔       | -       | -       |
+| Linux     | ✔      | ✔      | ✔      |
+| macOS     | ✔      | -       | ✔      |
+| Windows   | ✔      | -       | ✔      |
 
 ::: info
 **Linux runtime dependencies**
@@ -274,12 +274,13 @@ Audio devices can be specified via the `AudioDeviceModule`, see the guide on [Au
 ```java
 import java.util.ArrayList;
 import java.util.List;
+import io.github.sendablemetatype.webrtc.RTCRtpSender;
 
 // Add tracks to the peer connection
 List<String> streamIds = new ArrayList<>();
 streamIds.add("stream1");
-peerConnection.addTrack(videoTrack, streamIds);
-peerConnection.addTrack(audioTrack, streamIds);
+RTCRtpSender videoSender = peerConnection.addTrack(videoTrack, streamIds);
+RTCRtpSender audioSender = peerConnection.addTrack(audioTrack, streamIds);
 ```
 
 ## Cleanup
@@ -287,12 +288,17 @@ peerConnection.addTrack(audioTrack, streamIds);
 Always properly dispose of resources when you're done:
 
 ```java
+// Dispose of senders (not owned by the peer connection)
+videoSender.dispose();
+audioSender.dispose();
+
 // Dispose of tracks
 videoTrack.dispose();
 audioTrack.dispose();
 
 // Dispose of sources
 videoSource.dispose();
+audioSource.dispose();
 
 // Close peer connection and release resources
 peerConnection.close();

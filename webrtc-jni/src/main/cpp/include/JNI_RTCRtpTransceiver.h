@@ -87,6 +87,14 @@ extern "C" {
 	JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_RTCRtpTransceiver_setCodecPreferences
 	(JNIEnv *, jobject, jobject);
 
+	/*
+	 * Class:     io_github_sendablemetatype_webrtc_RTCRtpTransceiver
+	 * Method:    dispose
+	 * Signature: ()V
+	 */
+	JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_RTCRtpTransceiver_dispose
+	(JNIEnv *, jobject);
+
 #ifdef __cplusplus
 }
 #endif

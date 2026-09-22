@@ -55,7 +55,7 @@ JNIEXPORT jobjectArray JNICALL Java_io_github_sendablemetatype_webrtc_RTCPeerCon
 	jni::JavaLocalRef<jobjectArray> objectArray;
 
 	try {
-		objectArray = jni::createObjectArray(env, pc->GetSenders());
+		objectArray = jni::createOwningObjectArray(env, pc->GetSenders());
 	}
 	catch (...) {
 		ThrowCxxJavaException(env);
@@ -73,7 +73,7 @@ JNIEXPORT jobjectArray JNICALL Java_io_github_sendablemetatype_webrtc_RTCPeerCon
 	jni::JavaLocalRef<jobjectArray> objectArray;
 
 	try {
-		objectArray = jni::createObjectArray(env, pc->GetReceivers());
+		objectArray = jni::createOwningObjectArray(env, pc->GetReceivers());
 	}
 	catch (...) {
 		ThrowCxxJavaException(env);
@@ -91,7 +91,7 @@ JNIEXPORT jobjectArray JNICALL Java_io_github_sendablemetatype_webrtc_RTCPeerCon
 	jni::JavaLocalRef<jobjectArray> objectArray;
 
 	try {
-		objectArray = jni::createObjectArray(env, pc->GetTransceivers());
+		objectArray = jni::createOwningObjectArray(env, pc->GetTransceivers());
 	}
 	catch (...) {
 		ThrowCxxJavaException(env);
@@ -100,7 +100,7 @@ JNIEXPORT jobjectArray JNICALL Java_io_github_sendablemetatype_webrtc_RTCPeerCon
 	return objectArray.release();
 }
 
-JNIEXPORT jobject JNICALL Java_io_github_sendablemetatype_webrtc_RTCPeerConnection_addTrack
+JNIEXPORT jobject JNICALL Java_io_github_sendablemetatype_webrtc_RTCPeerConnection_addTrackInternal
 (JNIEnv * env, jobject caller, jobject jTrack, jobject jStreamIds)
 {
 	if (jTrack == nullptr) {
@@ -155,7 +155,7 @@ JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_RTCPeerConnection_
 	}
 }
 
-JNIEXPORT jobject JNICALL Java_io_github_sendablemetatype_webrtc_RTCPeerConnection_addTransceiver
+JNIEXPORT jobject JNICALL Java_io_github_sendablemetatype_webrtc_RTCPeerConnection_addTransceiverInternal
 (JNIEnv * env, jobject caller, jobject jTrack, jobject jTransceiverInit)
 {
 	if (jTrack == nullptr) {
@@ -584,12 +584,11 @@ JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_RTCPeerConnection_
 
 		SetHandle<std::nullptr_t>(env, caller, nullptr);
 
-		auto observer = GetHandle<webrtc::PeerConnectionObserver>(env, caller, "observerHandle");
+		ClearNativeObserver<webrtc::PeerConnectionObserver>(env, caller, "observerHandle");
 
-		if (observer) {
-		    SetHandle<std::nullptr_t>(env, caller, "observerHandle", nullptr);
-			delete observer;
-		}
+		// Drop the owning reference taken when the PeerConnection was handed
+		// to Java in PeerConnectionFactory::createPeerConnection.
+		pc->Release();
 	}
 	catch (...) {
 		ThrowCxxJavaException(env);

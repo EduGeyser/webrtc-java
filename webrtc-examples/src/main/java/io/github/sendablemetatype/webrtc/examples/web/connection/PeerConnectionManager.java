@@ -16,6 +16,7 @@
 
 package io.github.sendablemetatype.webrtc.examples.web.connection;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Consumer;
 
@@ -33,6 +34,7 @@ import io.github.sendablemetatype.webrtc.RTCOfferOptions;
 import io.github.sendablemetatype.webrtc.RTCPeerConnection;
 import io.github.sendablemetatype.webrtc.RTCPeerConnectionState;
 import io.github.sendablemetatype.webrtc.RTCRtpReceiver;
+import io.github.sendablemetatype.webrtc.RTCRtpSender;
 import io.github.sendablemetatype.webrtc.RTCRtpTransceiver;
 import io.github.sendablemetatype.webrtc.RTCSdpType;
 import io.github.sendablemetatype.webrtc.RTCSessionDescription;
@@ -66,6 +68,8 @@ public class PeerConnectionManager implements PeerConnectionSignalingHandler {
 
     private final PeerConnectionFactory factory;
     private final RTCPeerConnection peerConnection;
+    private final List<RTCRtpSender> senders = new ArrayList<>();
+    private final List<AudioTrackSource> audioSources = new ArrayList<>();
 
     private Consumer<RTCSessionDescription> onLocalDescriptionCreated;
     private Consumer<RTCIceCandidate> onIceCandidateGenerated;
@@ -99,7 +103,9 @@ public class PeerConnectionManager implements PeerConnectionSignalingHandler {
      * @param streamIds The stream IDs to associate with the track.
      */
     public void addTrack(MediaStreamTrack track, List<String> streamIds) {
-        peerConnection.addTrack(track, streamIds);
+        // Keep the returned RTCRtpSender around so it can be disposed in
+        // close(); it is not owned by the peer connection.
+        senders.add(peerConnection.addTrack(track, streamIds));
 
         LOG.info("Added track: {}", track.getKind());
     }
@@ -114,6 +120,10 @@ public class PeerConnectionManager implements PeerConnectionSignalingHandler {
      */
     public AudioTrack createAudioTrack(AudioOptions options, String label) {
         AudioTrackSource audioSource = factory.createAudioSource(options);
+
+        // Keep the source around so it can be disposed in close(); it is
+        // ref-counted and not owned by the audio track.
+        audioSources.add(audioSource);
 
         return factory.createAudioTrack(label, audioSource);
     }
@@ -146,6 +156,16 @@ public class PeerConnectionManager implements PeerConnectionSignalingHandler {
      * Closes the peer connection.
      */
     public void close() {
+        for (RTCRtpSender sender : senders) {
+            sender.dispose();
+        }
+        senders.clear();
+
+        for (AudioTrackSource audioSource : audioSources) {
+            audioSource.dispose();
+        }
+        audioSources.clear();
+
         if (peerConnection != null) {
             peerConnection.close();
         }
@@ -407,23 +427,35 @@ public class PeerConnectionManager implements PeerConnectionSignalingHandler {
         @Override
         public void onAddTrack(RTCRtpReceiver receiver, MediaStream[] mediaStreams) {
             LOG.info("Track added: {}", receiver.getTrack().getKind());
+
+            // The receiver is a query result the application owns; dispose it
+            // once its track has been retrieved.
+            receiver.dispose();
         }
-        
+
         @Override
         public void onRemoveTrack(RTCRtpReceiver receiver) {
             LOG.info("Track removed: {}", receiver.getTrack().getKind());
+
+            receiver.dispose();
         }
-        
+
         @Override
         public void onTrack(RTCRtpTransceiver transceiver) {
-            MediaStreamTrack track = transceiver.getReceiver().getTrack();
+            RTCRtpReceiver receiver = transceiver.getReceiver();
+            MediaStreamTrack track = receiver.getTrack();
             String kind = track.getKind();
-            
+
             LOG.info("{} track added to transceiver", kind);
-            
+
             if (onTrackReceived != null) {
                 onTrackReceived.accept(track);
             }
+
+            // The receiver and transceiver are query results the application
+            // owns; dispose them once the track has been retrieved.
+            receiver.dispose();
+            transceiver.dispose();
         }
     }
 }

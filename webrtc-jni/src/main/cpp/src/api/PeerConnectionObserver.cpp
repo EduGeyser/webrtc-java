@@ -40,6 +40,10 @@ namespace jni
 	{
 		JNIEnv * env = AttachCurrentThread();
 
+		if (env == nullptr) {
+			return;
+		}
+
 		auto jState = JavaEnums::toJava(env, state);
 
 		env->CallVoidMethod(observer, javaClass->onConnectionChange, jState.get());
@@ -50,6 +54,10 @@ namespace jni
 	void PeerConnectionObserver::OnSignalingChange(webrtc::PeerConnectionInterface::SignalingState state)
 	{
 		JNIEnv * env = AttachCurrentThread();
+
+		if (env == nullptr) {
+			return;
+		}
 
 		auto jState = JavaEnums::toJava(env, state);
 
@@ -63,7 +71,15 @@ namespace jni
 	{
 		JNIEnv * env = AttachCurrentThread();
 
-		auto jTransceiver = JavaFactories::create(env, transceiver.get());
+		if (env == nullptr) {
+			return;
+		}
+
+		// transceiver is passed by value, so this call owns one reference on
+		// it; transfer that reference into the Java wrapper, which disposes
+		// it, instead of releasing it right back when transceiver goes out
+		// of scope and leaving the wrapper's pointer unowned.
+		auto jTransceiver = JavaFactories::create(env, transceiver.release());
 
 		env->CallVoidMethod(observer, javaClass->onTrack, jTransceiver.get());
 
@@ -74,12 +90,20 @@ namespace jni
 	{
 		JNIEnv * env = AttachCurrentThread();
 
+		if (env == nullptr) {
+			return;
+		}
+
 		JavaLocalRef<jobjectArray> streamArray;
 
 		try {
 			streamArray = createObjectArray(env, streams);
 
-			auto jReceiver = JavaFactories::create(env, receiver.get());
+			// receiver is passed by value, so this call owns one reference on
+			// it; transfer that reference into the Java wrapper, which
+			// disposes it, instead of releasing it right back when receiver
+			// goes out of scope and leaving the wrapper's pointer unowned.
+			auto jReceiver = JavaFactories::create(env, receiver.release());
 
 			env->CallVoidMethod(observer, javaClass->onAddTrack, jReceiver.get(), streamArray.get());
 		}
@@ -94,7 +118,15 @@ namespace jni
 	{
 		JNIEnv * env = AttachCurrentThread();
 
-		auto jReceiver = JavaFactories::create(env, receiver.get());
+		if (env == nullptr) {
+			return;
+		}
+
+		// receiver is passed by value, so this call owns one reference on
+		// it; transfer that reference into the Java wrapper, which disposes
+		// it, instead of releasing it right back when receiver goes out of
+		// scope and leaving the wrapper's pointer unowned.
+		auto jReceiver = JavaFactories::create(env, receiver.release());
 
 		env->CallVoidMethod(observer, javaClass->onRemoveTrack, jReceiver.get());
 
@@ -105,6 +137,10 @@ namespace jni
 	void PeerConnectionObserver::OnDataChannel(webrtc::scoped_refptr<webrtc::DataChannelInterface> channel)
 	{
 		JNIEnv * env = AttachCurrentThread();
+
+		if (env == nullptr) {
+			return;
+		}
 
 		auto jDataChannel = JavaFactories::create(env, channel.release());
 
@@ -117,6 +153,10 @@ namespace jni
 	{
 		JNIEnv * env = AttachCurrentThread();
 
+		if (env == nullptr) {
+			return;
+		}
+
 		env->CallVoidMethod(observer, javaClass->onRenegotiationNeeded);
 
 		ExceptionCheck(env);
@@ -125,6 +165,10 @@ namespace jni
 	void PeerConnectionObserver::OnIceConnectionChange(webrtc::PeerConnectionInterface::IceConnectionState state)
 	{
 		JNIEnv * env = AttachCurrentThread();
+
+		if (env == nullptr) {
+			return;
+		}
 
 		auto jState = JavaEnums::toJava(env, state);
 
@@ -137,6 +181,10 @@ namespace jni
 	{
 		JNIEnv * env = AttachCurrentThread();
 
+		if (env == nullptr) {
+			return;
+		}
+
 		auto jState = JavaEnums::toJava(env, state);
 
 		env->CallVoidMethod(observer, javaClass->onIceGatheringChange, jState.get());
@@ -147,6 +195,10 @@ namespace jni
 	void PeerConnectionObserver::OnIceCandidate(const webrtc::IceCandidateInterface * candidate)
 	{
 		JNIEnv * env = AttachCurrentThread();
+
+		if (env == nullptr) {
+			return;
+		}
 
 		JavaLocalRef<jobject> jCandidate = RTCIceCandidate::toJava(env, candidate);
 
@@ -159,6 +211,10 @@ namespace jni
 	{
 		JNIEnv * env = AttachCurrentThread();
 
+		if (env == nullptr) {
+			return;
+		}
+
 		JavaLocalRef<jobject> event = RTCPeerConnectionIceErrorEvent::toJava(env, address, port, url, error_code, error_text);
 
 		env->CallVoidMethod(observer, javaClass->onIceCandidateError, event.get());
@@ -170,6 +226,10 @@ namespace jni
 	{
 		JNIEnv * env = AttachCurrentThread();
 
+		if (env == nullptr) {
+			return;
+		}
+
 		env->CallVoidMethod(observer, javaClass->onIceConnectionReceivingChange, receiving);
 
 		ExceptionCheck(env);
@@ -178,6 +238,10 @@ namespace jni
 	void PeerConnectionObserver::OnIceSelectedCandidatePairChanged(const webrtc::CandidatePairChangeEvent & event)
 	{
 		JNIEnv * env = AttachCurrentThread();
+
+		if (env == nullptr) {
+			return;
+		}
 
 		const webrtc::Candidate & remote = event.selected_candidate_pair.remote_candidate();
 

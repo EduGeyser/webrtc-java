@@ -1,5 +1,5 @@
 /*
- * Copyright 2019 Alex Andres
+ * Copyright 2026 Alex Andres
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,26 +14,19 @@
  * limitations under the License.
  */
 
-package io.github.sendablemetatype.webrtc.media.audio;
+#include "api/FieldTrialsView.h"
 
-import io.github.sendablemetatype.webrtc.media.MediaSource;
-
-/**
- * A source for one or more AudioTracks.
- *
- * @author Alex Andres
- */
-public class AudioTrackSource extends MediaSource {
-
-	protected AudioTrackSource() {
-
+namespace jni
+{
+	FieldTrialsView::FieldTrialsView(std::map<std::string, std::string> trials) :
+		trials(std::move(trials))
+	{
 	}
 
-	/**
-	 * Disposes of the native resources held by this audio source.
-	 * This method should be called when the audio source is no longer needed
-	 * to prevent memory leaks.
-	 */
-	public native void dispose();
+	std::string FieldTrialsView::Lookup(absl::string_view key) const
+	{
+		auto it = trials.find(std::string(key));
 
+		return it != trials.end() ? it->second : std::string();
+	}
 }

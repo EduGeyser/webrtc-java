@@ -25,6 +25,13 @@ import io.github.sendablemetatype.webrtc.media.audio.*;
 import io.github.sendablemetatype.webrtc.media.video.VideoDeviceSource;
 import io.github.sendablemetatype.webrtc.media.video.VideoTrack;
 
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
+import java.util.TreeMap;
+import java.util.concurrent.ConcurrentHashMap;
+
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
@@ -61,6 +68,69 @@ class PeerConnectionFactoryTests extends TestBase {
 
 		PeerConnectionFactory factory = new PeerConnectionFactory(audioDevModule, audioProcessing);
 		factory.dispose();
+	}
+
+	@Tag("media")
+	@Test
+	void createWithFieldTrials() {
+		AudioDeviceModule audioDevModule = new AudioDeviceModule(AudioLayer.kDummyAudio);
+		Map<String, String> fieldTrials = Collections.singletonMap("WebRTC-Bar", "Enabled");
+
+		PeerConnectionFactory factory = new PeerConnectionFactory(fieldTrials, audioDevModule);
+		factory.dispose();
+	}
+
+	@Tag("media")
+	@Test
+	void createWithEmptyFieldTrials() {
+		AudioDeviceModule audioDevModule = new AudioDeviceModule(AudioLayer.kDummyAudio);
+
+		PeerConnectionFactory factory = new PeerConnectionFactory(Collections.emptyMap(), audioDevModule);
+		factory.dispose();
+	}
+
+	@Tag("media")
+	@Test
+	void createWithFieldTrialsOfAnyMapType() {
+		// The field trials are read natively through a helper that used to take
+		// its method IDs from java.util.HashMap and call them on whatever map it
+		// was given. Anything but a HashMap was then undefined behaviour, which
+		// happened to work but aborts the JVM under -Xcheck:jni. Every map here
+		// is a different implementation, and none of them is a HashMap.
+		// LinkedHashMap is deliberately absent: it extends HashMap, so it would
+		// pass either way.
+		Map<String, String> treeMap = new TreeMap<>();
+		treeMap.put("WebRTC-Bar", "Enabled");
+		treeMap.put("WebRTC-Foo", "Disabled");
+
+		Map<String, String> concurrentMap = new ConcurrentHashMap<>();
+		concurrentMap.put("WebRTC-Bar", "Enabled");
+
+		List<Map<String, String>> fieldTrialMaps = Arrays.asList(
+				Collections.singletonMap("WebRTC-Bar", "Enabled"),
+				Collections.emptyMap(),
+				treeMap,
+				concurrentMap,
+				Collections.unmodifiableMap(treeMap));
+
+		for (Map<String, String> fieldTrials : fieldTrialMaps) {
+			AudioDeviceModule audioDevModule = new AudioDeviceModule(AudioLayer.kDummyAudio);
+			PeerConnectionFactory factory = new PeerConnectionFactory(fieldTrials, audioDevModule);
+
+			factory.dispose();
+			audioDevModule.dispose();
+		}
+	}
+
+	@Tag("media")
+	@Test
+	void createWithInvalidFieldTrials() {
+		AudioDeviceModule audioDevModule = new AudioDeviceModule(AudioLayer.kDummyAudio);
+		Map<String, String> fieldTrials = Collections.singletonMap("WebRTC-Bar", "");
+
+		assertThrows(Error.class, () -> {
+			new PeerConnectionFactory(fieldTrials, audioDevModule);
+		});
 	}
 
 	@Test
@@ -128,6 +198,203 @@ class PeerConnectionFactoryTests extends TestBase {
 		assertEquals("audioTrack", audioTrack.getId());
 		assertEquals(MediaStreamTrackState.LIVE, audioTrack.getState());
 		assertTrue(audioTrack.isEnabled());
+	}
+
+	@Tag("media")
+	@Test
+	void customAudioSourceAfterDeviceAudioSourceIsRejected() {
+		// WebRTC feeds device-captured audio into every audio sender of a
+		// factory. A CustomAudioSource track would be fed twice, which aborts
+		// the process inside WebRTC, so the factory must refuse it up front.
+		AudioDeviceModule audioModule = new AudioDeviceModule(AudioLayer.kDummyAudio);
+		PeerConnectionFactory audioFactory = new PeerConnectionFactory(audioModule);
+		CustomAudioSource customSource = new CustomAudioSource();
+
+		try {
+			AudioTrackSource deviceSource = audioFactory.createAudioSource(new AudioOptions());
+
+			IllegalStateException e = assertThrows(IllegalStateException.class, () -> {
+				audioFactory.createAudioTrack("customTrack", customSource);
+			});
+			assertTrue(e.getMessage().contains("CustomAudioSource"), e.getMessage());
+
+			// The device path stays usable.
+			AudioTrack deviceTrack = audioFactory.createAudioTrack("deviceTrack", deviceSource);
+			assertNotNull(deviceTrack);
+
+			deviceTrack.dispose();
+			deviceSource.dispose();
+		}
+		finally {
+			customSource.dispose();
+			audioFactory.dispose();
+			audioModule.dispose();
+		}
+	}
+
+	@Tag("media")
+	@Test
+	void deviceAudioSourceAfterCustomAudioSourceIsRejected() {
+		AudioDeviceModule audioModule = new AudioDeviceModule(AudioLayer.kDummyAudio);
+		PeerConnectionFactory audioFactory = new PeerConnectionFactory(audioModule);
+		CustomAudioSource customSource = new CustomAudioSource();
+		CustomAudioSource otherCustomSource = new CustomAudioSource();
+
+		try {
+			AudioTrack customTrack = audioFactory.createAudioTrack("customTrack", customSource);
+			assertNotNull(customTrack);
+
+			IllegalStateException e = assertThrows(IllegalStateException.class, () -> {
+				audioFactory.createAudioSource(new AudioOptions());
+			});
+			assertTrue(e.getMessage().contains("AudioDeviceModule"), e.getMessage());
+
+			// Any number of custom sources may share the factory.
+			AudioTrack otherCustomTrack = audioFactory.createAudioTrack("otherCustomTrack", otherCustomSource);
+			assertNotNull(otherCustomTrack);
+
+			otherCustomTrack.dispose();
+			customTrack.dispose();
+		}
+		finally {
+			otherCustomSource.dispose();
+			customSource.dispose();
+			audioFactory.dispose();
+			audioModule.dispose();
+		}
+	}
+
+	@Tag("media")
+	@Test
+	void sinkFedTrackAddedToDeviceAudioFactoryIsRejected() {
+		// A track whose audio is pushed rather than captured, here one backed by
+		// a CustomAudioSource but equally one forwarded from a remote peer, may
+		// not become a sender of a factory that sends device-captured audio.
+		AudioDeviceModule deviceModule = new AudioDeviceModule(AudioLayer.kDummyAudio);
+		AudioDeviceModule customModule = new AudioDeviceModule(AudioLayer.kDummyAudio);
+		PeerConnectionFactory deviceFactory = new PeerConnectionFactory(deviceModule);
+		PeerConnectionFactory customFactory = new PeerConnectionFactory(customModule);
+		CustomAudioSource customSource = new CustomAudioSource();
+
+		try {
+			AudioTrackSource deviceSource = deviceFactory.createAudioSource(new AudioOptions());
+			AudioTrack deviceTrack = deviceFactory.createAudioTrack("deviceTrack", deviceSource);
+			AudioTrack customTrack = customFactory.createAudioTrack("customTrack", customSource);
+
+			RTCPeerConnection peerConnection = deviceFactory.createPeerConnection(
+					new RTCConfiguration(), candidate -> { });
+
+			// The device-captured track is what this factory sends.
+			RTCRtpSender sender = peerConnection.addTrack(deviceTrack,
+					Collections.singletonList("stream0"));
+
+			assertNotNull(sender);
+
+			IllegalStateException e = assertThrows(IllegalStateException.class, () -> {
+				peerConnection.addTrack(customTrack, Collections.singletonList("stream1"));
+			});
+			assertTrue(e.getMessage().contains("AudioDeviceModule"), e.getMessage());
+
+			// A transceiver that sends is rejected for the same reason.
+			RTCRtpTransceiverInit sendRecv = new RTCRtpTransceiverInit();
+
+			assertThrows(IllegalStateException.class, () -> {
+				peerConnection.addTransceiver(customTrack, sendRecv);
+			});
+
+			// A receive-only transceiver never sends the track, so it is allowed.
+			RTCRtpTransceiverInit recvOnly = new RTCRtpTransceiverInit();
+			recvOnly.direction = RTCRtpTransceiverDirection.RECV_ONLY;
+
+			RTCRtpTransceiver transceiver = peerConnection.addTransceiver(customTrack, recvOnly);
+
+			assertNotNull(transceiver);
+
+			transceiver.dispose();
+			sender.dispose();
+			peerConnection.close();
+			deviceTrack.dispose();
+			customTrack.dispose();
+			deviceSource.dispose();
+		}
+		finally {
+			customSource.dispose();
+			customFactory.dispose();
+			deviceFactory.dispose();
+			customModule.dispose();
+			deviceModule.dispose();
+		}
+	}
+
+	@Tag("media")
+	@Test
+	void sinkFedTrackAddedFirstCommitsFactoryToPushedAudio() {
+		// Adding a track whose audio is pushed settles the question for the
+		// factory that owns the connection, even though that factory did not
+		// create the track. A forwarded remote track reaches a factory this way.
+		AudioDeviceModule receivingModule = new AudioDeviceModule(AudioLayer.kDummyAudio);
+		AudioDeviceModule sendingModule = new AudioDeviceModule(AudioLayer.kDummyAudio);
+		PeerConnectionFactory receivingFactory = new PeerConnectionFactory(receivingModule);
+		PeerConnectionFactory sendingFactory = new PeerConnectionFactory(sendingModule);
+		CustomAudioSource customSource = new CustomAudioSource();
+
+		try {
+			AudioTrack customTrack = sendingFactory.createAudioTrack("customTrack", customSource);
+
+			RTCPeerConnection peerConnection = receivingFactory.createPeerConnection(
+					new RTCConfiguration(), candidate -> { });
+
+			RTCRtpSender sender = peerConnection.addTrack(customTrack,
+					Collections.singletonList("stream0"));
+
+			assertNotNull(sender);
+
+			// The receiving factory now sends pushed audio, so its own device
+			// capture is off limits.
+			assertThrows(IllegalStateException.class, () -> {
+				receivingFactory.createAudioSource(new AudioOptions());
+			});
+
+			sender.dispose();
+			peerConnection.close();
+			customTrack.dispose();
+		}
+		finally {
+			customSource.dispose();
+			sendingFactory.dispose();
+			receivingFactory.dispose();
+			sendingModule.dispose();
+			receivingModule.dispose();
+		}
+	}
+
+	@Tag("media")
+	@Test
+	void customAudioTrackNullParamsDoNotCommitFactory() {
+		AudioDeviceModule audioModule = new AudioDeviceModule(AudioLayer.kDummyAudio);
+		PeerConnectionFactory audioFactory = new PeerConnectionFactory(audioModule);
+		CustomAudioSource customSource = new CustomAudioSource();
+
+		try {
+			assertThrows(NullPointerException.class, () -> {
+				audioFactory.createAudioTrack(null, customSource);
+			});
+			assertThrows(NullPointerException.class, () -> {
+				audioFactory.createAudioSource(null);
+			});
+
+			// The rejected custom-track call must not have committed the factory
+			// to pushed audio, so a device-captured source is still allowed.
+			AudioTrackSource deviceSource = audioFactory.createAudioSource(new AudioOptions());
+			assertNotNull(deviceSource);
+
+			deviceSource.dispose();
+		}
+		finally {
+			customSource.dispose();
+			audioFactory.dispose();
+			audioModule.dispose();
+		}
 	}
 
 	@Tag("media")

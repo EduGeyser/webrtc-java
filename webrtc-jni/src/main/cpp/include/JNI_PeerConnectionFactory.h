@@ -9,19 +9,35 @@ extern "C" {
 #endif
 	/*
 	 * Class:     io_github_sendablemetatype_webrtc_PeerConnectionFactory
-	 * Method:    createAudioSource
+	 * Method:    createAudioSourceInternal
 	 * Signature: (Lio/github/sendablemetatype/webrtc/media/audio/AudioOptions;)Lio/github/sendablemetatype/webrtc/media/audio/AudioTrackSource;
 	 */
-	JNIEXPORT jobject JNICALL Java_io_github_sendablemetatype_webrtc_PeerConnectionFactory_createAudioSource
+	JNIEXPORT jobject JNICALL Java_io_github_sendablemetatype_webrtc_PeerConnectionFactory_createAudioSourceInternal
 	(JNIEnv *, jobject, jobject);
 
 	/*
 	 * Class:     io_github_sendablemetatype_webrtc_PeerConnectionFactory
-	 * Method:    createAudioTrack
+	 * Method:    createAudioTrackInternal
 	 * Signature: (Ljava/lang/String;Lio/github/sendablemetatype/webrtc/media/audio/AudioTrackSource;)Lio/github/sendablemetatype/webrtc/media/audio/AudioTrack;
 	 */
-	JNIEXPORT jobject JNICALL Java_io_github_sendablemetatype_webrtc_PeerConnectionFactory_createAudioTrack
+	JNIEXPORT jobject JNICALL Java_io_github_sendablemetatype_webrtc_PeerConnectionFactory_createAudioTrackInternal
 	(JNIEnv *, jobject, jstring, jobject);
+
+	/*
+	 * Class:     io_github_sendablemetatype_webrtc_PeerConnectionFactory
+	 * Method:    setDeviceCaptureEnabled
+	 * Signature: (Z)V
+	 */
+	JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_PeerConnectionFactory_setDeviceCaptureEnabled
+	(JNIEnv *, jobject, jboolean);
+
+	/*
+	 * Class:     io_github_sendablemetatype_webrtc_PeerConnectionFactory
+	 * Method:    isSinkFedAudioTrack
+	 * Signature: (Lio/github/sendablemetatype/webrtc/media/MediaStreamTrack;)Z
+	 */
+	JNIEXPORT jboolean JNICALL Java_io_github_sendablemetatype_webrtc_PeerConnectionFactory_isSinkFedAudioTrack
+	(JNIEnv *, jobject, jobject);
 
 	/*
 	 * Class:     io_github_sendablemetatype_webrtc_PeerConnectionFactory
@@ -33,10 +49,10 @@ extern "C" {
 
 	/*
 	 * Class:     io_github_sendablemetatype_webrtc_PeerConnectionFactory
-	 * Method:    createPeerConnection
+	 * Method:    createPeerConnectionInternal
 	 * Signature: (Lio/github/sendablemetatype/webrtc/RTCConfiguration;Lio/github/sendablemetatype/webrtc/PeerConnectionObserver;)Lio/github/sendablemetatype/webrtc/RTCPeerConnection;
 	 */
-	JNIEXPORT jobject JNICALL Java_io_github_sendablemetatype_webrtc_PeerConnectionFactory_createPeerConnection
+	JNIEXPORT jobject JNICALL Java_io_github_sendablemetatype_webrtc_PeerConnectionFactory_createPeerConnectionInternal
 	(JNIEnv *, jobject, jobject, jobject);
 
 	/*
@@ -66,10 +82,10 @@ extern "C" {
 	/*
 	 * Class:     io_github_sendablemetatype_webrtc_PeerConnectionFactory
 	 * Method:    initialize
-	 * Signature: (Lio/github/sendablemetatype/webrtc/media/audio/AudioDeviceModule;Lio/github/sendablemetatype/webrtc/media/audio/AudioProcessing;)V
+	 * Signature: (Ljava/util/Map;Lio/github/sendablemetatype/webrtc/media/audio/AudioDeviceModuleBase;Lio/github/sendablemetatype/webrtc/media/audio/AudioProcessing;)V
 	 */
 	JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_PeerConnectionFactory_initialize
-	(JNIEnv *, jobject, jobject, jobject);
+	(JNIEnv *, jobject, jobject, jobject, jobject);
 
 #ifdef __cplusplus
 }

@@ -85,7 +85,7 @@ if(WEBRTC_DATA_CHANNELS_ONLY)
     # media bindings and the device code go.
     list(FILTER SOURCES EXCLUDE REGEX "/src/(media|platform|api/audio)/")
     list(FILTER SOURCES EXCLUDE REGEX "/src/JNI_(Audio|CustomAudio|CustomVideo|Desktop|Headless|Media|NativeI420|Power|RTCDtmf|RTCRtp|Screen|SyncClock|Video|VoiceActivity|Window)[A-Za-z0-9]*\\.cpp$")
-    list(FILTER SOURCES EXCLUDE REGEX "/src/api/(Audio|HeadlessAudio|RTCDtmf|RTCRtcp|RTCRtp|Video)[A-Za-z0-9]*\\.cpp$")
+    list(FILTER SOURCES EXCLUDE REGEX "/src/api/(Audio|HeadlessAudio|ProxyAudio|RTCDtmf|RTCRtcp|RTCRtp|Video)[A-Za-z0-9]*\\.cpp$")
 endif()
 
 add_library(${PROJECT_NAME} SHARED ${SOURCES})

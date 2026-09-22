@@ -47,6 +47,65 @@ class CustomAudioSourceTest extends TestBase {
     }
 
     @Test
+    void pushAudioRejectsBadArguments() {
+        byte[] data = new byte[480 * 2 * 2];
+
+        assertThrows(NullPointerException.class,
+                () -> customAudioSource.pushAudio(null, 16, 48000, 2, 480));
+
+        // WebRTC reads the samples as 16-bit PCM whatever is declared here, so
+        // any other width would be read as the wrong number of bytes.
+        assertThrows(IllegalArgumentException.class,
+                () -> customAudioSource.pushAudio(data, 8, 48000, 2, 480));
+        assertThrows(IllegalArgumentException.class,
+                () -> customAudioSource.pushAudio(data, 32, 48000, 2, 480));
+
+        assertThrows(IllegalArgumentException.class,
+                () -> customAudioSource.pushAudio(data, 16, 0, 2, 480));
+        assertThrows(IllegalArgumentException.class,
+                () -> customAudioSource.pushAudio(data, 16, 48000, 0, 480));
+        assertThrows(IllegalArgumentException.class,
+                () -> customAudioSource.pushAudio(data, 16, 48000, 2, 0));
+        assertThrows(IllegalArgumentException.class,
+                () -> customAudioSource.pushAudio(data, 16, 48000, -1, 480));
+    }
+
+    @Test
+    void pushAudioRejectsArrayShorterThanTheFramesItClaims() {
+        // Native code reads frameCount * channels * 2 bytes out of the array.
+        // Without this check a short array is read past its end.
+        byte[] data = new byte[480 * 2 * 2];
+
+        IllegalArgumentException e = assertThrows(IllegalArgumentException.class,
+                () -> customAudioSource.pushAudio(data, 16, 48000, 2, 481));
+
+        assertTrue(e.getMessage().contains("1924"), e.getMessage());
+
+        // Exactly the required size is fine, and so is a longer array.
+        customAudioSource.pushAudio(data, 16, 48000, 2, 480);
+        customAudioSource.pushAudio(new byte[8192], 16, 48000, 2, 480);
+    }
+
+    @Test
+    void pushAudioRejectsChunkLargerThanWebRtcTakes() {
+        // WebRTC copies a chunk into a fixed-size frame and aborts the process
+        // when it does not fit, so an oversized chunk must not reach it.
+        int frames = CustomAudioSource.MAX_SAMPLES_PER_PUSH / 2 + 1;
+        byte[] data = new byte[frames * 2 * 2];
+
+        IllegalArgumentException e = assertThrows(IllegalArgumentException.class,
+                () -> customAudioSource.pushAudio(data, 16, 48000, 2, frames));
+
+        assertTrue(e.getMessage().contains(String.valueOf(
+                CustomAudioSource.MAX_SAMPLES_PER_PUSH)), e.getMessage());
+
+        // The largest chunk that still fits is accepted.
+        int maxFrames = CustomAudioSource.MAX_SAMPLES_PER_PUSH / 2;
+
+        customAudioSource.pushAudio(new byte[maxFrames * 2 * 2], 16, 48000, 2, maxFrames);
+    }
+
+    @Test
     void stateAfterCreation() {
         assertEquals(MediaSource.State.LIVE, customAudioSource.getState());
     }
@@ -86,11 +145,44 @@ class CustomAudioSourceTest extends TestBase {
     }
 
     @Test
+    void concurrentAddRemoveSinkDoesNotCrash() throws InterruptedException {
+        // Regression test: AddSink()/RemoveSink() (called here from this thread,
+        // mirroring the internal thread WebRTC uses as tracks attach/detach) used
+        // to race unsynchronized with PushAudioData() (the application's capture
+        // thread) over the native sinks_ vector.
+        AudioTrack audioTrack = factory.createAudioTrack("audioTrack", customAudioSource);
+        AudioTrackSink sink = (data, bitsPerSample, sampleRate, channels, frames) -> { };
+
+        byte[] audioData = new byte[480 * 2 * 2]; // 10ms of 48kHz stereo 16-bit audio
+
+        AtomicBoolean running = new AtomicBoolean(true);
+
+        Thread pushThread = new Thread(() -> {
+            while (running.get()) {
+                customAudioSource.pushAudio(audioData, 16, 48000, 2, 480);
+            }
+        });
+        pushThread.start();
+
+        for (int i = 0; i < 5000; i++) {
+            audioTrack.addSink(sink);
+            audioTrack.removeSink(sink);
+        }
+
+        running.set(false);
+        pushThread.join(5000);
+
+        audioTrack.dispose();
+    }
+
+    @Test
     void pushAudioWithDifferentFormats() {
-        testAudioFormat(8, 8000, 1, 80);    // 8-bit, 8kHz, mono, 10ms
-        testAudioFormat(16, 16000, 1, 160); // 16-bit, 16kHz, mono, 10ms
-        testAudioFormat(16, 44100, 2, 441); // 16-bit, 44.1kHz, stereo, 10ms
-        testAudioFormat(16, 48000, 2, 480); // 16-bit, 48kHz, stereo, 10ms
+        // Every rate and channel count is passed through unchanged. Only 16-bit
+        // samples are accepted, since that is what WebRTC reads.
+        testAudioFormat(16, 8000, 1, 80);    // 8kHz, mono, 10ms
+        testAudioFormat(16, 16000, 1, 160);  // 16kHz, mono, 10ms
+        testAudioFormat(16, 44100, 2, 441);  // 44.1kHz, stereo, 10ms
+        testAudioFormat(16, 48000, 2, 480);  // 48kHz, stereo, 10ms
     }
     
     @Test

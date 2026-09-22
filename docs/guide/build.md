@@ -50,6 +50,14 @@ Applications that only exchange data can build a native library without the audi
 
 The Java API stays the same. The audio and video classes throw an `UnsatisfiedLinkError` when they are used with this library, and `PeerConnectionFactory` ignores an audio device module. libwebrtc is built without codecs, audio processing, audio devices, cameras and desktop capture, into its own directory (`/<user home>/webrtc/build-data-channels` by default), and the resulting library is a fraction of the size of the full one. The build workflow builds this variant when it is dispatched with the `data-channels` variant.
 
+## Checking JNI References
+
+The tests can run under `-Xcheck:jni`, which validates the local and global references of every JNI call and aborts the JVM on a violation. It is opt-in because it also warns about every native call that does not check for a pending exception, which is most of them:
+
+```shell
+./gradlew :webrtc:test -Pjni-check
+```
+
 [build-linux-ubuntu]: https://chromium.googlesource.com/chromium/src/+/master/docs/linux/build_instructions.md#system-requirements
 [build-linux-other]: https://chromium.googlesource.com/chromium/src/+/master/docs/linux/build_instructions.md#Notes-for-other-distros
 [build-windows]: https://chromium.googlesource.com/chromium/src/+/master/docs/windows_build_instructions.md#visual-studio

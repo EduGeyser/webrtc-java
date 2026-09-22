@@ -125,6 +125,11 @@ tasks.test {
 		}
 	}
 	systemProperty("webrtc.variant", if (dataChannelsOnly) "data-channels" else "full")
+
+	// Opt-in check of every JNI call's references, see docs/guide/build.md.
+	if (providers.gradleProperty("jni-check").isPresent) {
+		jvmArgs("-Xcheck:jni")
+	}
 	dependsOn(tasks.jar)
 
 	// A hung test JVM fails the build instead of blocking a CI runner.
