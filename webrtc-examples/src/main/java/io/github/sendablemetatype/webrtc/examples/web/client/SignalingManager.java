@@ -21,7 +21,9 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.DeserializationFeature;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.json.JsonMapper;
 
 import io.github.sendablemetatype.webrtc.RTCIceCandidate;
 import io.github.sendablemetatype.webrtc.RTCSessionDescription;
@@ -84,7 +86,11 @@ public class SignalingManager {
      */
     public SignalingManager(URI signalingUri, String subprotocol) {
         this.signaling = new WebSocketClient(signalingUri, subprotocol);
-        this.jsonMapper = new ObjectMapper();
+        // Browsers send a null sdpMLineIndex for candidates identified by
+        // sdpMid only, which Jackson 3 rejects for the int field by default.
+        this.jsonMapper = JsonMapper.builder()
+                .disable(DeserializationFeature.FAIL_ON_NULL_FOR_PRIMITIVES)
+                .build();
 
         setupSignaling();
 
@@ -211,7 +217,7 @@ public class SignalingManager {
         signaling.addMessageListener(message -> {
             try {
                 // Parse the message to extract the type.
-                String type = jsonMapper.readTree(message).path("type").asText();
+                String type = jsonMapper.readTree(message).path("type").asString();
                 MessageType messageType = MessageType.fromString(type);
 
                 switch (messageType) {

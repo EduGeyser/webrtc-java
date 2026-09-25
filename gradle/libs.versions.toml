@@ -1,12 +1,12 @@
 [versions]
-jackson = "2.22.3"
+jackson = "3.2.3"
 jetty = "12.1.13"
 junit = "6.1.3"
 nmcp = "1.6.2"
 slf4j = "2.0.20"
 
 [libraries]
-jackson-databind = { group = "com.fasterxml.jackson.core", name = "jackson-databind", version.ref = "jackson" }
+jackson-databind = { group = "tools.jackson.core", name = "jackson-databind", version.ref = "jackson" }
 jetty-server = { group = "org.eclipse.jetty", name = "jetty-server", version.ref = "jetty" }
 jetty-util = { group = "org.eclipse.jetty", name = "jetty-util", version.ref = "jetty" }
 jetty-websocket-server = { group = "org.eclipse.jetty.websocket", name = "jetty-websocket-jetty-server", version.ref = "jetty" }
