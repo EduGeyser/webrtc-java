@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.13)
+cmake_minimum_required(VERSION 3.20)
 
 if(NOT WEBRTC_TOOLCHAIN_FILE STREQUAL "")
     message(STATUS "Toolchain file: ${WEBRTC_TOOLCHAIN_FILE}")
@@ -40,6 +40,9 @@ elseif(LINUX)
     set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -s")
     set(SOURCE_TARGET linux)
 elseif(WIN32)
+    # The static runtime WebRTC is built with. Since policy CMP0091, CMake
+    # adds a runtime flag of its own, which would otherwise be /MD.
+    set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
     set(CMAKE_CXX_FLAGS_RELEASE "/MT")
     set(CMAKE_CXX_FLAGS_DEBUG "/MTd")
     set(SOURCE_TARGET windows)
@@ -115,7 +118,7 @@ endif()
 
 set_target_properties(${PROJECT_NAME} PROPERTIES
     OUTPUT_NAME "${PROJECT_NAME}-${OUTPUT_NAME_SUFFIX}"
-    CXX_STANDARD 20
+    CXX_STANDARD 23
     CXX_STANDARD_REQUIRED ON
     CXX_EXTENSIONS OFF
 )
