@@ -11,8 +11,9 @@ runs:
         brew install python-setuptools
       shell: bash
 
-    # Xcode 26.6 ships the macOS 26.5 SDK, the one WebRTC is built with
-    # (mac_sdk_official_version in its build/config/mac/mac_sdk.gni).
+    # The newest Xcode on the macOS 26 image. WebRTC builds with the selected
+    # Xcode and accepts any macOS SDK from 15 on (mac_sdk_min in its
+    # build/config/mac/mac_sdk_overrides.gni).
     - name: Select Xcode version
       run: sudo xcode-select -s /Applications/Xcode_26.6.app/Contents/Developer
       shell: bash

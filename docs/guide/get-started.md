@@ -14,13 +14,15 @@ Maven Central artifacts contain native libraries that can be loaded on the follo
 ::: info
 **Linux runtime dependencies**
 
-The Linux native library links the X11 client libraries and the GLib, GBM and libdrm libraries that libwebrtc's desktop capturers use. A minimal installation, for example a container image, needs them installed before the library can load. On Debian and Ubuntu:
+The data channels only library, which this fork publishes, needs only glibc: `libc`, `libm` and the dynamic loader.
+
+The full Linux native library links the X11 client libraries and the GLib, GBM and libdrm libraries that libwebrtc's desktop capturers use. A minimal installation, for example a container image, needs them installed before that library can load. On Debian and Ubuntu:
 
 ```shell
 apt-get install libx11-6 libxext6 libxfixes3 libxdamage1 libxtst6 libxrandr2 libxcomposite1 libglib2.0-0 libgbm1 libdrm2
 ```
 
-Since 0.17.0, PulseAudio, udev and D-Bus are opened at runtime only when audio devices, cameras or the screen saver inhibition are used, so the library loads without `libpulse0`, `libudev1` and `libdbus-1-3`. Earlier versions link them and need those three packages as well.
+Since 0.17.0, PulseAudio, udev and D-Bus are opened at runtime only when audio devices, cameras or the screen saver inhibition are used, so the full library loads without `libpulse0`, `libudev1` and `libdbus-1-3`. Earlier versions link them and need those three packages as well.
 :::
 
 
