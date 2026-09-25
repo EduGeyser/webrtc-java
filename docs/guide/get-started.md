@@ -14,7 +14,7 @@ Maven Central artifacts contain native libraries that can be loaded on the follo
 ::: info
 **Linux runtime dependencies**
 
-The data channels only library, which this fork publishes, needs only glibc: `libc`, `libm` and the dynamic loader.
+The data channels only library, which this fork publishes, needs only glibc (`libc`, `libm` and the dynamic loader) and `libgcc_s`, which glibc itself loads and every glibc system has.
 
 The full Linux native library links the X11 client libraries and the GLib, GBM and libdrm libraries that libwebrtc's desktop capturers use. A minimal installation, for example a container image, needs them installed before that library can load. On Debian and Ubuntu:
 
