@@ -6,7 +6,7 @@ inputs:
   java-version:
     description: 'The Java build version.'
     required: true
-    default: '17'
+    default: '27'
 
   platform-name:
     description: 'The target platform.'
@@ -41,7 +41,7 @@ runs:
       uses: actions/setup-java@v6
       with:
         java-version: ${{ inputs.java-version }}
-        distribution: 'temurin'
+        distribution: 'liberica'
 
     - name: Set up Gradle
       uses: gradle/actions/setup-gradle@v6

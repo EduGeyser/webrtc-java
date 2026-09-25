@@ -19,12 +19,12 @@ inputs:
   java-version:
     description: 'The Java version.'
     required: true
-    default: '17'
+    default: '27'
 
   java-distribution:
     description: 'The setup-java distribution. It must provide a JDK for the runner architecture.'
     required: true
-    default: 'temurin'
+    default: 'liberica'
 
   java-architecture:
     description: 'The JDK architecture, when it differs from the runner architecture.'

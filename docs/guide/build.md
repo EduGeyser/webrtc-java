@@ -10,6 +10,8 @@ To build the native code, be sure to install the prerequisite software (follow t
 | macOS     | Xcode 9 or higher                                                 |
 | Windows   | [Visual Studio][build-windows]                                    |
 
+The Java code compiles for Java 25, so the build needs JDK 25 or newer. The CI builds with JDK 27.
+
 Assuming you have all the prerequisites installed for your OS, run:
 
 ```shell

@@ -25,18 +25,9 @@ dependencies {
 	}
 }
 
-// The examples are a module requiring io.github.sendablemetatype.webrtc, whose module-info.class is
-// packaged into its jar only, so compile against the jar rather than the class
-// directories.
-configurations.compileClasspath {
-	attributes {
-		attribute(LibraryElements.LIBRARY_ELEMENTS_ATTRIBUTE, objects.named(LibraryElements.JAR))
-	}
-}
-
 tasks.withType<JavaCompile>().configureEach {
 	options.encoding = "UTF-8"
-	options.release = 17
+	options.release = 25
 }
 
 tasks.processResources {

@@ -26,47 +26,47 @@ jobs:
           - name: windows_x86_64
             runs-on: windows-2022
             classifier: windows-x86_64
-            java-distribution: temurin
+            java-distribution: liberica
             java-architecture: ''
           - name: windows_x86_64
             runs-on: windows-2025
             classifier: windows-x86_64
-            java-distribution: temurin
+            java-distribution: liberica
             java-architecture: ''
           - name: windows_arm64
             runs-on: windows-11-arm
             classifier: windows-aarch64
-            java-distribution: microsoft
+            java-distribution: liberica
             java-architecture: aarch64
           - name: linux_x86-64
             runs-on: ubuntu-22.04
             classifier: linux-x86_64
-            java-distribution: temurin
+            java-distribution: liberica
             java-architecture: ''
           - name: linux_x86-64
             runs-on: ubuntu-24.04
             classifier: linux-x86_64
-            java-distribution: temurin
+            java-distribution: liberica
             java-architecture: ''
           - name: linux_x86-64
             runs-on: ubuntu-26.04
             classifier: linux-x86_64
-            java-distribution: temurin
+            java-distribution: liberica
             java-architecture: ''
           - name: linux_arm64
             runs-on: ubuntu-22.04-arm
             classifier: linux-aarch64
-            java-distribution: temurin
+            java-distribution: liberica
             java-architecture: ''
           - name: linux_arm64
             runs-on: ubuntu-24.04-arm
             classifier: linux-aarch64
-            java-distribution: temurin
+            java-distribution: liberica
             java-architecture: ''
           - name: linux_arm64
             runs-on: ubuntu-26.04-arm
             classifier: linux-aarch64
-            java-distribution: temurin
+            java-distribution: liberica
             java-architecture: ''
           - name: linux_arm
             runs-on: ubuntu-22.04-arm
@@ -86,22 +86,22 @@ jobs:
           - name: macos_x86-64
             runs-on: macos-15-intel
             classifier: macos-x86_64
-            java-distribution: temurin
+            java-distribution: liberica
             java-architecture: ''
           - name: macos_x86-64
             runs-on: macos-26-intel
             classifier: macos-x86_64
-            java-distribution: temurin
+            java-distribution: liberica
             java-architecture: ''
           - name: macos_arm64
             runs-on: macos-15
             classifier: macos-aarch64
-            java-distribution: temurin
+            java-distribution: liberica
             java-architecture: ''
           - name: macos_arm64
             runs-on: macos-26
             classifier: macos-aarch64
-            java-distribution: temurin
+            java-distribution: liberica
             java-architecture: ''
     runs-on: ${{ matrix.platform.runs-on }}
     steps:
