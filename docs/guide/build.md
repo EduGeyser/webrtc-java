@@ -26,11 +26,11 @@ To use the build from another project on the same machine, publish it to the loc
 
 ## Build Parameters
 
-Build parameters are passed as Gradle project properties, for example `./gradlew build -Pwebrtc.branch=branch-heads/8037`.
+Build parameters are passed as Gradle project properties, for example `./gradlew build -Pwebrtc.branch=branch-heads/8059`.
 
 | Parameter          | Description                                            | Default Value               |
 | ------------------ | ------------------------------------------------------ |-----------------------------|
-| webrtc.branch      | The WebRTC branch to checkout.                         | branch-heads/8037           |
+| webrtc.branch      | The WebRTC branch to checkout.                         | branch-heads/8059           |
 | webrtc.src.dir     | The absolute checkout path for the WebRTC source tree. | /\<user_home\>/webrtc       |
 | webrtc.install.dir | The install path for the compiled WebRTC library. Is also used to link against a pre-compiled WebRTC library to reduce build time. | /\<user_home\>/webrtc/build |
 | webrtc.platform    | The platform to build the native library for, as `<os>-<arch>`: `windows-x86_64`, `windows-aarch64`, `linux-x86_64`, `linux-aarch32`, `linux-aarch64`, `macos-x86_64` or `macos-aarch64`. Cross compiling requires the toolchain the build workflow installs. | The host platform |
