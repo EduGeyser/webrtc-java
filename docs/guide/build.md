@@ -7,7 +7,7 @@ To build the native code, be sure to install the prerequisite software (follow t
 | OS        | Build Instructions                                                |
 | --------- | ----------------------------------------------------------------- |
 | Linux     | [Ubuntu][build-linux-ubuntu], [other distros][build-linux-other]  |
-| macOS     | Xcode 9 or higher                                                 |
+| macOS     | Xcode with the macOS 15 SDK or newer                              |
 | Windows   | [Visual Studio][build-windows]                                    |
 
 The Java code compiles for Java 25, so the build needs JDK 25 or newer. The CI builds with JDK 27.
@@ -37,7 +37,7 @@ Build parameters are passed as Gradle project properties, for example `./gradlew
 | webrtc.install.dir | The install path for the compiled WebRTC library. Is also used to link against a pre-compiled WebRTC library to reduce build time. | /\<user_home\>/webrtc/build |
 | webrtc.platform    | The platform to build the native library for, as `<os>-<arch>`: `windows-x86_64`, `windows-aarch64`, `linux-x86_64`, `linux-aarch32`, `linux-aarch64`, `macos-x86_64` or `macos-aarch64`. Cross compiling requires the toolchain the build workflow installs. | The host platform |
 | cmake.build.type   | The CMake build type.                                  | Release                     |
-| webrtc.variant      | The variant of the native library: `full`, or `data-channels` for a library without audio and video support, see below. | full |
+| webrtc.variant      | The variant of the native library: `full`, or `data-channels` for a library without audio and video support, see below. | `data-channels`, see `gradle.properties`; `full` without it |
 | webrtc.windows.sdk.version | The Windows SDK version to build WebRTC with, when the one its build scripts expect is not installed. | The version the WebRTC build scripts expect |
 | webrtc.checkout.history | Whether to fetch the history of WebRTC and its dependencies. | false |
 | natives.dir        | A directory with prebuilt native library jars, `webrtc-java-<version>-<classifier>.jar`, used instead of building the native library. The tests run against the jar of the build platform. | -                           |
@@ -50,7 +50,9 @@ Applications that only exchange data can build a native library without the audi
 ./gradlew build -Pwebrtc.variant=data-channels
 ```
 
-The Java API stays the same. The audio and video classes throw an `UnsatisfiedLinkError` when they are used with this library, and `PeerConnectionFactory` ignores an audio device module. libwebrtc is built without codecs, audio processing, audio devices, cameras and desktop capture, into its own directory (`/<user home>/webrtc/build-data-channels` by default), and the resulting library is a fraction of the size of the full one. The build workflow builds this variant when it is dispatched with the `data-channels` variant.
+The Java API stays the same. The audio and video classes throw an `UnsatisfiedLinkError` when they are used with this library, and `PeerConnectionFactory` ignores an audio device module. libwebrtc is built without codecs, audio processing, audio devices, cameras and desktop capture, into its own directory (`/<user home>/webrtc/build-data-channels` by default), and the resulting library is a fraction of the size of the full one.
+
+This fork selects this variant in `gradle.properties`, and its published native libraries are this variant. Pass `-Pwebrtc.variant=full` to build the full library. The build workflow builds the variant from `gradle.properties`, or the one chosen when it is dispatched.
 
 ## Checking JNI References
 
