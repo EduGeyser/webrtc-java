@@ -25,6 +25,10 @@ runtimeOnly("io.github.sendablemetatype.webrtc:webrtc-java:VERSION:linux-x86_64"
 
 The main module is named `io.github.sendablemetatype.webrtc`, the native library modules `io.github.sendablemetatype.webrtc.natives.<os>.<arch>`.
 
+The library requires Java 25 or newer, where upstream supports Java 8. Java 25 is the first LTS release with the final Foreign Function and Memory API.
+
+Loading the native library is a restricted operation. To run without a warning, pass `--enable-native-access=io.github.sendablemetatype.webrtc` when the library is on the module path, or `--enable-native-access=ALL-UNNAMED` when it is on the class path.
+
 Versions are `<upstream version>-sm.<n>`: the upstream version the fork is based on, then the fork's own iteration.
 
 ## Building

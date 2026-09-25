@@ -46,21 +46,9 @@ dependencies {
 
 tasks.withType<JavaCompile>().configureEach {
 	options.encoding = "UTF-8"
-}
-
-tasks.compileJava {
-	// Java 8 class files. module-info.java needs Java 9 and is compiled separately.
-	options.release = 8
-	exclude("module-info.java")
-}
-
-val compileModuleInfo = tasks.register<JavaCompile>("compileModuleInfo") {
-	description = "Compiles module-info.java for Java 9. Only module-info.class of this compilation is used."
-	source(sourceSets.main.map { it.allJava })
-	classpath = files()
-	options.release = 9
-	options.encoding = "UTF-8"
-	destinationDirectory = layout.buildDirectory.dir("classes/java/module-info")
+	// Java 25 is the first LTS release with the final Foreign Function and
+	// Memory API.
+	options.release = 25
 }
 
 val pomProperties = tasks.register("pomProperties") {
@@ -75,10 +63,6 @@ val pomProperties = tasks.register("pomProperties") {
 }
 
 tasks.jar {
-	from(compileModuleInfo) {
-		include("module-info.class")
-	}
-
 	manifest {
 		attributes(
 			"Version" to project.version,
@@ -162,6 +146,7 @@ tasks.test {
 			"--add-modules", moduleName,
 			"--patch-module", "$moduleName=$patch",
 			"--add-reads", "$moduleName=ALL-UNNAMED",
+			"--enable-native-access=$moduleName",
 		) + opens.flatMap { listOf("--add-opens", "$moduleName/$it=ALL-UNNAMED") }
 	})
 }

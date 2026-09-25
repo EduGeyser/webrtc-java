@@ -38,7 +38,7 @@ jobs:
             runs-on: windows-2025
           - name: windows_arm64
             runs-on: windows-2025
-        java: [17]
+        java: [27]
     runs-on: ${{ matrix.platform.runs-on }}
     steps:
       - name: Checkout code
@@ -67,7 +67,7 @@ jobs:
             runs-on: ubuntu-26.04
           - name: linux_x86-64
             runs-on: ubuntu-26.04
-        java: [17]
+        java: [27]
     runs-on: ${{ matrix.platform.runs-on }}
     steps:
       - name: Checkout code
@@ -96,7 +96,7 @@ jobs:
             runs-on: macos-26
           - name: macos_arm64
             runs-on: macos-26
-        java: [17]
+        java: [27]
     runs-on: ${{ matrix.platform.runs-on }}
     steps:
       - name: Checkout code
