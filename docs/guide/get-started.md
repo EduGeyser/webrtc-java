@@ -64,36 +64,6 @@ Complete list of available classifiers:
 - linux-aarch32
 :::
 
-#### Using SNAPSHOT Versions
-
-If you want to use the latest development version, you can use a SNAPSHOT release:
-
-```xml
-<dependency>
-    <groupId>io.github.sendablemetatype.webrtc</groupId>
-    <artifactId>webrtc-java</artifactId>
-    <version>{{ VERSION_SNAPSHOT }}</version>
-</dependency>
-```
-
-To use SNAPSHOT versions, you need to add the following repository configuration to your `pom.xml`:
-
-```xml
-<repositories>
-    <repository>
-        <name>Central Portal Snapshots</name>
-        <id>central-portal-snapshots</id>
-        <url>https://central.sonatype.com/repository/maven-snapshots/</url>
-        <releases>
-            <enabled>false</enabled>
-        </releases>
-        <snapshots>
-            <enabled>true</enabled>
-        </snapshots>
-    </repository>
-</repositories>
-```
-
 ### Gradle
 
 Add the following to your `build.gradle`:

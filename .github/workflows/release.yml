@@ -114,9 +114,8 @@ jobs:
         if: ${{ !inputs.dryRun }}
         run: |
           # Update versions.ts file
-          echo "Updating versions.ts with release version: $RELEASE_VERSION and development version: ${{ github.event.inputs.developmentVersion }}"
+          echo "Updating versions.ts with release version: $RELEASE_VERSION"
           sed -i "s/VERSION: '.*'/VERSION: '$RELEASE_VERSION'/g" docs/.vitepress/versions.ts
-          sed -i "s/VERSION_SNAPSHOT: '.*'/VERSION_SNAPSHOT: '${{ github.event.inputs.developmentVersion }}'/g" docs/.vitepress/versions.ts
 
           # Add the updated file to the existing commit
           git add docs/.vitepress/versions.ts
