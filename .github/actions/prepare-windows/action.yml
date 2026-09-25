@@ -34,8 +34,8 @@ runs:
         Get-PSDrive
       shell: powershell
 
-    # The runner images ship Windows SDK 10.0.26100.0 at most, while the WebRTC
-    # branch expects 10.0.28000.0. The desktop C++ parts cover the x64 build and
+    # The runner images ship Windows SDK 10.0.26100.0 at most, while the build
+    # scripts of WebRTC expect 10.0.28000.0. The desktop C++ parts cover the x64 build and
     # the arm64 cross build, and the WebRTC toolchain script copies the
     # debugger DLLs.
     - name: Install Windows SDK 10.0.28000

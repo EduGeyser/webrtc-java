@@ -32,13 +32,13 @@ Build parameters are passed as Gradle project properties, for example `./gradlew
 
 | Parameter          | Description                                            | Default Value               |
 | ------------------ | ------------------------------------------------------ |-----------------------------|
-| webrtc.branch      | The WebRTC branch to checkout.                         | branch-heads/8059           |
+| webrtc.branch      | The WebRTC branch or commit to check out.             | A commit on `main`, see `gradle.properties` |
 | webrtc.src.dir     | The absolute checkout path for the WebRTC source tree. | /\<user_home\>/webrtc       |
 | webrtc.install.dir | The install path for the compiled WebRTC library. Is also used to link against a pre-compiled WebRTC library to reduce build time. | /\<user_home\>/webrtc/build |
 | webrtc.platform    | The platform to build the native library for, as `<os>-<arch>`: `windows-x86_64`, `windows-aarch64`, `linux-x86_64`, `linux-aarch32`, `linux-aarch64`, `macos-x86_64` or `macos-aarch64`. Cross compiling requires the toolchain the build workflow installs. | The host platform |
 | cmake.build.type   | The CMake build type.                                  | Release                     |
 | webrtc.variant      | The variant of the native library: `full`, or `data-channels` for a library without audio and video support, see below. | full |
-| webrtc.windows.sdk.version | The Windows SDK version to build WebRTC with, when the one its build scripts expect is not installed. | The version the WebRTC branch expects |
+| webrtc.windows.sdk.version | The Windows SDK version to build WebRTC with, when the one its build scripts expect is not installed. | The version the WebRTC build scripts expect |
 | webrtc.checkout.history | Whether to fetch the history of WebRTC and its dependencies. | false |
 | natives.dir        | A directory with prebuilt native library jars, `webrtc-java-<version>-<classifier>.jar`, used instead of building the native library. The tests run against the jar of the build platform. | -                           |
 

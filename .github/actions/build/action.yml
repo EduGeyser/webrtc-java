@@ -21,7 +21,7 @@ runs:
   using: "composite"
   steps:
     - name: Derive the WebRTC cache branch from the build properties
-      run: echo "WEBRTC_CACHE_BRANCH=$(sed -n 's|^webrtc.branch=branch-heads/||p' gradle.properties)" >> "$GITHUB_ENV"
+      run: echo "WEBRTC_CACHE_BRANCH=$(sed -n 's|^webrtc.branch=||p' gradle.properties | tr '/' '-')" >> "$GITHUB_ENV"
       shell: bash
 
     # The variant of the native library comes from the input, or else from
