@@ -57,10 +57,11 @@ runs:
       shell: bash
 
     # The full variant links the X11, GLib, GBM and libdrm libraries; the data
-    # channels variant links nothing beyond libc. PulseAudio, libudev and libdbus
-    # are deliberately not installed: the natives open them at runtime, and
-    # the armhf lane, whose image has none of them, proves that they load
-    # without them. Ubuntu 24.04 renamed the GLib package.
+    # channels variant links nothing beyond glibc and libgcc_s. PulseAudio,
+    # libudev and libdbus are deliberately not installed: the natives open
+    # them at runtime, and the armhf lane, whose image has none of them,
+    # proves that they load without them. Ubuntu 24.04 renamed the GLib
+    # package.
     - name: Install runtime libraries
       if: runner.os == 'Linux'
       run: |

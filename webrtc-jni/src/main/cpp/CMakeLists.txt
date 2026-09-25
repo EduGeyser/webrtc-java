@@ -138,7 +138,9 @@ if(APPLE)
         target_link_libraries(${PROJECT_NAME} "-framework Foundation" "-framework AVFoundation" "-framework CoreMedia" "-framework CoreAudio" "-framework IOKit" "-framework CoreVideo" "-framework VideoToolbox" "-framework QuartzCore")
     endif()
 elseif(LINUX)
-    set(CXX_LIBS "-static-libgcc -stdlib=libc++ -lc++ -lc++abi")
+    # The unwinder comes from the shared libgcc_s: the Chromium sysroots no
+    # longer ship the static libgcc_eh.a that -static-libgcc needs.
+    set(CXX_LIBS "-stdlib=libc++ -lc++ -lc++abi")
 
     target_link_libraries(${PROJECT_NAME} ${CXX_LIBS})
 
