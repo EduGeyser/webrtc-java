@@ -1,6 +1,6 @@
 name: 'Prepare Windows Build'
 
-description: 'Frees up disk space and installs required packages for Windows builds.'
+description: 'Installs the Windows SDK and the packages required for Windows builds.'
 
 runs:
   using: "composite"
@@ -32,6 +32,31 @@ runs:
           Remove-Item -Recurse -Force $Env:JAVA_HOME_8_X64 -ErrorAction Ignore
         }
         Get-PSDrive
+      shell: powershell
+
+    # The runner images ship Windows SDK 10.0.26100.0 at most, while the WebRTC
+    # branch expects 10.0.28000.0. The desktop C++ parts cover the x64 build and
+    # the arm64 cross build, and the WebRTC toolchain script copies the
+    # debugger DLLs.
+    - name: Install Windows SDK 10.0.28000
+      run: |
+        $installer = "$env:RUNNER_TEMP\winsdksetup.exe"
+        $log = "$env:RUNNER_TEMP\winsdksetup.log"
+        Invoke-WebRequest -Uri "https://download.microsoft.com/download/06fc99ac-527e-451e-a536-8866695a2e7e/KIT_BUNDLE_WINDOWSSDK_MEDIACREATION/winsdksetup.exe" -OutFile $installer
+        $hash = (Get-FileHash $installer -Algorithm SHA256).Hash
+        if ($hash -ne "02988EA51EAB2A2DB53E19735E51C97A6D221ADA74B9174FA0868870B9403BA0") {
+          throw "Unexpected winsdksetup.exe (SHA-256 $hash)"
+        }
+        $features = "OptionId.DesktopCPPx86 OptionId.DesktopCPPx64 OptionId.DesktopCPParm64 OptionId.WindowsDesktopDebuggers"
+        $process = Start-Process -FilePath $installer -ArgumentList "/features $features /quiet /norestart /ceip off /log $log" -Wait -PassThru
+        # 3010: installed, a restart is pending.
+        if ($process.ExitCode -ne 0 -and $process.ExitCode -ne 3010) {
+          Get-Content $log -Tail 50
+          throw "Windows SDK installation failed with exit code $($process.ExitCode)"
+        }
+        if (-not (Test-Path "${env:ProgramFiles(x86)}\Windows Kits\10\Include\10.0.28000.0\shared\sdkddkver.h")) {
+          throw "Windows SDK 10.0.28000.0 headers are missing after the installation"
+        }
       shell: powershell
 
     - name: Install required packages
