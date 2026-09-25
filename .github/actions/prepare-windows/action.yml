@@ -5,11 +5,11 @@ description: 'Frees up disk space and installs required packages for Windows bui
 runs:
   using: "composite"
   steps:
-    - name: Set up Python 3.11
+    - name: Set up Python 3.14
       if: false
-      uses: actions/setup-python@v5
+      uses: actions/setup-python@v7
       with:
-        python-version: "3.11"
+        python-version: "3.14"
 
     - name: Disk cleanup
       if: false
