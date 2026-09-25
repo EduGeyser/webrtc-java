@@ -66,6 +66,21 @@ runs:
       run: |
         if [ "${{ inputs.java-architecture }}" == "armv7" ]; then
           arch=":armhf"
+          # Ubuntu 26.04 moved arm64 to the main archive, but armhf remains on ports.
+          sources=/etc/apt/sources.list.d/ubuntu.sources
+          if [ -f "$sources" ]; then
+            . /etc/os-release
+            native_arch=$(dpkg --print-architecture)
+            sudo sed -i "/^Architectures:/d; /^Types:/a Architectures: $native_arch" "$sources"
+            sudo tee /etc/apt/sources.list.d/ubuntu-armhf.sources >/dev/null <<EOF
+        Types: deb
+        URIs: https://ports.ubuntu.com/ubuntu-ports
+        Suites: $VERSION_CODENAME $VERSION_CODENAME-updates $VERSION_CODENAME-backports $VERSION_CODENAME-security
+        Components: main restricted universe multiverse
+        Architectures: armhf
+        Signed-By: /usr/share/keyrings/ubuntu-archive-keyring.gpg
+        EOF
+          fi
           sudo dpkg --add-architecture armhf
           sudo apt-get update
           sudo apt-get install -y libc6:armhf libstdc++6:armhf zlib1g:armhf
