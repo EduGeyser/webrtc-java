@@ -20,6 +20,8 @@
 
 #include "rtc_base/logging.h"
 
+#include <system_error>
+
 #include <fcntl.h>
 #include <linux/videodev2.h>
 #include <poll.h>
