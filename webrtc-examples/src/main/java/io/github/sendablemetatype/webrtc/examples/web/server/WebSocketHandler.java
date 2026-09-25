@@ -21,9 +21,10 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArraySet;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.json.JsonMapper;
 
 import io.github.sendablemetatype.webrtc.examples.web.model.LeaveMessage;
 import io.github.sendablemetatype.webrtc.examples.web.model.MessageType;
@@ -57,7 +58,7 @@ public class WebSocketHandler {
     private static final Map<Session, String> sessionToUserId = new ConcurrentHashMap<>();
 
     /** JSON serializer/deserializer for processing WebSocket messages. */
-    private final ObjectMapper jsonMapper = new ObjectMapper();
+    private final ObjectMapper jsonMapper = new JsonMapper();
 
 
     @OnWebSocketOpen
@@ -73,7 +74,7 @@ public class WebSocketHandler {
 
         try {
             JsonNode messageNode = jsonMapper.readTree(message);
-            String type = messageNode.path("type").asText();
+            String type = messageNode.path("type").asString();
 
             // Check if this is a heartbeat message.
             if (MessageType.HEARTBEAT.getValue().equals(type)) {
@@ -87,7 +88,7 @@ public class WebSocketHandler {
             
             // Check if this is a join message and extract the user-id.
             if (MessageType.JOIN.getValue().equals(type)) {
-                String userId = messageNode.path("from").asText();
+                String userId = messageNode.path("from").asString();
                 
                 if (userId != null && !userId.isEmpty()) {
                     // Store the user-id for this session.
@@ -97,7 +98,7 @@ public class WebSocketHandler {
                 }
             }
         }
-        catch (JsonProcessingException e) {
+        catch (JacksonException e) {
             LOG.error("Error parsing message type", e);
         }
 
@@ -129,7 +130,7 @@ public class WebSocketHandler {
             // Clean up the session-to-userId mapping.
             sessionToUserId.remove(session);
         }
-        catch (JsonProcessingException e) {
+        catch (JacksonException e) {
             LOG.error("Error creating participant left message", e);
         }
     }

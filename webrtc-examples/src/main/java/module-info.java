@@ -1,6 +1,6 @@
 module io.github.sendablemetatype.webrtc.examples {
 
-    requires com.fasterxml.jackson.databind;
+    requires tools.jackson.databind;
     requires java.logging;
     requires java.net.http;
     requires org.eclipse.jetty.server;

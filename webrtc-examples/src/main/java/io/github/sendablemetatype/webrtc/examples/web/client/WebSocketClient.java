@@ -30,8 +30,9 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.json.JsonMapper;
 
 import io.github.sendablemetatype.webrtc.examples.web.model.SignalingMessage;
 
@@ -53,7 +54,7 @@ public class WebSocketClient {
     private static final long HEARTBEAT_INTERVAL_SECONDS = 15;
 
 	/** JSON serializer/deserializer for processing WebSocket messages. */
-	private final ObjectMapper jsonMapper = new ObjectMapper();
+	private final ObjectMapper jsonMapper = new JsonMapper();
 
     private final URI serverUri;
     private final List<String> subprotocols;
@@ -277,7 +278,7 @@ public class WebSocketClient {
 		try {
 			heartbeatJson = jsonMapper.writeValueAsString(heartbeat);
 		}
-		catch (JsonProcessingException e) {
+		catch (JacksonException e) {
 			LOG.error("Failed to send heartbeat", e);
 			return;
 		}
