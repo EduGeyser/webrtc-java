@@ -48,6 +48,11 @@ jobs:
             classifier: linux-x86_64
             java-distribution: temurin
             java-architecture: ''
+          - name: linux_x86-64
+            runs-on: ubuntu-26.04
+            classifier: linux-x86_64
+            java-distribution: temurin
+            java-architecture: ''
           - name: linux_arm64
             runs-on: ubuntu-22.04-arm
             classifier: linux-aarch64
@@ -55,6 +60,11 @@ jobs:
             java-architecture: ''
           - name: linux_arm64
             runs-on: ubuntu-24.04-arm
+            classifier: linux-aarch64
+            java-distribution: temurin
+            java-architecture: ''
+          - name: linux_arm64
+            runs-on: ubuntu-26.04-arm
             classifier: linux-aarch64
             java-distribution: temurin
             java-architecture: ''
@@ -65,6 +75,11 @@ jobs:
             java-architecture: armv7
           - name: linux_arm
             runs-on: ubuntu-24.04-arm
+            classifier: linux-aarch32
+            java-distribution: liberica
+            java-architecture: armv7
+          - name: linux_arm
+            runs-on: ubuntu-26.04-arm
             classifier: linux-aarch32
             java-distribution: liberica
             java-architecture: armv7
@@ -73,9 +88,9 @@ jobs:
             classifier: macos-x86_64
             java-distribution: temurin
             java-architecture: ''
-          - name: macos_arm64
-            runs-on: macos-14
-            classifier: macos-aarch64
+          - name: macos_x86-64
+            runs-on: macos-26-intel
+            classifier: macos-x86_64
             java-distribution: temurin
             java-architecture: ''
           - name: macos_arm64
