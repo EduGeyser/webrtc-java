@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.13)
+cmake_minimum_required(VERSION 3.20)
 project(jni-voithos)
 
 add_library(${PROJECT_NAME} STATIC)
@@ -68,7 +68,7 @@ elseif(WIN32)
 endif()
 
 set_target_properties(${PROJECT_NAME} PROPERTIES
-    CXX_STANDARD 14
+    CXX_STANDARD 23
     CXX_STANDARD_REQUIRED ON
     CXX_EXTENSIONS OFF
 )
