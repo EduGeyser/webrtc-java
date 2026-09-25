@@ -6,7 +6,7 @@
     "preview": "vitepress preview"
   },
   "devDependencies": {
-    "@types/node": "^24.13.6",
+    "@types/node": "^26.6.2",
     "vitepress": "^2.0.0-alpha.20"
   }
 }
