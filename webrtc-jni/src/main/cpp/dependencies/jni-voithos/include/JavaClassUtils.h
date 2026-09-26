@@ -8,6 +8,7 @@
 #ifndef JNI_JAVA_CLASS_UTILS_H_
 #define JNI_JAVA_CLASS_UTILS_H_
 
+#include "JavaClass.h"
 #include "JavaRef.h"
 
 #include <jni.h>
