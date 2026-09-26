@@ -91,11 +91,12 @@ runs:
         fi
 
         if [ "$WEBRTC_VARIANT_ARG" == "-Pwebrtc.variant=full" ]; then
-          # apt-cache show also succeeds for a name that other packages only
-          # refer to, as libglib2.0-0t64 is on Ubuntu 22.04, so check for a
-          # version to install.
+          # Ask apt whether it can install the renamed package. apt-cache show
+          # also succeeds for a name that other packages only refer to, as
+          # libglib2.0-0t64 is on Ubuntu 22.04, and a grep -q on apt-cache
+          # policy can fail under pipefail when grep exits first.
           glib=libglib2.0-0
-          if apt-cache policy "libglib2.0-0t64$arch" | grep -q 'Candidate: [0-9]'; then
+          if apt-get install -s "libglib2.0-0t64$arch" >/dev/null 2>&1; then
             glib=libglib2.0-0t64
           fi
           packages="libx11-6 libxext6 libxfixes3 libxdamage1 libxtst6 libxrandr2 libxcomposite1 $glib libgbm1 libdrm2"
