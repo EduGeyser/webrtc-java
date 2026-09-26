@@ -70,8 +70,9 @@ class PortAllocatorConfigIntegrationTest extends TestBase {
 		assertTrue(caller.awaitConnected(90, TimeUnit.SECONDS), "Caller failed to connect in time");
 		assertTrue(callee.awaitConnected(90, TimeUnit.SECONDS), "Callee failed to connect in time");
 
-		// Give ICE gathering a brief moment.
-		Thread.sleep(500);
+		// A connected pair does not mean every interface has finished gathering.
+		assertTrue(caller.awaitGatheringComplete(90, TimeUnit.SECONDS), "Caller gathering timed out");
+		assertTrue(callee.awaitGatheringComplete(90, TimeUnit.SECONDS), "Callee gathering timed out");
 
 		// Basic expectations: Some candidates gathered on both sides.
 		assertFalse(caller.candidates.isEmpty(), "Caller gathered no ICE candidates");
@@ -124,6 +125,7 @@ class PortAllocatorConfigIntegrationTest extends TestBase {
 		private final RTCPeerConnection pc;
 		private RTCPeerConnection remote;
 		private final CountDownLatch connected = new CountDownLatch(1);
+		private final CountDownLatch gatheringComplete = new CountDownLatch(1);
 		private final List<RTCIceCandidate> pendingCandidates = new ArrayList<>();
 		private boolean forwardDirectly;
 		final List<String> candidates = new CopyOnWriteArrayList<>();
@@ -169,6 +171,10 @@ class PortAllocatorConfigIntegrationTest extends TestBase {
 			return connected.await(timeout, unit);
 		}
 
+		boolean awaitGatheringComplete(long timeout, TimeUnit unit) throws InterruptedException {
+			return gatheringComplete.await(timeout, unit);
+		}
+
 		void close() {
 			pc.close();
 		}
@@ -204,6 +210,13 @@ class PortAllocatorConfigIntegrationTest extends TestBase {
 				}
 			}
 			remote.addIceCandidate(candidate);
+		}
+
+		@Override
+		public void onIceGatheringChange(RTCIceGatheringState state) {
+			if (state == RTCIceGatheringState.COMPLETE) {
+				gatheringComplete.countDown();
+			}
 		}
 
 		@Override
