@@ -80,12 +80,22 @@ public class CustomLogSink implements LogSink {
 Register your custom log sink to receive log messages:
 
 ```java
-// Create and register a log sink for messages with INFO severity or higher
 CustomLogSink logSink = new CustomLogSink();
 Logging.addLogSink(Logging.Severity.INFO, logSink);
+try {
+    Logging.info("Message sent to the custom sink");
+} finally {
+    Logging.removeLogSink(logSink);
+}
 ```
 
-The log sink will receive all log messages with a severity level equal to or higher than the specified minimum level.
+The sink receives messages at or above its minimum severity. Keep it registered for as long as you need the callbacks, then remove it to free its native sink and callback resources.
+
+Each call to `addLogSink` creates a separate registration. Adding the same sink twice can deliver a message twice. `removeLogSink` removes all registrations for that exact object, without calling `equals`. Removing an unregistered sink does nothing. Both methods reject null arguments.
+
+Adds and removals from different threads are serialized. Removal waits for active callbacks before freeing their resources. No callback from a removed registration runs after removal returns, but an add ordered after removal creates a new registration.
+
+Callbacks run on the thread that emits the log. Do not call WebRTC logging methods from a callback, or wait for another thread that adds or removes a sink. Direct calls to `addLogSink` or `removeLogSink` from a callback throw `IllegalStateException` instead of blocking. Callback exceptions are printed to standard error and do not propagate to the sender.
 
 ## Integration with Other Logging Frameworks
 
@@ -126,7 +136,10 @@ public class Slf4jLogSink implements LogSink {
 Then register this sink with the WebRTC logging system:
 
 ```java
-Logging.addLogSink(Logging.Severity.VERBOSE, new Slf4jLogSink());
+Slf4jLogSink logSink = new Slf4jLogSink();
+Logging.addLogSink(Logging.Severity.VERBOSE, logSink);
+// During application shutdown:
+Logging.removeLogSink(logSink);
 ```
 
 This approach allows you to integrate WebRTC's native logging with your application's existing logging infrastructure.

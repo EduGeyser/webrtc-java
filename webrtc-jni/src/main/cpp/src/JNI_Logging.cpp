@@ -23,6 +23,7 @@
 
 #include "rtc_base/logging.h"
 
+#include <cstdint>
 #include <cstdio>
 #include <memory>
 #include <mutex>
@@ -33,6 +34,37 @@
 
 namespace
 {
+	using ForeignLogCallback = void (*)(int32_t, const char *, int64_t);
+
+	class ForeignLogSink final : public webrtc::LogSink
+	{
+		public:
+			explicit ForeignLogSink(ForeignLogCallback callback) : callback(callback) {}
+
+			void OnLogMessage(const std::string & message) override
+			{
+				OnLogMessage(message, webrtc::LS_INFO);
+			}
+
+			void OnLogMessage(const std::string & message, webrtc::LoggingSeverity severity) override
+			{
+				callback(static_cast<int32_t>(severity), message.data(), static_cast<int64_t>(message.size()));
+			}
+
+		private:
+			ForeignLogCallback callback;
+	};
+
+	void removeLogSink(int64_t handle)
+	{
+		auto sink = reinterpret_cast<webrtc::LogSink *>(static_cast<uintptr_t>(handle));
+		if (sink != nullptr) {
+			// Removal takes WebRTC's log lock and waits for callbacks before deletion.
+			webrtc::LogMessage::RemoveLogToStream(sink);
+			delete sink;
+		}
+	}
+
 	// libwebrtc no longer lets LogMessage::LogToDebug change the severity of its
 	// own debug output after the logging configuration is initialized. A sink
 	// registered with AddLogToStream can be added and removed at any time, so
@@ -56,17 +88,45 @@ namespace
 	std::mutex debugLogSinkMutex;
 }
 
-JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_logging_Logging_addLogSink
+extern "C" JNIEXPORT int64_t webrtc_java_add_log_sink(int32_t severity, ForeignLogCallback callback) noexcept
+{
+	try {
+		auto sink = std::make_unique<ForeignLogSink>(callback);
+		webrtc::LogMessage::AddLogToStream(sink.get(), static_cast<webrtc::LoggingSeverity>(severity));
+		return static_cast<int64_t>(reinterpret_cast<uintptr_t>(static_cast<webrtc::LogSink *>(sink.release())));
+	}
+	catch (...) {
+		return 0;
+	}
+}
+
+extern "C" JNIEXPORT void webrtc_java_remove_log_sink(int64_t handle) noexcept
+{
+	removeLogSink(handle);
+}
+
+JNIEXPORT jlong JNICALL Java_io_github_sendablemetatype_webrtc_logging_Logging_addLogSinkNative
 (JNIEnv * env, jclass caller, jobject jseverity, jobject jsink)
 {
 	try {
 		auto severity = jni::JavaEnums::toNative<webrtc::LoggingSeverity>(env, jseverity);
-
-		webrtc::LogMessage::AddLogToStream(new jni::LogSink(env, jni::JavaGlobalRef<jobject>(env, jsink)), severity);
+		auto sink = std::make_unique<jni::LogSink>(env, jni::JavaGlobalRef<jobject>(env, jsink));
+		if (env->ExceptionCheck()) {
+			return 0;
+		}
+		webrtc::LogMessage::AddLogToStream(sink.get(), severity);
+		return static_cast<jlong>(reinterpret_cast<uintptr_t>(static_cast<webrtc::LogSink *>(sink.release())));
 	}
 	catch (...) {
 		ThrowCxxJavaException(env);
+		return 0;
 	}
+}
+
+JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_logging_Logging_removeLogSinkNative
+(JNIEnv * env, jclass caller, jlong handle)
+{
+	removeLogSink(handle);
 }
 
 JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_logging_Logging_log
