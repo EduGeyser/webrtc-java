@@ -1,0 +1,29 @@
+name: 'Native Build Fingerprint'
+
+description: 'Identify the configuration of a compiled WebRTC install tree'
+
+outputs:
+  fingerprint:
+    description: 'The native build configuration hash.'
+    value: ${{ steps.fingerprint.outputs.value }}
+
+runs:
+  using: "composite"
+  steps:
+    # Only what configures or builds libwebrtc counts. The JNI library, the
+    # Java build and its JDK are built on top of the cached install tree, so
+    # changing them must not force a cold WebRTC build.
+    - name: Hash the native build inputs
+      id: fingerprint
+      env:
+        BUILD_INPUTS: ${{ hashFiles('webrtc-jni/build.gradle.kts', 'webrtc-jni/src/main/cpp/dependencies/webrtc/CMakeLists.txt', 'webrtc-jni/src/main/cpp/dependencies/webrtc/patches/**', 'webrtc-jni/src/main/cpp/dependencies/webrtc/linux/sysroot/**', 'webrtc-jni/src/main/cpp/toolchain/**', '.github/actions/prepare-*/action.yml', '.github/actions/native-build-fingerprint/action.yml') }}
+      run: |
+        # Release version changes do not change WebRTC, but native build properties do.
+        fingerprint=$(
+          {
+            printf '%s\n' "$BUILD_INPUTS"
+            sed -n '/^webrtc\./p; /^cmake\./p' gradle.properties
+          } | sha256sum | cut -d ' ' -f1
+        )
+        echo "value=$fingerprint" >> "$GITHUB_OUTPUT"
+      shell: bash
