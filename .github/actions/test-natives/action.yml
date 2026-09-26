@@ -35,7 +35,7 @@ runs:
   using: "composite"
   steps:
     - name: Download natives
-      uses: actions/download-artifact@v8
+      uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
       with:
         name: natives-${{ inputs.platform-name }}
         path: natives
@@ -105,14 +105,14 @@ runs:
       shell: bash
 
     - name: Set up JDK ${{ inputs.java-version }}
-      uses: actions/setup-java@v6
+      uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
       with:
         java-version: ${{ inputs.java-version }}
         distribution: ${{ inputs.java-distribution }}
         architecture: ${{ inputs.java-architecture }}
 
     - name: Set up Gradle
-      uses: gradle/actions/setup-gradle@v6
+      uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
 
     # Gradle's native integration has no binaries for the 32-bit arm JDK, hence
     # the switches.
