@@ -144,6 +144,12 @@ elseif(LINUX)
 
     target_link_libraries(${PROJECT_NAME} ${CXX_LIBS})
 
+    # The compiler runtime comes from clang, as in Chromium's binaries. The GCC
+    # runtime of the sysroot lacks helpers that the Rust code of WebRTC calls,
+    # such as __extendhfsf2 (added in GCC 12). Left undefined, they are bound
+    # when the library loads, which fails where libgcc_s is older.
+    target_link_options(${PROJECT_NAME} PRIVATE --rtlib=compiler-rt --unwindlib=libgcc)
+
     if(NOT WEBRTC_DATA_CHANNELS_ONLY)
         # For the audio and video device libraries opened at runtime.
         target_link_libraries(${PROJECT_NAME} dl)
