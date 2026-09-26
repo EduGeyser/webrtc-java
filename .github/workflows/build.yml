@@ -23,6 +23,11 @@ on:
           - full
           - data-channels
         default: data-channels
+      upload-webrtc-install:
+        description: "Upload the compiled Linux x86-64 WebRTC install tree."
+        required: false
+        type: boolean
+        default: false
 
 env:
   WEBRTC_CHECKOUT_FOLDER: webrtc
@@ -84,6 +89,7 @@ jobs:
           java-version: ${{ matrix.java }}
           platform-name: ${{ matrix.platform.name }}
           variant: ${{ inputs.variant }}
+          upload-webrtc-install: ${{ github.event_name == 'workflow_dispatch' && inputs.upload-webrtc-install }}
 
   build-macos:
     strategy:

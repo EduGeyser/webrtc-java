@@ -54,6 +54,12 @@ The Java API stays the same. The audio and video classes throw an `UnsatisfiedLi
 
 This fork selects this variant in `gradle.properties`, and its published native libraries are this variant. Pass `-Pwebrtc.variant=full` to build the full library. The build workflow builds the variant from `gradle.properties`, or the one chosen when it is dispatched.
 
+## Reusing a Compiled WebRTC Install Tree
+
+To get the Linux x86-64 headers and static libraries without compiling WebRTC locally, dispatch the Build workflow with `upload-webrtc-install` enabled. This option defaults to off. Download the `webrtc-install-linux-x86_64-<variant>-<fingerprint>` artifact and extract its tar archive into a separate directory. The artifact expires after seven days.
+
+Pass that directory as `-Pwebrtc.install.dir=<absolute-path>` when building the JNI library. Use the same variant and native build configuration as the workflow run. The fingerprint covers the WebRTC revision, native build properties, build scripts, patches, toolchains, and build JDK version. A JAR version change alone does not change it.
+
 ## Checking JNI References
 
 The tests can run under `-Xcheck:jni`, which validates the local and global references of every JNI call and aborts the JVM on a violation. It is opt-in because it also warns about every native call that does not check for a pending exception, which is most of them:
