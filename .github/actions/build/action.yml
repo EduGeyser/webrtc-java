@@ -17,6 +17,11 @@ inputs:
     required: false
     default: ''
 
+  upload-webrtc-install:
+    description: 'Upload the compiled WebRTC install tree on a dispatched Linux x86-64 build.'
+    required: false
+    default: 'false'
+
 runs:
   using: "composite"
   steps:
@@ -33,9 +38,11 @@ runs:
           variant=$(sed -n 's/^webrtc.variant=//p' gradle.properties)
         fi
         if [ "$variant" == "data-channels" ]; then
+          echo "WEBRTC_VARIANT=data-channels" >> "$GITHUB_ENV"
           echo "WEBRTC_VARIANT_SUFFIX=-data-channels" >> "$GITHUB_ENV"
           echo "WEBRTC_VARIANT_ARG=-Pwebrtc.variant=data-channels" >> "$GITHUB_ENV"
         else
+          echo "WEBRTC_VARIANT=full" >> "$GITHUB_ENV"
           echo "WEBRTC_VARIANT_SUFFIX=" >> "$GITHUB_ENV"
           echo "WEBRTC_VARIANT_ARG=-Pwebrtc.variant=full" >> "$GITHUB_ENV"
         fi
@@ -86,3 +93,23 @@ runs:
         name: natives-${{ inputs.platform-name }}
         path: webrtc-jni/build/libs/webrtc-java-*.jar
         if-no-files-found: error
+
+    - name: Archive the compiled WebRTC install tree
+      id: webrtc-install
+      if: ${{ github.event_name == 'workflow_dispatch' && inputs.upload-webrtc-install == 'true' && inputs.platform-name == 'linux_x86-64' }}
+      run: |
+        archive="$RUNNER_TEMP/webrtc-install-linux-x86_64-${WEBRTC_VARIANT}-${{ steps.native-build.outputs.fingerprint }}.tar.gz"
+        # Tar preserves permissions and links that an artifact upload would lose.
+        tar -czf "$archive" -C "$HOME/${WEBRTC_INSTALL_FOLDER}${WEBRTC_VARIANT_SUFFIX}" .
+        echo "path=$archive" >> "$GITHUB_OUTPUT"
+      shell: bash
+
+    - name: Upload the compiled WebRTC install tree
+      if: ${{ steps.webrtc-install.outputs.path != '' }}
+      uses: actions/upload-artifact@v7
+      with:
+        name: webrtc-install-linux-x86_64-${{ env.WEBRTC_VARIANT }}-${{ steps.native-build.outputs.fingerprint }}
+        path: ${{ steps.webrtc-install.outputs.path }}
+        if-no-files-found: error
+        compression-level: 0
+        retention-days: 7
