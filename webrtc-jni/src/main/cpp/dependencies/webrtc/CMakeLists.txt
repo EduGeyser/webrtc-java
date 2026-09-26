@@ -214,6 +214,35 @@ target_include_directories(${PROJECT_NAME}
 )
 target_link_libraries(${PROJECT_NAME} ${TARGET_LINK_LIB} ${VIDEO_UTIL_LINK_LIBS})
 
+# libwebrtc leaves out WebRTC's Rust code (bugs.webrtc.org/430260876). It
+# holds the C++ side of the Rust bindings, but not the rlibs of the Rust crates
+# and of the Rust standard library built for them, so the shared library links
+# the rlibs, as Chromium links its binaries. Building with rtc_rust=false
+# instead only works for a while: WebRTC plans to require Rust
+# (g3doc/rust-in-webrtc.md). The rlibs of the host toolchain, which builds the
+# Rust build tools, are in a build subdirectory named after that toolchain,
+# outside the directories searched here.
+if(EXISTS "${WEBRTC_LIB_PATH_INSTALLED}")
+    set(RUST_LIB_DIRS ${WEBRTC_INSTALL_DIR}/lib/rust)
+else()
+    set(RUST_LIB_DIRS ${WEBRTC_SRC}/${WEBRTC_BUILD}/obj ${WEBRTC_SRC}/${WEBRTC_BUILD}/local_rustc_sysroot)
+endif()
+
+function(find_rust_libraries RESULT)
+    set(RUST_LIBS "")
+    foreach(RUST_LIB_DIR ${RUST_LIB_DIRS})
+        file(GLOB_RECURSE DIR_RUST_LIBS "${RUST_LIB_DIR}/*.rlib")
+        list(APPEND RUST_LIBS ${DIR_RUST_LIBS})
+    endforeach()
+    set(${RESULT} ${RUST_LIBS} PARENT_SCOPE)
+endfunction()
+
+if(WIN32)
+    # The import libraries of the Rust standard library, as Chromium lists
+    # them in build/rust/std/BUILD.gn.
+    target_link_libraries(${PROJECT_NAME} advapi32 bcrypt kernel32 ntdll synchronization userenv ws2_32 legacy_stdio_definitions)
+endif()
+
 if(WEBRTC_DATA_CHANNELS_ONLY)
     # Without audio and video, libwebrtc needs no more than the base system
     # libraries, and none of the capture related defines apply.
@@ -271,6 +300,9 @@ endif()
 
 if(EXISTS "${WEBRTC_LIB_PATH}" OR EXISTS "${WEBRTC_LIB_PATH_INSTALLED}")
     message(STATUS "WebRTC: Compiled version found '${TARGET_LINK_LIB}'")
+
+    find_rust_libraries(RUST_LIBS)
+    target_link_libraries(${PROJECT_NAME} ${RUST_LIBS})
 
     if(LINUX)
         sysroot_install()
@@ -626,6 +658,17 @@ elseif(WIN32)
         )
     endforeach()
 endif()
+
+# The rlibs exist only now. Installed, they keep their paths below the build
+# directory, since crates in different directories can share a file name.
+find_rust_libraries(RUST_LIBS)
+target_link_libraries(${PROJECT_NAME} ${RUST_LIBS})
+
+foreach(RUST_LIB ${RUST_LIBS})
+    file(RELATIVE_PATH RUST_LIB_PATH "${WEBRTC_SRC}/${WEBRTC_BUILD}" "${RUST_LIB}")
+    get_filename_component(RUST_LIB_DIR "${RUST_LIB_PATH}" DIRECTORY)
+    install(FILES "${RUST_LIB}" DESTINATION "${WEBRTC_INSTALL_DIR}/lib/rust/${RUST_LIB_DIR}")
+endforeach()
 
 install(FILES "${WEBRTC_LIB_PATH}" DESTINATION "${WEBRTC_INSTALL_DIR}/lib")
 install(
