@@ -15,7 +15,10 @@ set(CMAKE_C_COMPILER        ${CLANG_C})
 set(CMAKE_CXX_COMPILER      ${CLANG_CXX})
 set(CMAKE_AR                ${LLVM_AR})
 
-set(TARGET_TRIPLE           arm-linux-gnueabihf)
+# Clang finds its compiler runtime by the triple, in
+# lib/clang/<version>/lib/armv7-unknown-linux-gnueabihf. With arm and
+# -march=armv7-a, it would look in arm-unknown-linux-gnueabihf instead.
+set(TARGET_TRIPLE           armv7-linux-gnueabihf)
 
 set(CMAKE_C_FLAGS           "--target=${TARGET_TRIPLE} -march=armv7-a -mfloat-abi=hard -mfpu=neon")
 set(CMAKE_CXX_FLAGS         "${CMAKE_C_FLAGS}")
