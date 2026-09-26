@@ -4,10 +4,10 @@ on:
   push:
     branches:
       - main
-    paths:
-      - "**.cpp"
-      - "**.h"
-      - "**.java"
+    paths-ignore:
+      - "docs/**"
+      - "**.md"
+      - "LICENSE"
 
   pull_request:
     branches:

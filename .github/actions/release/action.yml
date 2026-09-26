@@ -30,12 +30,15 @@ runs:
         fi
       shell: bash
 
+    - name: Fingerprint the native build
+      id: native-build
+      uses: ./.github/actions/native-build-fingerprint
+
     - name: Set up WebRTC cache
       uses: actions/cache@v6
       with:
         path: ~/${{ env.WEBRTC_INSTALL_FOLDER }}${{ env.WEBRTC_VARIANT_SUFFIX }}
-        key: webrtc-${{ env.WEBRTC_CACHE_BRANCH }}-${{ inputs.platform-name }}${{ env.WEBRTC_VARIANT_SUFFIX }}-${{ hashFiles('webrtc-jni/src/main/cpp/dependencies/webrtc/CMakeLists.txt') }}-${{ hashFiles('webrtc-jni/build.gradle.kts') }}
-        restore-keys: webrtc-${{ env.WEBRTC_CACHE_BRANCH }}-${{ inputs.platform-name }}${{ env.WEBRTC_VARIANT_SUFFIX }}-${{ hashFiles('webrtc-jni/src/main/cpp/dependencies/webrtc/CMakeLists.txt') }}-
+        key: webrtc-${{ env.WEBRTC_CACHE_BRANCH }}-${{ inputs.platform-name }}${{ env.WEBRTC_VARIANT_SUFFIX }}-${{ steps.native-build.outputs.fingerprint }}
 
     - name: Set up JDK ${{ inputs.java-version }}
       uses: actions/setup-java@v6
