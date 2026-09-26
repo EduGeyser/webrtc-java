@@ -19,13 +19,11 @@ package io.github.sendablemetatype.webrtc.logging;
 import static org.junit.jupiter.api.Assertions.*;
 
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 
-import io.github.sendablemetatype.webrtc.PeerConnectionFactory;
 import io.github.sendablemetatype.webrtc.logging.Logging.Severity;
-import io.github.sendablemetatype.webrtc.media.audio.AudioDeviceModule;
-import io.github.sendablemetatype.webrtc.media.audio.AudioLayer;
 
-import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 class LoggingTests {
@@ -39,27 +37,28 @@ class LoggingTests {
 		Logging.info("logToDebug at NONE must not print this");
 	}
 
-	@Tag("media")
 	@Test
 	void logInfo() throws Exception {
-		CountDownLatch latch = new CountDownLatch(3);
+		String expectedMessage = "Explicit log sink test message";
+		CountDownLatch latch = new CountDownLatch(1);
+		AtomicReference<Severity> receivedSeverity = new AtomicReference<>();
 
 		LogSink sink = (severity, message) -> {
-			assertTrue(severity.ordinal() > Severity.VERBOSE.ordinal());
-			assertNotNull(message);
-
-			latch.countDown();
+			if (message != null && message.contains(expectedMessage)) {
+				receivedSeverity.set(severity);
+				latch.countDown();
+			}
 		};
 
-		Logging.addLogSink(Logging.Severity.INFO, sink);
-
-		AudioDeviceModule audioDevModule = new AudioDeviceModule(AudioLayer.kDummyAudio);
-		PeerConnectionFactory factory = new PeerConnectionFactory(audioDevModule);
-
-		latch.await();
-
-		audioDevModule.dispose();
-		factory.dispose();
+		Logging.addLogSink(Severity.INFO, sink);
+		try {
+			Logging.info(expectedMessage);
+			assertTrue(latch.await(5, TimeUnit.SECONDS), "Did not receive the explicit log message");
+			assertEquals(Severity.INFO, receivedSeverity.get());
+		}
+		finally {
+			Logging.removeLogSink(sink);
+		}
 	}
 
 }
