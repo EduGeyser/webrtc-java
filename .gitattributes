@@ -1,0 +1,4 @@
+# git apply reads a patch byte for byte. A CRLF checkout, the Git for Windows
+# default, turns a blank context line into a lone carriage return, which git
+# apply rejects as a corrupt patch.
+*.patch text eol=lf
