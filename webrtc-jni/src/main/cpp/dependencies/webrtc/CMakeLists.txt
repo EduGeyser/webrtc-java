@@ -241,7 +241,34 @@ if(WIN32)
     # The import libraries of the Rust standard library, as Chromium lists
     # them in build/rust/std/BUILD.gn.
     target_link_libraries(${PROJECT_NAME} advapi32 bcrypt kernel32 ntdll synchronization userenv ws2_32 legacy_stdio_definitions)
+
+    # The Rust code also calls compiler helpers, such as __extendhfsf2 on
+    # x86-64, that come from a compiler runtime, which clang-cl does not link.
+    # Link the runtime of the clang that built WebRTC, as Chromium does.
+    if(TARGET_CPU STREQUAL "arm64")
+        set(CLANG_RUNTIME clang_rt.builtins-aarch64.lib)
+    else()
+        set(CLANG_RUNTIME clang_rt.builtins-x86_64.lib)
+    endif()
+
+    if(EXISTS "${WEBRTC_LIB_PATH_INSTALLED}")
+        set(CLANG_RUNTIME_PATTERN ${WEBRTC_INSTALL_DIR}/lib/${CLANG_RUNTIME})
+    else()
+        set(CLANG_RUNTIME_PATTERN "${WEBRTC_SRC}/third_party/llvm-build/Release+Asserts/lib/clang/*/lib/windows/${CLANG_RUNTIME}")
+    endif()
 endif()
+
+# Finds nothing where the build needs no compiler runtime of its own.
+function(find_clang_runtime RESULT)
+    set(CLANG_RUNTIME_PATH "")
+    if(CLANG_RUNTIME_PATTERN)
+        file(GLOB CLANG_RUNTIME_PATH "${CLANG_RUNTIME_PATTERN}")
+        if(NOT CLANG_RUNTIME_PATH)
+            message(FATAL_ERROR "WebRTC: no compiler runtime at ${CLANG_RUNTIME_PATTERN}")
+        endif()
+    endif()
+    set(${RESULT} ${CLANG_RUNTIME_PATH} PARENT_SCOPE)
+endfunction()
 
 if(WEBRTC_DATA_CHANNELS_ONLY)
     # Without audio and video, libwebrtc needs no more than the base system
@@ -302,7 +329,8 @@ if(EXISTS "${WEBRTC_LIB_PATH}" OR EXISTS "${WEBRTC_LIB_PATH_INSTALLED}")
     message(STATUS "WebRTC: Compiled version found '${TARGET_LINK_LIB}'")
 
     find_rust_libraries(RUST_LIBS)
-    target_link_libraries(${PROJECT_NAME} ${RUST_LIBS})
+    find_clang_runtime(CLANG_RUNTIME_PATH)
+    target_link_libraries(${PROJECT_NAME} ${RUST_LIBS} ${CLANG_RUNTIME_PATH})
 
     if(LINUX)
         sysroot_install()
@@ -662,13 +690,18 @@ endif()
 # The rlibs exist only now. Installed, they keep their paths below the build
 # directory, since crates in different directories can share a file name.
 find_rust_libraries(RUST_LIBS)
-target_link_libraries(${PROJECT_NAME} ${RUST_LIBS})
+find_clang_runtime(CLANG_RUNTIME_PATH)
+target_link_libraries(${PROJECT_NAME} ${RUST_LIBS} ${CLANG_RUNTIME_PATH})
 
 foreach(RUST_LIB ${RUST_LIBS})
     file(RELATIVE_PATH RUST_LIB_PATH "${WEBRTC_SRC}/${WEBRTC_BUILD}" "${RUST_LIB}")
     get_filename_component(RUST_LIB_DIR "${RUST_LIB_PATH}" DIRECTORY)
     install(FILES "${RUST_LIB}" DESTINATION "${WEBRTC_INSTALL_DIR}/lib/rust/${RUST_LIB_DIR}")
 endforeach()
+
+if(CLANG_RUNTIME_PATH)
+    install(FILES ${CLANG_RUNTIME_PATH} DESTINATION "${WEBRTC_INSTALL_DIR}/lib")
+endif()
 
 install(FILES "${WEBRTC_LIB_PATH}" DESTINATION "${WEBRTC_INSTALL_DIR}/lib")
 install(
