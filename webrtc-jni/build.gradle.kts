@@ -115,6 +115,7 @@ val nativeJar = tasks.register<Jar>("nativeJar") {
 		attributes(
 			"Automatic-Module-Name" to "io.github.sendablemetatype.webrtc.natives." + platformClassifier.replace('-', '.'),
 			"Version" to project.version,
+			"Implementation-Version" to project.version,
 			"Build-Date" to buildDate,
 		)
 	}
