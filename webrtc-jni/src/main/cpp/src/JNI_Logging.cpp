@@ -23,6 +23,7 @@
 
 #include "rtc_base/logging.h"
 
+#include <cstdint>
 #include <cstdio>
 #include <memory>
 #include <mutex>
@@ -56,16 +57,32 @@ namespace
 	std::mutex debugLogSinkMutex;
 }
 
-JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_logging_Logging_addLogSink
+JNIEXPORT jlong JNICALL Java_io_github_sendablemetatype_webrtc_logging_Logging_addLogSinkNative
 (JNIEnv * env, jclass caller, jobject jseverity, jobject jsink)
 {
 	try {
 		auto severity = jni::JavaEnums::toNative<webrtc::LoggingSeverity>(env, jseverity);
-
-		webrtc::LogMessage::AddLogToStream(new jni::LogSink(env, jni::JavaGlobalRef<jobject>(env, jsink)), severity);
+		auto sink = std::make_unique<jni::LogSink>(env, jni::JavaGlobalRef<jobject>(env, jsink));
+		if (env->ExceptionCheck()) {
+			return 0;
+		}
+		webrtc::LogMessage::AddLogToStream(sink.get(), severity);
+		return static_cast<jlong>(reinterpret_cast<uintptr_t>(static_cast<webrtc::LogSink *>(sink.release())));
 	}
 	catch (...) {
 		ThrowCxxJavaException(env);
+		return 0;
+	}
+}
+
+JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_logging_Logging_removeLogSinkNative
+(JNIEnv * env, jclass caller, jlong handle)
+{
+	auto sink = reinterpret_cast<webrtc::LogSink *>(static_cast<uintptr_t>(handle));
+	if (sink != nullptr) {
+		// Removal takes WebRTC's log lock and waits for callbacks before deletion.
+		webrtc::LogMessage::RemoveLogToStream(sink);
+		delete sink;
 	}
 }
 

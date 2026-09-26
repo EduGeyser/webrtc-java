@@ -9,11 +9,19 @@ extern "C" {
 #endif
 	/*
 	 * Class:     io_github_sendablemetatype_webrtc_logging_Logging
-	 * Method:    addLogSink
-	 * Signature: (Lio/github/sendablemetatype/webrtc/logging/Logging/Severity;Lio/github/sendablemetatype/webrtc/logging/LogSink;)V
+	 * Method:    addLogSinkNative
+	 * Signature: (Lio/github/sendablemetatype/webrtc/logging/Logging/Severity;Lio/github/sendablemetatype/webrtc/logging/LogSink;)J
 	 */
-	JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_logging_Logging_addLogSink
+	JNIEXPORT jlong JNICALL Java_io_github_sendablemetatype_webrtc_logging_Logging_addLogSinkNative
 	(JNIEnv *, jclass, jobject, jobject);
+
+	/*
+	 * Class:     io_github_sendablemetatype_webrtc_logging_Logging
+	 * Method:    removeLogSinkNative
+	 * Signature: (J)V
+	 */
+	JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_logging_Logging_removeLogSinkNative
+	(JNIEnv *, jclass, jlong);
 
 	/*
 	 * Class:     io_github_sendablemetatype_webrtc_logging_Logging

@@ -63,7 +63,47 @@ public class Logging {
 
 	}
 
-	public static native void addLogSink(Severity severity, LogSink sink);
+	/**
+	 * Registers a sink for messages at or above the given severity. Each call
+	 * creates a separate registration, even for the same sink object.
+	 * <p>
+	 * Callbacks run on the thread that emits the message. Callback exceptions
+	 * are printed to standard error and do not propagate to the sender. Do not
+	 * call WebRTC logging methods from a callback. Adding or removing sinks
+	 * from a callback throws instead of waiting for WebRTC's log lock.
+	 * <p>
+	 * Registration and removal are serialized across threads. A callback must
+	 * not wait for another thread that is adding or removing a sink.
+	 *
+	 * @param severity The minimum severity to receive.
+	 * @param sink The sink to register. Remove it when it is no longer needed.
+	 * @throws NullPointerException If severity or sink is null.
+	 * @throws IllegalStateException If called from a log sink callback.
+	 */
+	public static void addLogSink(Severity severity, LogSink sink) {
+		LogSinkRegistry.add(severity, sink);
+	}
+
+	/**
+	 * Removes every registration for the exact sink object, without using
+	 * {@code equals}. Removing a sink that is not registered has no effect.
+	 * <p>
+	 * This call waits for active callbacks to return, then frees the native
+	 * sinks and their callback resources. No callback from those registrations
+	 * runs after it returns. A concurrent add is serialized with removal; an
+	 * add ordered after removal creates a new registration.
+	 *
+	 * @param sink The sink whose registrations should be removed.
+	 * @throws NullPointerException If sink is null.
+	 * @throws IllegalStateException If called from a log sink callback.
+	 */
+	public static void removeLogSink(LogSink sink) {
+		LogSinkRegistry.remove(sink);
+	}
+
+	static native long addLogSinkNative(Severity severity, LogSink sink);
+
+	static native void removeLogSinkNative(long handle);
 
 	public static native void log(Severity severity, String message);
 
