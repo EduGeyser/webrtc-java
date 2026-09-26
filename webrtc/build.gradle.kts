@@ -66,6 +66,7 @@ tasks.jar {
 	manifest {
 		attributes(
 			"Version" to project.version,
+			"Implementation-Version" to project.version,
 			"Build-Date" to buildDate,
 		)
 	}
