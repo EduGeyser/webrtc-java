@@ -150,6 +150,11 @@ elseif(LINUX)
     # when the library loads, which fails where libgcc_s is older.
     target_link_options(${PROJECT_NAME} PRIVATE --rtlib=compiler-rt --unwindlib=libgcc)
 
+    # Keep the symbols of the static libraries inside the shared library. The
+    # C++/Rust bridge functions of WebRTC could otherwise clash with those of
+    # another library in the process that uses the same bridge crate.
+    target_link_options(${PROJECT_NAME} PRIVATE -Wl,--exclude-libs,ALL)
+
     if(NOT WEBRTC_DATA_CHANNELS_ONLY)
         # For the audio and video device libraries opened at runtime.
         target_link_libraries(${PROJECT_NAME} dl)
