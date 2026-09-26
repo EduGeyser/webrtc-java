@@ -429,6 +429,14 @@ endif()
 
 file(GLOB PATCHES "${CMAKE_CURRENT_LIST_DIR}/patches/${SOURCE_TARGET}/*.patch")
 
+if(WEBRTC_DATA_CHANNELS_ONLY AND (APPLE OR WIN32))
+    # Both variants share the sources. Make desktop capture a GN argument with
+    # its original default, so regenerating a full output directory stays safe
+    # even while the data channels patch is present in the checkout.
+    set(DESKTOP_CAPTURE_PATCH "${CMAKE_CURRENT_LIST_DIR}/patches/data-channels/desktop_capture_argument.patch")
+    list(APPEND PATCHES "${DESKTOP_CAPTURE_PATCH}")
+endif()
+
 if (PATCHES)
     message(STATUS "WebRTC: patch")
 
@@ -444,6 +452,8 @@ if (PATCHES)
 
         if (RESULT EQUAL 0)
             message(STATUS "Patch applied: ${PATCH}")
+        elseif(PATCH STREQUAL "${DESKTOP_CAPTURE_PATCH}")
+            message(FATAL_ERROR "Cannot configure the data channels desktop capture switch")
         else()
             message(STATUS "Warning: Patch ${PATCH} not applied ....")
         endif()
@@ -520,6 +530,9 @@ enable_freetype=false \
 libyuv_disable_jpeg=true \
 libyuv_disable_rvv=true \
 libyuv_include_tests=false")
+    if(APPLE OR WIN32)
+        set(COMPILE_ARGS "${COMPILE_ARGS} rtc_desktop_capture_supported=false")
+    endif()
 else()
     set(COMPILE_ARGS "${COMPILE_ARGS} \
 rtc_use_h264=true \
