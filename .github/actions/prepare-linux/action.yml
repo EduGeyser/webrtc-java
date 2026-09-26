@@ -47,9 +47,11 @@ runs:
           *) ref="$branch" ;;
         esac
 
-        tools=$(curl -sSf "https://webrtc.googlesource.com/src/+/$ref/DEPS?format=TEXT" | base64 -d \
+        # googlesource.com answers with an occasional 503. curl retries only
+        # such transient responses, so a wrong URL still fails.
+        tools=$(curl -sSf --retry 5 --retry-delay 10 "https://webrtc.googlesource.com/src/+/$ref/DEPS?format=TEXT" | base64 -d \
           | grep -A1 "^  'src/tools':" | grep -oE '@[0-9a-f]{40}' | tr -d '@')
-        update=$(curl -sSf "https://chromium.googlesource.com/chromium/src/tools/+/$tools/clang/scripts/update.py?format=TEXT" | base64 -d)
+        update=$(curl -sSf --retry 5 --retry-delay 10 "https://chromium.googlesource.com/chromium/src/tools/+/$tools/clang/scripts/update.py?format=TEXT" | base64 -d)
         revision=$(echo "$update" | sed -n "s/^CLANG_REVISION = '\(.*\)'/\1/p")
         sub=$(echo "$update" | sed -n 's/^CLANG_SUB_REVISION = \([0-9]*\)/\1/p')
         package="clang-$revision-$sub.tar.xz"
