@@ -96,7 +96,9 @@ val cmakeBuild = tasks.register<Exec>("cmakeBuild") {
 	args("--build", cmakeBuildDir.get().asFile.absolutePath)
 	args("--config", cmakeBuildType.get())
 	args("--target", "install")
-	args("--parallel")
+	// A job per processor: without a number, Makefile builds start every
+	// compile at once, which exhausts the memory of a small machine.
+	args("--parallel", Runtime.getRuntime().availableProcessors().toString())
 }
 
 val nativeJar = tasks.register<Jar>("nativeJar") {
