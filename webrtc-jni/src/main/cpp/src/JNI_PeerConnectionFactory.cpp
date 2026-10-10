@@ -96,14 +96,14 @@ JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_PeerConnectionFact
 			: jni::CreateDefaultVideoDecoderFactory();
 #endif
 
+		// No worker thread of its own: WebRTC does the work of the worker thread
+		// on the network thread and has deprecated a separate one, see
+		// https://groups.google.com/g/discuss-webrtc/c/Fs_Hd5XNJh0
 		auto networkThread = webrtc::Thread::CreateWithSocketServer();
 		networkThread->SetName("webrtc_jni_network_thread", nullptr);
 
 		auto signalingThread = webrtc::Thread::Create();
 		signalingThread->SetName("webrtc_jni_signaling_thread", nullptr);
-
-		auto workerThread = webrtc::Thread::Create();
-		workerThread->SetName("webrtc_jni_worker_thread", nullptr);
 
 		if (!networkThread->Start()) {
 			throw jni::Exception("Start network thread failed");
@@ -111,16 +111,12 @@ JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_PeerConnectionFact
 		if (!signalingThread->Start()) {
 			throw jni::Exception("Start signaling thread failed");
 		}
-		if (!workerThread->Start()) {
-			throw jni::Exception("Start worker thread failed");
-		}
 
 #ifdef WEBRTC_DATA_CHANNELS_ONLY
 		// No media engine: the audio module, the audio processing and the video
 		// codec factories are not used.
 		webrtc::PeerConnectionFactoryDependencies dependencies;
 		dependencies.network_thread = networkThread.get();
-		dependencies.worker_thread = workerThread.get();
 		dependencies.signaling_thread = signalingThread.get();
 		// The field trials reach the factory the way CreatePeerConnectionFactory
 		// passes them on.
@@ -161,7 +157,6 @@ JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_PeerConnectionFact
 
 		auto factory = webrtc::CreatePeerConnectionFactory(
 			networkThread.get(),
-			workerThread.get(),
 			signalingThread.get(),
 			proxy,
 			webrtc::CreateBuiltinAudioEncoderFactory(),
@@ -178,7 +173,6 @@ JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_PeerConnectionFact
 			SetHandle(env, caller, factory.release());
 			SetHandle(env, caller, "networkThreadHandle", networkThread.release());
 			SetHandle(env, caller, "signalingThreadHandle", signalingThread.release());
-			SetHandle(env, caller, "workerThreadHandle", workerThread.release());
 #ifndef WEBRTC_DATA_CHANNELS_ONLY
 			SetHandle(env, caller, "audioModuleHandle", proxy.release());
 #endif
@@ -200,7 +194,6 @@ JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_PeerConnectionFact
 
 	webrtc::Thread * networkThread = GetHandle<webrtc::Thread>(env, caller, "networkThreadHandle");
 	webrtc::Thread * signalingThread = GetHandle<webrtc::Thread>(env, caller, "signalingThreadHandle");
-	webrtc::Thread * workerThread = GetHandle<webrtc::Thread>(env, caller, "workerThreadHandle");
 #ifndef WEBRTC_DATA_CHANNELS_ONLY
 	jni::ProxyAudioDeviceModule * audioModule = GetHandle<jni::ProxyAudioDeviceModule>(env, caller, "audioModuleHandle");
 #endif
@@ -223,10 +216,6 @@ JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_PeerConnectionFact
 		if (signalingThread) {
 			signalingThread->Stop();
 			delete signalingThread;
-		}
-		if (workerThread) {
-			workerThread->Stop();
-			delete workerThread;
 		}
 #ifndef WEBRTC_DATA_CHANNELS_ONLY
 		if (audioModule) {
@@ -254,13 +243,14 @@ JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_PeerConnectionFact
 	jni::ProxyAudioDeviceModule * audioModule = GetHandle<jni::ProxyAudioDeviceModule>(env, caller, "audioModuleHandle");
 	CHECK_HANDLE(audioModule);
 
-	webrtc::Thread * workerThread = GetHandle<webrtc::Thread>(env, caller, "workerThreadHandle");
-	CHECK_HANDLE(workerThread);
+	webrtc::Thread * networkThread = GetHandle<webrtc::Thread>(env, caller, "networkThreadHandle");
+	CHECK_HANDLE(networkThread);
 
 	try {
-		// AudioState starts and stops the module's recording on the worker thread.
-		// Switching the capture path there keeps the two from interleaving.
-		workerThread->BlockingCall([audioModule, enabled]() {
+		// AudioState starts and stops the module's recording on the worker thread,
+		// which is the network thread. Switching the capture path there keeps the
+		// two from interleaving.
+		networkThread->BlockingCall([audioModule, enabled]() {
 			audioModule->SetCaptureEnabled(enabled == JNI_TRUE);
 		});
 	}
