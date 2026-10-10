@@ -11,6 +11,7 @@ base {
 
 dependencies {
 	implementation(project(":webrtc"))
+	implementation(project(":webrtc-java-media"))
 	implementation(libs.jetty.server)
 	implementation(libs.jetty.websocket.server)
 	implementation(libs.jetty.util)
@@ -19,9 +20,11 @@ dependencies {
 
 	if (nativesDir != null) {
 		runtimeOnly(files(nativesDir.resolve("webrtc-java-${project.version}-$platformClassifier.jar")))
+		runtimeOnly(files(nativesDir.resolve("webrtc-java-media-${project.version}-$platformClassifier.jar")))
 	}
 	else {
 		runtimeOnly(project(path = ":webrtc-jni", configuration = "natives"))
+		runtimeOnly(project(path = ":webrtc-java-media", configuration = "natives"))
 	}
 }
 
@@ -39,8 +42,12 @@ tasks.processResources {
 }
 
 tasks.register<JavaExec>("run") {
-	description = "Runs an example: gradlew :webrtc-examples:run -PmainClass=<class name>"
+	description = "Runs an example: gradlew :webrtc-examples:run -PmainClass=<class name> [-Pargs=<arguments>]"
 	group = "application"
 	classpath = sourceSets.main.get().runtimeClasspath
 	mainClass = providers.gradleProperty("mainClass")
+	val exampleArgs = providers.gradleProperty("args")
+	argumentProviders.add(CommandLineArgumentProvider {
+		exampleArgs.map { it.split(" ").filter(String::isNotEmpty) }.getOrElse(emptyList())
+	})
 }

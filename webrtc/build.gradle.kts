@@ -136,6 +136,8 @@ tasks.test {
 		val patch = testOutput.get().filter { it.exists() }.asPath
 		val opens = listOf(
 			"io.github.sendablemetatype.webrtc",
+			// Not exported, but the tests cover NativeApi and NativeLoader.
+			"io.github.sendablemetatype.webrtc.internal",
 			"io.github.sendablemetatype.webrtc.logging",
 			"io.github.sendablemetatype.webrtc.media",
 			"io.github.sendablemetatype.webrtc.media.audio",

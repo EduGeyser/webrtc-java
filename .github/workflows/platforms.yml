@@ -1,0 +1,141 @@
+name: Platforms
+
+# Builds the native libraries of all seven platforms and tests them on a
+# runner of each platform. The Build and Release workflows both run it, so the
+# platforms are defined here only.
+
+on:
+  workflow_call:
+    inputs:
+      ref:
+        description: "The ref to build, when not the ref of the calling workflow."
+        required: false
+        type: string
+        default: ''
+      variant:
+        description: "The variant of the native library, when not the one gradle.properties selects."
+        required: false
+        type: string
+        default: ''
+      upload-webrtc-install:
+        description: "Upload the compiled Linux x86-64 WebRTC install tree."
+        required: false
+        type: boolean
+        default: false
+      retention-days:
+        description: "How long the natives artifacts are kept."
+        required: false
+        type: number
+        default: 1
+
+permissions:
+  contents: read
+
+env:
+  WEBRTC_CHECKOUT_FOLDER: webrtc
+  WEBRTC_INSTALL_FOLDER: webrtc/build
+
+jobs:
+  build-windows:
+    strategy:
+      fail-fast: false
+      matrix:
+        platform:
+          - name: windows_x86_64
+            runs-on: windows-2025
+          - name: windows_arm64
+            runs-on: windows-2025
+        java: [27]
+    runs-on: ${{ matrix.platform.runs-on }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.ref }}
+
+      - id: prepare
+        name: Prepare build
+        uses: ./.github/actions/prepare-windows
+
+      - id: gradle-build
+        name: Gradle build
+        uses: ./.github/actions/build
+        with:
+          java-version: ${{ matrix.java }}
+          platform-name: ${{ matrix.platform.name }}
+          variant: ${{ inputs.variant }}
+          retention-days: ${{ inputs.retention-days }}
+
+  build-linux:
+    strategy:
+      fail-fast: false
+      matrix:
+        platform:
+          - name: linux_arm
+            runs-on: ubuntu-26.04
+          - name: linux_arm64
+            runs-on: ubuntu-26.04
+          - name: linux_x86-64
+            runs-on: ubuntu-26.04
+        java: [27]
+    runs-on: ${{ matrix.platform.runs-on }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.ref }}
+
+      - id: prepare
+        name: Prepare build
+        uses: ./.github/actions/prepare-linux
+
+      - id: gradle-build
+        name: Gradle build
+        uses: ./.github/actions/build
+        with:
+          java-version: ${{ matrix.java }}
+          platform-name: ${{ matrix.platform.name }}
+          variant: ${{ inputs.variant }}
+          upload-webrtc-install: ${{ inputs.upload-webrtc-install }}
+          retention-days: ${{ inputs.retention-days }}
+
+  build-macos:
+    strategy:
+      fail-fast: false
+      matrix:
+        platform:
+          # The Intel library is cross compiled on the arm64 runner and tested
+          # on an Intel runner below.
+          - name: macos_x86-64
+            runs-on: macos-26
+          - name: macos_arm64
+            runs-on: macos-26
+        java: [27]
+    runs-on: ${{ matrix.platform.runs-on }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.ref }}
+
+      - id: prepare-build
+        name: Prepare build
+        uses: ./.github/actions/prepare-macos
+
+      - id: gradle-build
+        name: Gradle build
+        uses: ./.github/actions/build
+        with:
+          java-version: ${{ matrix.java }}
+          platform-name: ${{ matrix.platform.name }}
+          variant: ${{ inputs.variant }}
+          retention-days: ${{ inputs.retention-days }}
+
+  # Every platform is tested on a runner of its own, on every runner image in
+  # use, against the uploaded jars.
+  test-natives:
+    needs: [build-windows, build-linux, build-macos]
+    uses: ./.github/workflows/test-natives.yml
+    with:
+      variant: ${{ inputs.variant }}
+      ref: ${{ inputs.ref }}

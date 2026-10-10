@@ -16,6 +16,7 @@
 
 package io.github.sendablemetatype.webrtc.media;
 
+import io.github.sendablemetatype.webrtc.internal.NativeLoader;
 import io.github.sendablemetatype.webrtc.internal.NativeObject;
 
 /**
@@ -26,6 +27,16 @@ import io.github.sendablemetatype.webrtc.internal.NativeObject;
  */
 public class SyncClock extends NativeObject {
 
+    static {
+        try {
+            NativeLoader.loadLibrary("webrtc-java");
+        }
+        catch (Exception e) {
+            throw new RuntimeException("Load library 'webrtc-java' failed", e);
+        }
+    }
+
+
     /**
      * Constructs a new SyncClock instance.
      */
@@ -34,6 +45,26 @@ public class SyncClock extends NativeObject {
 
         initialize();
     }
+
+    /**
+     * Returns the current time of the media clock, in microseconds.
+     * <p>
+     * This is the clock in which capture timestamps are interpreted, for
+     * example by {@link io.github.sendablemetatype.webrtc.media.video.CustomVideoSource#pushFrame(
+     * io.github.sendablemetatype.webrtc.media.video.VideoFrame, long) pushFrame} and
+     * {@link io.github.sendablemetatype.webrtc.media.audio.CustomAudioSource#pushAudio(byte[],
+     * int, int, int, int, long) pushAudio}. It is the monotonic clock WebRTC
+     * itself runs on, which is what makes those timestamps comparable with
+     * WebRTC's own notion of now.
+     * <p>
+     * It is unrelated to the timestamps an <em>instance</em> of this class
+     * reports: {@link #getTimestampUs()} counts from the moment that instance
+     * was created, while this clock counts from an arbitrary but process-wide
+     * fixed point.
+     *
+     * @return The current time of the media clock in microseconds.
+     */
+    public static native long currentTimeUs();
 
     /**
      * Get the current timestamp in microseconds.

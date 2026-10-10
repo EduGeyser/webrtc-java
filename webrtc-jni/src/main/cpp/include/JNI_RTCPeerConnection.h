@@ -152,7 +152,6 @@ extern "C" {
 	(JNIEnv *, jobject, jobject);
 
 	/*
-	/*
 	 * Class:     io_github_sendablemetatype_webrtc_RTCPeerConnection
 	 * Method:    getSignalingState
 	 * Signature: ()Lio/github/sendablemetatype/webrtc/RTCSignalingState;

@@ -6,55 +6,86 @@ on:
       developmentVersion:
         description: "Default version to use for new local working copy."
         required: true
-        default: "X.Y.Z-SNAPSHOT"
+        default: "X.Y.Z-sm.N-SNAPSHOT"
       dryRun:
         description: "Dry run: build every platform and assemble the deployment bundle, but push no commits or tags and publish nothing."
         required: false
         type: boolean
         default: false
 
-# The changelog commit, the release commit, the tag and the GitHub release
-# are written with the workflow token.
+# Only the jobs that push commits, tags or the GitHub release get write access.
 permissions:
-  contents: write
+  contents: read
 
-env:
-  WEBRTC_CHECKOUT_FOLDER: webrtc
-  WEBRTC_INSTALL_FOLDER: webrtc/build
+# Two releases at once would race on the pushed commits and tags.
+concurrency:
+  group: release
+  cancel-in-progress: false
 
 jobs:
-  changelog:
-    name: Generate changelog
+  # Nothing reaches main before the release is prepared: the changelog commit,
+  # the release commit, the tag and the development commit are made locally
+  # and pushed in one atomic push at the end. A failure on the way leaves main
+  # untouched, so the release can simply be dispatched again.
+  prepare-release:
+    name: Prepare release
     runs-on: ubuntu-26.04
+    permissions:
+      contents: write
     outputs:
+      release_tag: ${{ steps.release-version.outputs.tag }}
       release_body: ${{ steps.git-cliff.outputs.content }}
-      release_version: ${{ steps.version.outputs.release_version }}
-
     steps:
-      - name: Checkout
+      # The full history, for git-cliff.
+      - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          ref: main
           fetch-depth: 0
 
       - name: Git config
         run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git config --global user.name "${{ github.actor }}"
+          git config --global user.email "${{ github.actor_id }}+${{ github.actor }}@users.noreply.github.com"
 
-      # The release version is the one gradle.properties carries, not one
-      # derived from the commits.
-      - name: Release version
-        id: version
+      # The release version is the one gradle.properties carries without
+      # -SNAPSHOT, not one derived from the commits, so that the changelog, the
+      # tag and the GitHub release always agree.
+      - name: Determine and check the versions
+        id: release-version
+        env:
+          DEVELOPMENT_VERSION: ${{ inputs.developmentVersion }}
         run: |
           current=$(sed -n 's/^version=//p' gradle.properties)
-          echo "release_version=v${current%-SNAPSHOT}" >> "$GITHUB_OUTPUT"
+          version="${current%-SNAPSHOT}"
+          echo "Release version: $version, next development version: $DEVELOPMENT_VERSION"
 
-      - name: Generate changelog for the current build
+          if [ "$current" == "$version" ]; then
+            echo "::error::gradle.properties has $current, which is not a snapshot"
+            exit 1
+          fi
+          if ! [[ "$DEVELOPMENT_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+-sm\.[0-9]+-SNAPSHOT$ ]]; then
+            echo "::error::developmentVersion must look like 1.2.3-sm.4-SNAPSHOT, got '$DEVELOPMENT_VERSION'"
+            exit 1
+          fi
+          if [ "${DEVELOPMENT_VERSION%-SNAPSHOT}" == "$version" ]; then
+            echo "::error::developmentVersion must differ from the release version $version"
+            exit 1
+          fi
+          if git rev-parse -q --verify "refs/tags/v$version" >/dev/null; then
+            echo "::error::Tag v$version already exists"
+            exit 1
+          fi
+
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "tag=v$version" >> "$GITHUB_OUTPUT"
+
+      - name: Generate the release notes
         uses: orhun/git-cliff-action@a9a95522b26fe6403f7bb24031f21fb573d0f5ff # v4.9.1
         id: git-cliff
         with:
           config: .github/changelog/cliff-release.toml
-          args: -v -u --strip footer --tag ${{ steps.version.outputs.release_version }} --use-branch-tags
+          args: -v -u --strip footer --tag ${{ steps.release-version.outputs.tag }} --use-branch-tags
 
       # The new release's section is added on top of the file; the older
       # sections are left as they are.
@@ -62,211 +93,56 @@ jobs:
         uses: orhun/git-cliff-action@a9a95522b26fe6403f7bb24031f21fb573d0f5ff # v4.9.1
         with:
           config: .github/changelog/cliff.toml
-          args: -v --prepend CHANGELOG.md -u --tag ${{ steps.version.outputs.release_version }} --use-branch-tags
+          args: -v --prepend CHANGELOG.md -u --tag ${{ steps.release-version.outputs.tag }} --use-branch-tags
 
-      - name: Commit CHANGELOG.md
+      # The release commit sets the release version and is tagged; the next
+      # commit moves on to the development version and records the release in
+      # the documentation. A dry run creates no commit and no tag.
+      - name: Prepare release
         if: ${{ !inputs.dryRun }}
+        env:
+          RELEASE_VERSION: ${{ steps.release-version.outputs.version }}
+          RELEASE_TAG: ${{ steps.release-version.outputs.tag }}
+          DEVELOPMENT_VERSION: ${{ inputs.developmentVersion }}
         run: |
           git add CHANGELOG.md
-          git commit -m "chore(release): Update CHANGELOG.md for ${{ steps.version.outputs.release_version }}"
-          git push
+          git commit -m "chore(release): Update CHANGELOG.md for $RELEASE_TAG"
 
-  prepare-release:
-    name: Prepare release
-    needs: changelog
-    outputs:
-      release_body: ${{ needs.changelog.outputs.release_body }}
-      release_version: ${{ needs.changelog.outputs.release_version }}
-    runs-on: ubuntu-26.04
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          ref: main
-      - run: |
-          git config --global user.name "${{ github.actor }}"
-          git config --global user.email "${{ github.actor_id }}+${{ github.actor }}@users.noreply.github.com"
+          sed -i "s/^version=.*/version=$RELEASE_VERSION/" gradle.properties
+          git commit -am "Prepare release $RELEASE_TAG"
+          git tag -a "$RELEASE_TAG" -m "$RELEASE_TAG"
 
-      # The release version is the current version without its -SNAPSHOT
-      # suffix. The release commit sets it and is tagged; the next commit moves
-      # on to the development version. A dry run only reports the versions.
-      - name: Prepare release
-        run: |
-          current=$(sed -n 's/^version=//p' gradle.properties)
-          release="${current%-SNAPSHOT}"
-          development="${{ github.event.inputs.developmentVersion }}"
-
-          echo "Release version: $release, next development version: $development"
-          echo "RELEASE_VERSION=$release" >> "$GITHUB_ENV"
-
-          if [ "${{ inputs.dryRun }}" == "true" ]; then
-            exit 0
-          fi
-
-          sed -i "s/^version=.*/version=$release/" gradle.properties
-          git commit -am "Prepare release v$release"
-          git tag -a "v$release" -m "v$release"
-
-          sed -i "s/^version=.*/version=$development/" gradle.properties
+          sed -i "s/^version=.*/version=$DEVELOPMENT_VERSION/" gradle.properties
+          sed -i "s/VERSION: '.*'/VERSION: '$RELEASE_VERSION'/g" docs/.vitepress/versions.ts
           git commit -am "Prepare for next development iteration"
 
-      - name: Push release commit and tag
+      # The branch and the tag land together or not at all.
+      - name: Push release commits and tag
         if: ${{ !inputs.dryRun }}
-        run: |
-          # Update versions.ts file
-          echo "Updating versions.ts with release version: $RELEASE_VERSION"
-          sed -i "s/VERSION: '.*'/VERSION: '$RELEASE_VERSION'/g" docs/.vitepress/versions.ts
+        env:
+          RELEASE_TAG: ${{ steps.release-version.outputs.tag }}
+        run: git push --atomic origin HEAD:main "refs/tags/$RELEASE_TAG"
 
-          # Add the updated file to the existing commit
-          git add docs/.vitepress/versions.ts
-          git commit --amend --no-edit
-
-          git push
-          git push --tags
-
-  build-windows:
+  # The tag prepare-release pushed. A dry run pushes none and builds the
+  # dispatched commit instead. The variant is the one gradle.properties
+  # selects.
+  platforms:
     needs: prepare-release
-    outputs:
-      release_body: ${{ needs.prepare-release.outputs.release_body }}
-      release_version: ${{ needs.prepare-release.outputs.release_version }}
-    strategy:
-      fail-fast: false
-      matrix:
-        platform:
-          - name: windows_x86_64
-            runs-on: windows-2025
-          - name: windows_arm64
-            runs-on: windows-2025
-        java: [27]
-    runs-on: ${{ matrix.platform.runs-on }}
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          fetch-tags: true
-
-      - name: Get tag from current branch
-        id: tag-selector
-        if: ${{ !inputs.dryRun }}
-        shell: bash
-        run: |
-          git fetch -a
-          tag=$(git describe --tags `git rev-list --tags --max-count=1`)
-          echo "tag=$tag" >> "$GITHUB_OUTPUT"
-          git checkout $tag
-
-      - id: prepare
-        name: Prepare release build
-        uses: ./.github/actions/prepare-windows
-
-      - id: gradle-build
-        name: Gradle build
-        uses: ./.github/actions/release
-        with:
-          java-version: ${{ matrix.java }}
-          platform-name: ${{ matrix.platform.name }}
-
-  build-linux:
-    needs: prepare-release
-    outputs:
-      tag: ${{ steps.tag-selector.outputs.tag }}
-    strategy:
-      fail-fast: false
-      matrix:
-        platform:
-          - name: linux_arm
-            runs-on: ubuntu-26.04
-          - name: linux_arm64
-            runs-on: ubuntu-26.04
-          - name: linux_x86-64
-            runs-on: ubuntu-26.04
-        java: [27]
-    runs-on: ${{ matrix.platform.runs-on }}
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          fetch-tags: true
-
-      - name: Get tag from current branch
-        id: tag-selector
-        if: ${{ !inputs.dryRun }}
-        run: |
-          git fetch -a
-          tag=$(git describe --tags `git rev-list --tags --max-count=1`)
-          echo "tag=$tag" >> "$GITHUB_OUTPUT"
-          git checkout $tag
-
-      - id: prepare-build
-        name: Prepare release build
-        uses: ./.github/actions/prepare-linux
-
-      - id: gradle-build
-        name: Gradle build
-        uses: ./.github/actions/release
-        with:
-          java-version: ${{ matrix.java }}
-          platform-name: ${{ matrix.platform.name }}
-
-  build-macos:
-    needs: prepare-release
-    strategy:
-      fail-fast: false
-      matrix:
-        platform:
-          # The Intel library is cross compiled on the arm64 runner.
-          - name: macos_x86-64
-            runs-on: macos-26
-          - name: macos_arm64
-            runs-on: macos-26
-        java: [27]
-    runs-on: ${{ matrix.platform.runs-on }}
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          fetch-tags: true
-
-      - name: Get tag from current branch
-        id: tag-selector
-        if: ${{ !inputs.dryRun }}
-        run: |
-          git fetch -a
-          tag=$(git describe --tags `git rev-list --tags --max-count=1`)
-          echo "tag=$tag" >> "$GITHUB_OUTPUT"
-          git checkout $tag
-
-      - id: prepare-build
-        name: Prepare release build
-        uses: ./.github/actions/prepare-macos
-
-      - id: gradle-build
-        name: Gradle build
-        uses: ./.github/actions/release
-        with:
-          java-version: ${{ matrix.java }}
-          platform-name: ${{ matrix.platform.name }}
-
-  test-natives:
-    name: Test natives
-    needs: [build-windows, build-linux, build-macos]
-    uses: ./.github/workflows/test-natives.yml
+    uses: ./.github/workflows/platforms.yml
     with:
-      ref: ${{ needs.build-linux.outputs.tag }}
+      ref: ${{ !inputs.dryRun && needs.prepare-release.outputs.release_tag || '' }}
+      retention-days: 7
 
   publish-central:
     name: Publish to Maven Central
-    needs: [build-windows, test-natives]
-    outputs:
-      release_body: ${{ needs.build-windows.outputs.release_body }}
-      release_version: ${{ needs.build-windows.outputs.release_version }}
+    needs: [prepare-release, platforms]
     runs-on: ubuntu-26.04
 
     steps:
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          fetch-tags: true
+          ref: ${{ !inputs.dryRun && needs.prepare-release.outputs.release_tag || '' }}
 
       - name: Set up JDK 27
         uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
@@ -280,17 +156,12 @@ jobs:
       - name: Determine the version to publish
         id: release-version
         run: |
-          if [ "${{ inputs.dryRun }}" != "true" ]; then
-            git fetch -a
-            tag=$(git describe --tags `git rev-list --tags --max-count=1`)
-            git checkout "$tag"
-          fi
-
           version=$(sed -n 's/^version=//p' gradle.properties)
 
           echo "Version to publish: $version"
           echo "version=$version" >> "$GITHUB_OUTPUT"
 
+      # The full variant adds the natives-media-* jars of the media module.
       - name: Download the native library jars of all platforms
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
@@ -320,7 +191,7 @@ jobs:
         if: ${{ inputs.dryRun }}
         run: |
           {
-            echo "## Dry run — nothing was published"
+            echo "## Dry run: nothing was published"
             echo
             echo "Version: \`${{ steps.release-version.outputs.version }}\`"
             echo
@@ -341,19 +212,25 @@ jobs:
 
   publish-release:
     name: Publish GitHub release
-    needs: publish-central
+    needs: [prepare-release, publish-central]
     if: ${{ !inputs.dryRun }}
     runs-on: ubuntu-26.04
+    permissions:
+      contents: write
 
     steps:
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
+      # The notes are commit subjects, so they go through the environment and a
+      # file rather than into the script, where a quote or a backtick would run.
+      # --verify-tag fails instead of creating a tag the release did not push.
       - name: Publish
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG: ${{ needs.prepare-release.outputs.release_tag }}
+          RELEASE_BODY: ${{ needs.prepare-release.outputs.release_body }}
         run: |
-          version="${{ needs.publish-central.outputs.release_version }}"
-          body="${{ needs.publish-central.outputs.release_body }}"
-
-          gh release create $version -d -t "Release $version" -n "$body"
+          printf '%s\n' "$RELEASE_BODY" > release-notes.md
+          gh release create "$RELEASE_TAG" --draft --verify-tag \
+            -t "Release $RELEASE_TAG" -F release-notes.md

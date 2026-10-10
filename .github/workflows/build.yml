@@ -8,10 +8,20 @@ on:
       - "docs/**"
       - "**.md"
       - "LICENSE"
+      - ".github/ISSUE_TEMPLATE/**"
+      - ".github/workflows/pages.yml"
 
+  # A change that only touches docs cannot affect the native build. The docs
+  # site has its own check in pages.yml.
   pull_request:
     branches:
       - main
+    paths-ignore:
+      - "docs/**"
+      - "**.md"
+      - "LICENSE"
+      - ".github/ISSUE_TEMPLATE/**"
+      - ".github/workflows/pages.yml"
 
   workflow_dispatch:
     inputs:
@@ -29,101 +39,20 @@ on:
         type: boolean
         default: false
 
-env:
-  WEBRTC_CHECKOUT_FOLDER: webrtc
-  WEBRTC_INSTALL_FOLDER: webrtc/build
+permissions:
+  contents: read
+
+# A new push to a PR supersedes its running build. Runs on main are kept,
+# since each one refreshes the caches.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
-  build-windows:
-    strategy:
-      fail-fast: false
-      matrix:
-        platform:
-          - name: windows_x86_64
-            runs-on: windows-2025
-          - name: windows_arm64
-            runs-on: windows-2025
-        java: [27]
-    runs-on: ${{ matrix.platform.runs-on }}
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-
-      - id: prepare
-        name: Prepare build
-        uses: ./.github/actions/prepare-windows
-
-      - id: gradle-build
-        name: Gradle build
-        uses: ./.github/actions/build
-        with:
-          java-version: ${{ matrix.java }}
-          platform-name: ${{ matrix.platform.name }}
-          variant: ${{ inputs.variant }}
-
-  build-linux:
-    strategy:
-      fail-fast: false
-      matrix:
-        platform:
-          - name: linux_arm
-            runs-on: ubuntu-26.04
-          - name: linux_arm64
-            runs-on: ubuntu-26.04
-          - name: linux_x86-64
-            runs-on: ubuntu-26.04
-        java: [27]
-    runs-on: ${{ matrix.platform.runs-on }}
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-
-      - id: prepare
-        name: Prepare build
-        uses: ./.github/actions/prepare-linux
-
-      - id: gradle-build
-        name: Gradle build
-        uses: ./.github/actions/build
-        with:
-          java-version: ${{ matrix.java }}
-          platform-name: ${{ matrix.platform.name }}
-          variant: ${{ inputs.variant }}
-          upload-webrtc-install: ${{ github.event_name == 'workflow_dispatch' && inputs.upload-webrtc-install }}
-
-  build-macos:
-    strategy:
-      fail-fast: false
-      matrix:
-        platform:
-          # The Intel library is cross compiled on the arm64 runner and tested
-          # on an Intel runner below.
-          - name: macos_x86-64
-            runs-on: macos-26
-          - name: macos_arm64
-            runs-on: macos-26
-        java: [27]
-    runs-on: ${{ matrix.platform.runs-on }}
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-
-      - id: prepare-build
-        name: Prepare build
-        uses: ./.github/actions/prepare-macos
-
-      - id: gradle-build
-        name: Gradle build
-        uses: ./.github/actions/build
-        with:
-          java-version: ${{ matrix.java }}
-          platform-name: ${{ matrix.platform.name }}
-          variant: ${{ inputs.variant }}
-
-  # Every platform is tested on a runner of its own, on every runner image in
-  # use, against the uploaded jar.
-  test-natives:
-    needs: [build-windows, build-linux, build-macos]
-    uses: ./.github/workflows/test-natives.yml
+  platforms:
+    uses: ./.github/workflows/platforms.yml
     with:
       variant: ${{ inputs.variant }}
+      upload-webrtc-install: ${{ github.event_name == 'workflow_dispatch' && inputs.upload-webrtc-install }}
+      # Only the tests of this same run read them.
+      retention-days: 1

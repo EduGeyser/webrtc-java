@@ -40,6 +40,7 @@ namespace jni
 				jfieldID clockRate;
 				jfieldID channels;
 				jfieldID sdpFmtp;
+				jfieldID scalabilityModes;
 		};
 
 		JavaLocalRef<jobject> toJava(JNIEnv * env, const webrtc::RtpCodecCapability & capability);

@@ -78,6 +78,7 @@ When pushing video frames, you need to consider the following:
 ### Resolution
 - Common resolutions: 320x240, 640x480, 1280x720, 1920x1080
 - Higher resolutions require more bandwidth and processing power
+- Push frames at their full size: when the bitrate cannot carry them, the source scales them down (and, if asked, drops some) before they reach the encoder, the way a camera source does, and scales back up once the bandwidth allows. Local sinks on the track see the adapted frames too.
 
 ### Frame Rate
 - Common frame rates: 15, 24, 30, 60 fps
@@ -141,6 +142,32 @@ public class VideoStreamer {
     }
 }
 ```
+
+### Keeping the Source's Own Timing
+
+`pushFrame(VideoFrame)` treats a frame as captured at the moment of the call, so the timing that reaches the other peer is the timing of your pushing thread. For a live source such as a camera that is exactly right. For a source that has timing of its own, such as a video file, it is not: every hiccup of the executor above ends up in the stream, and audio pushed alongside drifts out of sync with the video.
+
+Pass the capture time instead:
+
+```java
+// The clock capture timestamps are interpreted in.
+long baseUs = SyncClock.currentTimeUs();
+
+// For each frame, its own presentation time within the source.
+long presentationUs = frameIndex * 1_000_000L / frameRate;
+
+videoSource.pushFrame(frame, baseUs + presentationUs);
+```
+
+Map your source's timeline onto the clock once, when playback starts, and add each frame's presentation time to that base. The frame rate that reaches the encoder then follows your timestamps rather than the jitter of the thread.
+
+::: warning
+Frames must still be pushed in real time. A frame is encoded and sent when it arrives, so a timestamp in the future does not delay it; it only describes when the frame was meant to be shown.
+
+Timestamps must also advance by at least one millisecond from frame to frame. WebRTC drops a frame whose capture time does not move forward.
+:::
+
+Push audio with timestamps from the same clock, as described in [Custom Audio Source](/guide/audio/custom-audio-source), and the two stay in sync on the receiving side.
 
 ## Integration with Video Tracks
 

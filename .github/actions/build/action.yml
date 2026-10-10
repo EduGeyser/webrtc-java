@@ -1,6 +1,6 @@
 name: 'Gradle Build'
 
-description: 'Build the platform dependent Java library'
+description: 'Build the native libraries of one platform and upload them as artifacts'
 
 inputs:
   java-version:
@@ -18,9 +18,14 @@ inputs:
     default: ''
 
   upload-webrtc-install:
-    description: 'Upload the compiled WebRTC install tree on a dispatched Linux x86-64 build.'
+    description: 'Upload the compiled WebRTC install tree of a Linux x86-64 build.'
     required: false
     default: 'false'
+
+  retention-days:
+    description: 'How long the natives artifacts are kept.'
+    required: false
+    default: '1'
 
 runs:
   using: "composite"
@@ -30,7 +35,8 @@ runs:
       shell: bash
 
     # The variant of the native library comes from the input, or else from
-    # gradle.properties. Each variant has its own WebRTC build and cache.
+    # gradle.properties. Each variant has its own WebRTC build and cache. Only
+    # the full variant builds the media module, and with it FFmpeg.
     - name: Derive the variant
       run: |
         variant="${{ inputs.variant }}"
@@ -52,11 +58,70 @@ runs:
       id: native-build
       uses: ./.github/actions/native-build-fingerprint
 
-    - name: Set up WebRTC cache
-      uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+    # Restored here and saved right after WebRTC is installed, so that a
+    # failure in a later step keeps a WebRTC build that took the better part
+    # of an hour.
+    - name: Restore WebRTC cache
+      id: webrtc-cache
+      uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
       with:
         path: ~/${{ env.WEBRTC_INSTALL_FOLDER }}${{ env.WEBRTC_VARIANT_SUFFIX }}
         key: webrtc-${{ env.WEBRTC_CACHE_BRANCH }}-${{ inputs.platform-name }}${{ env.WEBRTC_VARIANT_SUFFIX }}-${{ steps.native-build.outputs.fingerprint }}
+
+    # FFmpeg's configure and makefiles are shell scripts, and nasm assembles
+    # its x86 code, which the Intel macOS build needs too. On Windows the shell
+    # has to be MSYS2's: Git for Windows' bash carries neither make nor nasm.
+    - name: Install the FFmpeg build tools
+      if: env.WEBRTC_VARIANT == 'full'
+      run: |
+        case "$RUNNER_OS" in
+          Linux)
+            sudo apt-get install -y -q nasm
+            ;;
+          macOS)
+            HOMEBREW_NO_AUTO_UPDATE=1 HOMEBREW_NO_INSTALL_CLEANUP=1 brew install nasm
+            ;;
+          Windows)
+            if [ ! -f /c/msys64/usr/bin/bash.exe ]; then
+              choco install msys2 --no-progress -y
+            fi
+            /c/msys64/usr/bin/bash.exe -lc "pacman -Sy --noconfirm && pacman -S --needed --noconfirm make nasm diffutils pkgconf"
+            # Where the media module's CMake looks for it.
+            echo "MSYS2_ROOT=C:\\msys64" >> "$GITHUB_ENV"
+            ;;
+        esac
+      shell: bash
+
+    - name: Check out the FFmpeg submodule
+      if: env.WEBRTC_VARIANT == 'full'
+      run: git submodule update --init --depth 1 webrtc-java-media/third-party/ffmpeg
+      shell: bash
+
+    # FFmpeg is built from the submodule with the compiler and sysroot of the
+    # toolchain files, so all of them make up its cache key.
+    - name: Fingerprint the FFmpeg build
+      id: ffmpeg-build
+      if: env.WEBRTC_VARIANT == 'full'
+      env:
+        BUILD_INPUTS: ${{ hashFiles('webrtc-java-media/build.gradle.kts', 'webrtc-java-media/src/main/cpp/dependencies/**', 'webrtc-jni/src/main/cpp/toolchain/**', 'webrtc-jni/src/main/cpp/dependencies/webrtc/linux/sysroot/**') }}
+      run: |
+        fingerprint=$(
+          {
+            printf '%s\n' "$BUILD_INPUTS"
+            sed -n '/^ffmpeg\./p' gradle.properties
+            git rev-parse HEAD:webrtc-java-media/third-party/ffmpeg
+          } | sha256sum | cut -d ' ' -f1
+        )
+        echo "value=$fingerprint" >> "$GITHUB_OUTPUT"
+      shell: bash
+
+    - name: Restore FFmpeg cache
+      id: ffmpeg-cache
+      if: env.WEBRTC_VARIANT == 'full'
+      uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: ~/ffmpeg
+        key: ffmpeg-${{ inputs.platform-name }}-${{ steps.ffmpeg-build.outputs.value }}
 
     - name: Set up JDK ${{ inputs.java-version }}
       uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
@@ -81,22 +146,66 @@ runs:
         echo "WEBRTC_PLATFORM=$platform" >> "$GITHUB_ENV"
       shell: bash
 
+    # Configuring the JNI build fetches and compiles WebRTC, and building it
+    # installs WebRTC along with the JNI library.
+    - name: Build WebRTC and the JNI library
+      run: ./gradlew :webrtc-jni:cmakeBuild $WEBRTC_PLATFORM $WEBRTC_VARIANT_ARG
+      shell: bash
+
+    - name: Save WebRTC cache
+      if: steps.webrtc-cache.outputs.cache-hit != 'true'
+      uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: ~/${{ env.WEBRTC_INSTALL_FOLDER }}${{ env.WEBRTC_VARIANT_SUFFIX }}
+        key: ${{ steps.webrtc-cache.outputs.cache-primary-key }}
+
+    # Configuring the media build compiles FFmpeg.
+    - name: Build FFmpeg
+      if: env.WEBRTC_VARIANT == 'full'
+      run: ./gradlew :webrtc-java-media:cmakeGenerate $WEBRTC_PLATFORM $WEBRTC_VARIANT_ARG
+      shell: bash
+
+    - name: Save FFmpeg cache
+      if: env.WEBRTC_VARIANT == 'full' && steps.ffmpeg-cache.outputs.cache-hit != 'true'
+      uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: ~/ffmpeg
+        key: ${{ steps.ffmpeg-cache.outputs.cache-primary-key }}
+
     # The tests run in the test workflow, on every runner image, against the
-    # uploaded jar.
+    # uploaded jars.
     - name: Build
       run: ./gradlew assemble $WEBRTC_PLATFORM $WEBRTC_VARIANT_ARG
       shell: bash
 
+    # The jars of all platforms go to the test workflow and to the publishing
+    # job of a release, which attaches every platform to one deployment.
     - name: Upload native library jar
       uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
       with:
         name: natives-${{ inputs.platform-name }}
         path: webrtc-jni/build/libs/webrtc-java-*.jar
         if-no-files-found: error
+        retention-days: ${{ inputs.retention-days }}
+        overwrite: true
+
+    - name: Upload media native library jar
+      if: env.WEBRTC_VARIANT == 'full'
+      uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      with:
+        name: natives-media-${{ inputs.platform-name }}
+        # The classifier jar only: the main jar is the same on every platform.
+        path: |
+          webrtc-java-media/build/libs/webrtc-java-media-*-windows-*.jar
+          webrtc-java-media/build/libs/webrtc-java-media-*-linux-*.jar
+          webrtc-java-media/build/libs/webrtc-java-media-*-macos-*.jar
+        if-no-files-found: error
+        retention-days: ${{ inputs.retention-days }}
+        overwrite: true
 
     - name: Archive the compiled WebRTC install tree
       id: webrtc-install
-      if: ${{ github.event_name == 'workflow_dispatch' && inputs.upload-webrtc-install == 'true' && inputs.platform-name == 'linux_x86-64' }}
+      if: ${{ inputs.upload-webrtc-install == 'true' && inputs.platform-name == 'linux_x86-64' }}
       run: |
         archive="$RUNNER_TEMP/webrtc-install-linux-x86_64-${WEBRTC_VARIANT}-${{ steps.native-build.outputs.fingerprint }}.tar.gz"
         # Tar preserves permissions and links that an artifact upload would lose.

@@ -45,28 +45,9 @@
 #include "api/audio_codecs/builtin_audio_decoder_factory.h"
 #include "api/audio_codecs/builtin_audio_encoder_factory.h"
 
-#ifdef __APPLE__
-#include "sdk/objc/components/video_codec/RTCDefaultVideoDecoderFactory.h"
-#include "sdk/objc/components/video_codec/RTCDefaultVideoEncoderFactory.h"
-#include "sdk/objc/native/api/video_decoder_factory.h"
-#include "sdk/objc/native/api/video_encoder_factory.h"
-#else
-#include "api/video_codecs/builtin_video_decoder_factory.h"
-#include "api/video_codecs/builtin_video_encoder_factory.h"
-#include "api/video_codecs/video_decoder_factory_template_dav1d_adapter.h"
-#include "api/video_codecs/video_decoder_factory_template_libvpx_vp8_adapter.h"
-#include "api/video_codecs/video_decoder_factory_template_libvpx_vp9_adapter.h"
-#include "api/video_codecs/video_decoder_factory_template_open_h264_adapter.h"
-#include "api/video_codecs/video_encoder_factory_template_libaom_av1_adapter.h"
-#include "api/video_codecs/video_encoder_factory_template_libvpx_vp8_adapter.h"
-#include "api/video_codecs/video_encoder_factory_template_libvpx_vp9_adapter.h"
-#include "api/video_codecs/video_encoder_factory_template_open_h264_adapter.h"
-#endif
-
-#include "api/video_codecs/video_decoder_factory.h"
-#include "api/video_codecs/video_decoder_factory_template.h"
-#include "api/video_codecs/video_encoder_factory.h"
-#include "api/video_codecs/video_encoder_factory_template.h"
+#include "media/video/codec/DefaultVideoCodecFactories.h"
+#include "media/video/codec/VideoDecoderFactoryWrapper.h"
+#include "media/video/codec/VideoEncoderFactoryWrapper.h"
 #endif
 
 #include "rtc_base/logging.h"
@@ -75,7 +56,8 @@
 #include <map>
 
 JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_PeerConnectionFactory_initialize
-(JNIEnv * env, jobject caller, jobject jFieldTrials, jobject audioModule, jobject audioProcessing)
+(JNIEnv * env, jobject caller, jobject jFieldTrials, jobject audioModule, jobject audioProcessing,
+	jobject jVideoEncoderFactory, jobject jVideoDecoderFactory)
 {
 #ifndef WEBRTC_DATA_CHANNELS_ONLY
 	webrtc::AudioDeviceModule * audioDevModule = (audioModule != nullptr)
@@ -103,6 +85,17 @@ JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_PeerConnectionFact
 			? nullptr
 			: std::make_unique<jni::FieldTrialsView>(std::move(fieldTrialsMap));
 
+#ifndef WEBRTC_DATA_CHANNELS_ONLY
+		// Asks the Java factories for their codecs, which is where a broken
+		// factory surfaces, before anything else is set up.
+		std::unique_ptr<webrtc::VideoEncoderFactory> videoEncoderFactory = (jVideoEncoderFactory != nullptr)
+			? std::make_unique<jni::VideoEncoderFactoryWrapper>(env, jVideoEncoderFactory)
+			: jni::CreateDefaultVideoEncoderFactory();
+		std::unique_ptr<webrtc::VideoDecoderFactory> videoDecoderFactory = (jVideoDecoderFactory != nullptr)
+			? std::make_unique<jni::VideoDecoderFactoryWrapper>(env, jVideoDecoderFactory)
+			: jni::CreateDefaultVideoDecoderFactory();
+#endif
+
 		auto networkThread = webrtc::Thread::CreateWithSocketServer();
 		networkThread->SetName("webrtc_jni_network_thread", nullptr);
 
@@ -123,7 +116,8 @@ JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_PeerConnectionFact
 		}
 
 #ifdef WEBRTC_DATA_CHANNELS_ONLY
-		// No media engine: the audio module and the audio processing are not used.
+		// No media engine: the audio module, the audio processing and the video
+		// codec factories are not used.
 		webrtc::PeerConnectionFactoryDependencies dependencies;
 		dependencies.network_thread = networkThread.get();
 		dependencies.worker_thread = workerThread.get();
@@ -172,21 +166,8 @@ JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_PeerConnectionFact
 			proxy,
 			webrtc::CreateBuiltinAudioEncoderFactory(),
 			webrtc::CreateBuiltinAudioDecoderFactory(),
-#ifdef __APPLE__
-			webrtc::ObjCToNativeVideoEncoderFactory([[RTC_OBJC_TYPE(RTCDefaultVideoEncoderFactory) alloc] init]),
-			webrtc::ObjCToNativeVideoDecoderFactory([[RTC_OBJC_TYPE(RTCDefaultVideoDecoderFactory) alloc] init]),
-#else
-			std::make_unique<webrtc::VideoEncoderFactoryTemplate<
-				webrtc::LibvpxVp8EncoderTemplateAdapter,
-				webrtc::LibvpxVp9EncoderTemplateAdapter,
-				webrtc::OpenH264EncoderTemplateAdapter,
-				webrtc::LibaomAv1EncoderTemplateAdapter>>(),
-			std::make_unique<webrtc::VideoDecoderFactoryTemplate<
-				webrtc::LibvpxVp8DecoderTemplateAdapter,
-				webrtc::LibvpxVp9DecoderTemplateAdapter,
-				webrtc::OpenH264DecoderTemplateAdapter,
-				webrtc::Dav1dDecoderTemplateAdapter>>(),
-#endif
+			std::move(videoEncoderFactory),
+			std::move(videoDecoderFactory),
 			nullptr,
 			apm,
 			nullptr,
@@ -413,8 +394,15 @@ JNIEXPORT jobject JNICALL Java_io_github_sendablemetatype_webrtc_PeerConnectionF
 	auto result = factory->CreatePeerConnectionOrError(configuration, std::move(dependencies));
 
 	if (!result.ok()) {
+		// No peer connection took the observer.
+		delete observer;
+
+		// The type is a string_view, which is not terminated and cannot be
+		// passed through varargs as it is.
+		const std::string type(ToString(result.error().type()));
+
 		env->Throw(jni::JavaRuntimeException(env, "Create PeerConnection failed: %s %s",
-			ToString(result.error().type()), result.error().message()));
+			type.c_str(), result.error().message()));
 
 		return nullptr;
 	}
@@ -428,6 +416,8 @@ JNIEXPORT jobject JNICALL Java_io_github_sendablemetatype_webrtc_PeerConnectionF
 
 		return javaPeerConnection.release();
 	}
+
+	delete observer;
 
 	return nullptr;
 }

@@ -35,6 +35,8 @@ Versions are `<upstream version>-sm.<n>`: the upstream version the fork is based
 
 See the [build notes](docs/guide/build.md). The variant is preselected in `gradle.properties`.
 
+Upstream's `webrtc-java-media` module plays media files and records calls with FFmpeg. It needs the audio and video support of the full variant, so it is built, tested and published with that variant only.
+
 The Java packages are renamed from upstream's `dev.onvoid.webrtc` with `tools/rename-packages.py`. After merging from upstream, run it from the repository root; it moves and renames whatever arrived and leaves the rest alone.
 
 ## License

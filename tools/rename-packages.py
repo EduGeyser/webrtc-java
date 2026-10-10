@@ -30,7 +30,7 @@ REPLACEMENTS = [
 MODULE_PATTERN = re.compile(r"(?<![\w.])" + re.escape(OLD_MODULE) + r"(?![\w-])")
 
 SKIPPED_DIRS = {".git", ".gradle", "build", "node_modules"}
-SKIPPED_FILES = {"CHANGELOG.md", os.path.basename(__file__)}
+SKIPPED_FILES = {"CHANGELOG.md", "README.md", os.path.basename(__file__)}
 TEXT_SUFFIXES = {
     ".java", ".cpp", ".h", ".mm", ".kts", ".md", ".yml", ".yaml", ".json",
     ".txt", ".properties", ".cmake", ".toml", ".js", ".ts", ".mts", ".html",

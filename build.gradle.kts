@@ -152,6 +152,10 @@ publishing {
 dependencies {
 	nmcpAggregation(project(":"))
 	nmcpAggregation(project(":webrtc"))
+	// The media module needs the audio and video of the full variant.
+	if (variant == "full") {
+		nmcpAggregation(project(":webrtc-java-media"))
+	}
 }
 
 nmcpAggregation {

@@ -65,6 +65,22 @@ extern "C" {
 
 	/*
 	 * Class:     io_github_sendablemetatype_webrtc_RTCRtpSender
+	 * Method:    setTransform
+	 * Signature: (Lio/github/sendablemetatype/webrtc/RTCEncodedFrameTransformer;)V
+	 */
+	JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_RTCRtpSender_setTransform
+	(JNIEnv *, jobject, jobject);
+
+	/*
+	 * Class:     io_github_sendablemetatype_webrtc_RTCRtpSender
+	 * Method:    generateKeyFrame
+	 * Signature: ()V
+	 */
+	JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_RTCRtpSender_generateKeyFrame
+	(JNIEnv *, jobject);
+
+	/*
+	 * Class:     io_github_sendablemetatype_webrtc_RTCRtpSender
 	 * Method:    dispose
 	 * Signature: ()V
 	 */

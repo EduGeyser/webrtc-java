@@ -16,6 +16,10 @@ inputs:
     required: false
     default: ''
 
+  runner-image:
+    description: 'The runner image, which tells the test reports of a platform apart.'
+    required: true
+
   java-version:
     description: 'The Java version.'
     required: true
@@ -34,15 +38,8 @@ inputs:
 runs:
   using: "composite"
   steps:
-    - name: Download natives
-      uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
-      with:
-        name: natives-${{ inputs.platform-name }}
-        path: natives
-
-
     # The variant of the native library comes from the input, or else from
-    # gradle.properties.
+    # gradle.properties. The full variant has the media module as well.
     - name: Derive the variant
       run: |
         variant="${{ inputs.variant }}"
@@ -50,11 +47,29 @@ runs:
           variant=$(sed -n 's/^webrtc.variant=//p' gradle.properties)
         fi
         if [ "$variant" == "data-channels" ]; then
+          echo "WEBRTC_VARIANT=data-channels" >> "$GITHUB_ENV"
           echo "WEBRTC_VARIANT_ARG=-Pwebrtc.variant=data-channels" >> "$GITHUB_ENV"
+          echo "WEBRTC_TEST_TASKS=:webrtc:test" >> "$GITHUB_ENV"
         else
+          echo "WEBRTC_VARIANT=full" >> "$GITHUB_ENV"
           echo "WEBRTC_VARIANT_ARG=-Pwebrtc.variant=full" >> "$GITHUB_ENV"
+          echo "WEBRTC_TEST_TASKS=:webrtc:test :webrtc-java-media:test" >> "$GITHUB_ENV"
         fi
       shell: bash
+
+    # Both native library jars of a platform land in the same directory.
+    - name: Download natives
+      uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+      with:
+        name: natives-${{ inputs.platform-name }}
+        path: natives
+
+    - name: Download media natives
+      if: env.WEBRTC_VARIANT == 'full'
+      uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+      with:
+        name: natives-media-${{ inputs.platform-name }}
+        path: natives
 
     # The full variant links the X11, GLib, GBM and libdrm libraries; the data
     # channels variant links nothing beyond glibc and libgcc_s. PulseAudio,
@@ -117,5 +132,17 @@ runs:
     # Gradle's native integration has no binaries for the 32-bit arm JDK, hence
     # the switches.
     - name: Test
-      run: ./gradlew :webrtc:test -Pnatives.dir=natives -Pwebrtc.platform=${{ inputs.classifier }} $WEBRTC_VARIANT_ARG --no-daemon -Dorg.gradle.native=false -Dorg.gradle.vfs.watch=false
+      run: ./gradlew $WEBRTC_TEST_TASKS --continue -Pnatives.dir=natives -Pwebrtc.platform=${{ inputs.classifier }} $WEBRTC_VARIANT_ARG --no-daemon -Dorg.gradle.native=false -Dorg.gradle.vfs.watch=false
       shell: bash
+
+    # What failed, for runners that cannot be reproduced locally.
+    - name: Upload test reports
+      if: failure()
+      uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      with:
+        name: test-reports-${{ inputs.platform-name }}-${{ inputs.runner-image }}
+        path: |
+          */build/reports/tests/
+          */build/test-results/
+        if-no-files-found: ignore
+        retention-days: 7

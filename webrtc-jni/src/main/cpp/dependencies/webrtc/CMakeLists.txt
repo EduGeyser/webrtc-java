@@ -343,7 +343,7 @@ if(NOT EXISTS "${WEBRTC_SRC_DIR}/depot_tools")
     message(STATUS "WebRTC: fetch depot tools")
     file(MAKE_DIRECTORY ${WEBRTC_SRC_DIR})
     execute_command(
-        COMMAND git clone https://chromium.googlesource.com/chromium/tools/depot_tools.git
+        COMMAND git clone --depth 1 https://chromium.googlesource.com/chromium/tools/depot_tools.git
         WORKING_DIRECTORY "${WEBRTC_SRC_DIR}"
     )
 endif()
@@ -371,12 +371,6 @@ else()
     set(SYNC_HISTORY --no-history)
 endif()
 
-message(STATUS "WebRTC: configure gclient for ${WEBRTC_BRANCH}")
-execute_command(
-    COMMAND gclient config --name src --unmanaged "https://webrtc.googlesource.com/src.git@${WEBRTC_BRANCH}"
-    WORKING_DIRECTORY "${WEBRTC_DIR}"
-)
-
 if(APPLE)
     set(WEBRTC_TARGET_OS "['mac']")
 elseif(WIN32)
@@ -385,7 +379,24 @@ else()
     set(WEBRTC_TARGET_OS "['linux']")
 endif()
 
-file(APPEND "${WEBRTC_DIR}/.gclient" "target_os = ${WEBRTC_TARGET_OS}\n")
+# An unmanaged solution, as gclient config --unmanaged writes it. The
+# instrumented libraries only serve sanitizer builds (Linux).
+message(STATUS "WebRTC: configure gclient for ${WEBRTC_BRANCH}")
+file(WRITE "${WEBRTC_DIR}/.gclient"
+"solutions = [
+  {
+    \"name\": \"src\",
+    \"url\": \"https://webrtc.googlesource.com/src.git@${WEBRTC_BRANCH}\",
+    \"deps_file\": \"DEPS\",
+    \"managed\": False,
+    \"custom_deps\": {},
+    \"custom_vars\": {
+      \"checkout_instrumented_libraries\": False,
+    },
+  },
+]
+target_os = ${WEBRTC_TARGET_OS}
+")
 
 # An existing checkout is unmanaged, so move it to the branch by hand and
 # drop the patches applied to it.

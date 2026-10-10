@@ -23,6 +23,7 @@
 #define PKG_MEDIA    "io/github/sendablemetatype/webrtc/media/"
 #define PKG_AUDIO    "io/github/sendablemetatype/webrtc/media/audio/"
 #define PKG_VIDEO    "io/github/sendablemetatype/webrtc/media/video/"
+#define PKG_CODEC    "io/github/sendablemetatype/webrtc/media/video/codec/"
 #define PKG_DESKTOP  "io/github/sendablemetatype/webrtc/media/video/desktop/"
 
 #define BOOLEAN_SIG     "Ljava/lang/Boolean;"

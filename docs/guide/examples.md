@@ -52,6 +52,67 @@ The [`DesktopVideoExample`](https://github.com/devopvoid/webrtc-java/blob/master
 
 This example is particularly useful for applications that need to implement screen sharing or remote desktop functionality.
 
+## Media File
+
+The [`MediaFileExample`](https://github.com/devopvoid/webrtc-java/blob/master/webrtc-examples/src/main/java/io/github/sendablemetatype/webrtc/examples/MediaFileExample.java) demonstrates how to send a media file over a peer connection, in place of a camera and a microphone. See the [Media Files](/guide/media/media-files) guide for the API it uses.
+
+**Key features demonstrated:**
+- Opening a media file, or a live RTSP stream, with a `MediaFileSource`
+- Reading what the source contains from its `MediaInfo`
+- Creating audio and video tracks from the media sources it feeds
+- Adding those tracks to a peer connection
+- Following playback through a `MediaPlayerListener`
+
+This example is useful for applications that stream pre-recorded media, relay an IP camera into WebRTC, or need a dependable stand-in for a camera in testing.
+
+::: info
+This example needs the `webrtc-java-media` module, which builds FFmpeg from the `third-party/ffmpeg` submodule. Make sure the submodule is checked out before building, as the [Media Files](/guide/media/media-files) guide describes.
+
+```bash
+./gradlew :webrtc-examples:run -Pwebrtc.variant=full -PmainClass=io.github.sendablemetatype.webrtc.examples.MediaFileExample -Pargs=movie.mp4
+./gradlew :webrtc-examples:run -Pwebrtc.variant=full -PmainClass=io.github.sendablemetatype.webrtc.examples.MediaFileExample -Pargs=rtsp://camera.local/stream1
+```
+:::
+
+## Media File Player
+
+The [`MediaFilePlayerExample`](https://github.com/devopvoid/webrtc-java/blob/master/webrtc-examples/src/main/java/io/github/sendablemetatype/webrtc/examples/MediaFilePlayerExample.java) is a Swing application that sends a media file, or a live RTSP stream, from one peer connection to another in the same process, then shows the received video and plays the received audio in sync. Start and Stop buttons set up and tear down the whole session.
+
+**Key features demonstrated:**
+- Connecting two peer connections in one application, without a signaling server
+- Using one factory with a dummy audio layer to send the file, and another with the platform audio layer to play what is received
+- Keeping audio and video in sync by sending both tracks in the same media stream
+- Raising the video sender's `maxBitrate` above WebRTC's default, so a high-resolution file is not held to a fraction of its size
+- Rendering received video frames in a Swing component with `VideoBufferConverter`
+- Showing the source's format, the playback position, and live receive metrics (codec, resolution, frame rate, bitrate, packet loss, jitter, audio level) read from `getStats()`
+- Releasing senders, peer connections, tracks and the source in order on Stop
+
+::: info
+Like the [Media File](#media-file) example, this one needs the `webrtc-java-media` module. The source argument is optional; a file can also be chosen from the window, or a stream URL typed into it. A stream URL's credentials are never shown, and the Loop box is disabled while a live stream plays, since it has no length to start over from.
+
+```bash
+./gradlew :webrtc-examples:run -Pwebrtc.variant=full -PmainClass=io.github.sendablemetatype.webrtc.examples.MediaFilePlayerExample -Pargs=movie.mp4
+```
+:::
+
+## Encrypted Recording
+
+The [`EncryptedRecordingExample`](https://github.com/devopvoid/webrtc-java/blob/master/webrtc-examples/src/main/java/io/github/sendablemetatype/webrtc/examples/EncryptedRecordingExample.java) encrypts a call end to end with encoded frame transforms, and records what the receiving side decrypted into a media file. See the [Encoded Transforms](/guide/advanced/encoded-transforms) and [Media Recording](/guide/media/media-recording) guides for the APIs it uses.
+
+**Key features demonstrated:**
+- Encrypting every encoded audio and video frame with AES-GCM in an `RTCEncodedFrameTransformer` on the senders, and decrypting it on the receivers
+- Keeping the codec header of each frame in the clear for the packetizer, and authenticating it instead
+- Dropping frames that fail to encrypt or to authenticate, rather than passing them on
+- Recording the receivers with a `MediaRecorder`, without decoding or re-encoding
+
+::: info
+Like the [Media File](#media-file) example, this one needs the `webrtc-java-media` module. The output file is optional; its extension picks the container.
+
+```bash
+./gradlew :webrtc-examples:run -Pwebrtc.variant=full -PmainClass=io.github.sendablemetatype.webrtc.examples.EncryptedRecordingExample -Pargs=call.mkv
+```
+:::
+
 ## Web Client
 
 The [`WebClientExample`](https://github.com/devopvoid/webrtc-java/blob/master/webrtc-examples/src/main/java/io/github/sendablemetatype/webrtc/examples/web/WebClientExample.java) demonstrates how to combine WebSocket signaling with WebRTC peer connections for real-time communication between web and Java clients.

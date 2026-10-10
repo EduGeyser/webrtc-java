@@ -62,6 +62,19 @@ file(GLOB SOURCES_MEDIA "src/media/*.cpp")
 file(GLOB SOURCES_MEDIA_AUDIO "src/media/audio/*.cpp")
 file(GLOB SOURCES_MEDIA_AUDIO_OS "src/media/audio/${SOURCE_TARGET}/*.cpp")
 file(GLOB SOURCES_MEDIA_VIDEO "src/media/video/*.cpp")
+file(GLOB SOURCES_MEDIA_VIDEO_CODEC "src/media/video/codec/*.cpp")
+file(GLOB SOURCES_MEDIA_VIDEO_CODEC_OS "src/media/video/codec/${SOURCE_TARGET}/*.cpp")
+
+# NVENC is loaded at run time from the NVIDIA driver, so building it needs its
+# header only. The driver exists for Windows and Linux.
+if(WIN32 OR LINUX)
+    file(GLOB SOURCES_MEDIA_VIDEO_CODEC_NVENC "src/media/video/codec/nvenc/*.cpp")
+endif()
+# NVDEC the same, for decoding. Only Linux has a decoder built on it so far;
+# Windows decodes through Media Foundation.
+if(LINUX)
+    file(GLOB SOURCES_MEDIA_VIDEO_CODEC_NVDEC "src/media/video/codec/nvdec/*.cpp")
+endif()
 file(GLOB SOURCES_MEDIA_VIDEO_DESKTOP "src/media/video/desktop/*.cpp")
 file(GLOB SOURCES_MEDIA_VIDEO_DESKTOP_OS "src/media/video/desktop/${SOURCE_TARGET}/*.cpp")
 file(GLOB SOURCES_MEDIA_VIDEO_OS "src/media/video/${SOURCE_TARGET}/*.cpp")
@@ -76,6 +89,10 @@ list(APPEND SOURCES
     ${SOURCES_MEDIA_AUDIO}
     ${SOURCES_MEDIA_AUDIO_OS}
     ${SOURCES_MEDIA_VIDEO}
+    ${SOURCES_MEDIA_VIDEO_CODEC}
+    ${SOURCES_MEDIA_VIDEO_CODEC_OS}
+    ${SOURCES_MEDIA_VIDEO_CODEC_NVENC}
+    ${SOURCES_MEDIA_VIDEO_CODEC_NVDEC}
     ${SOURCES_MEDIA_VIDEO_DESKTOP}
     ${SOURCES_MEDIA_VIDEO_DESKTOP_OS}
     ${SOURCES_MEDIA_VIDEO_OS}
@@ -87,8 +104,8 @@ if(WEBRTC_DATA_CHANNELS_ONLY)
     # The peer connection, data channel and transport bindings stay; the
     # media bindings and the device code go.
     list(FILTER SOURCES EXCLUDE REGEX "/src/(media|platform|api/audio)/")
-    list(FILTER SOURCES EXCLUDE REGEX "/src/JNI_(Audio|CustomAudio|CustomVideo|Desktop|Headless|Media|NativeI420|Power|RTCDtmf|RTCRtp|Screen|SyncClock|Video|VoiceActivity|Window)[A-Za-z0-9]*\\.cpp$")
-    list(FILTER SOURCES EXCLUDE REGEX "/src/api/(Audio|HeadlessAudio|ProxyAudio|RTCDtmf|RTCRtcp|RTCRtp|Video)[A-Za-z0-9]*\\.cpp$")
+    list(FILTER SOURCES EXCLUDE REGEX "/src/JNI_(Audio|CustomAudio|CustomVideo|DefaultVideo|Desktop|HardwareVideo|Headless|Media|NativeApi|NativeI420|NativeVideo|Power|RTCDtmf|RTCEncoded|RTCRtp|Screen|SyncClock|Video|VoiceActivity|Window)[A-Za-z0-9]*\\.cpp$")
+    list(FILTER SOURCES EXCLUDE REGEX "/src/api/(Audio|EncodedFrame|ExtensionApi|HeadlessAudio|ProxyAudio|RTCDtmf|RTCEncoded|RTCResolutionRestriction|RTCRtcp|RTCRtp|Video)[A-Za-z0-9]*\\.cpp$")
 endif()
 
 add_library(${PROJECT_NAME} SHARED ${SOURCES})
@@ -114,6 +131,17 @@ if(WEBRTC_DATA_CHANNELS_ONLY)
     target_compile_definitions(${PROJECT_NAME} PRIVATE WEBRTC_DATA_CHANNELS_ONLY)
 else()
     target_include_directories(${PROJECT_NAME} PRIVATE include/media)
+
+    if(WIN32 OR LINUX)
+        target_include_directories(${PROJECT_NAME} PRIVATE dependencies/nvenc/include)
+    endif()
+    if(LINUX)
+        # libva is loaded at run time, so building needs its headers only.
+        target_include_directories(${PROJECT_NAME} PRIVATE dependencies/libva/include)
+
+        # So is NVDEC, and the CUDA driver it runs on.
+        target_include_directories(${PROJECT_NAME} PRIVATE dependencies/nvdec/include)
+    endif()
 endif()
 
 set_target_properties(${PROJECT_NAME} PROPERTIES
@@ -156,17 +184,63 @@ elseif(LINUX)
     target_link_options(${PROJECT_NAME} PRIVATE -Wl,--exclude-libs,ALL)
 
     if(NOT WEBRTC_DATA_CHANNELS_ONLY)
-        # For the audio and video device libraries opened at runtime.
+        # For the audio and video device libraries and the hardware codec
+        # libraries opened at runtime.
         target_link_libraries(${PROJECT_NAME} dl)
     endif()
 elseif(WIN32 AND NOT WEBRTC_DATA_CHANNELS_ONLY)
-    target_link_libraries(${PROJECT_NAME} dwmapi.lib mf.lib mfreadwrite.lib mfplat.lib mfuuid.lib shcore.lib)
+    target_link_libraries(${PROJECT_NAME} d3d11.lib dwmapi.lib dxguid.lib mf.lib mfreadwrite.lib mfplat.lib mfuuid.lib shcore.lib)
 endif()
 
 install(TARGETS ${PROJECT_NAME}
     RUNTIME DESTINATION ${CMAKE_INSTALL_PREFIX} COMPONENT Runtime
     LIBRARY DESTINATION ${CMAKE_INSTALL_PREFIX} COMPONENT Runtime
 )
+
+#
+# The native library links WebRTC statically, and with it the third-party
+# code WebRTC builds in. Their licenses ask for their text to travel with the
+# binary, so it goes into the platform jar, under META-INF where it cannot
+# collide with anything on a classpath.
+#
+# LICENSE.md is generated from the WebRTC build rather than written by hand,
+# so that it lists exactly what is linked in. Regenerate it whenever
+# webrtc.branch changes, from the WebRTC checkout (depot_tools on the PATH):
+#
+#   python tools_webrtc/libs/generate_licenses.py --target //:webrtc <out> out/<cpu>
+#
+# The tool knows no license for ffmpeg and openh264, which rtc_use_h264 pulls
+# in, and stops; map them to third_party/ffmpeg/COPYING.LGPLv2.1 and
+# third_party/openh264/src/LICENSE in its LIB_TO_LICENSES_DICT first.
+# PATENTS is WebRTC's additional patent grant, which the tool leaves out.
+#
+install(FILES
+    "${CMAKE_CURRENT_SOURCE_DIR}/dependencies/webrtc/licenses/LICENSE.md"
+    "${CMAKE_CURRENT_SOURCE_DIR}/dependencies/webrtc/licenses/PATENTS"
+    DESTINATION "${CMAKE_INSTALL_PREFIX}/META-INF/licenses/webrtc"
+    COMPONENT Runtime
+)
+
+# The hardware codec headers are compiled into the full variant only.
+if(NOT WEBRTC_DATA_CHANNELS_ONLY AND (WIN32 OR LINUX))
+    install(FILES
+        "${CMAKE_CURRENT_SOURCE_DIR}/dependencies/nvenc/LICENSE"
+        DESTINATION "${CMAKE_INSTALL_PREFIX}/META-INF/licenses/nvenc"
+        COMPONENT Runtime
+    )
+endif()
+if(NOT WEBRTC_DATA_CHANNELS_ONLY AND LINUX)
+    install(FILES
+        "${CMAKE_CURRENT_SOURCE_DIR}/dependencies/libva/COPYING"
+        DESTINATION "${CMAKE_INSTALL_PREFIX}/META-INF/licenses/libva"
+        COMPONENT Runtime
+    )
+    install(FILES
+        "${CMAKE_CURRENT_SOURCE_DIR}/dependencies/nvdec/LICENSE"
+        DESTINATION "${CMAKE_INSTALL_PREFIX}/META-INF/licenses/nvdec"
+        COMPONENT Runtime
+    )
+endif()
 
 # The compile commands at the repository root, where clangd looks for them.
 if(PROJECT_IS_TOP_LEVEL)

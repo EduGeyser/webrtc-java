@@ -39,6 +39,14 @@ extern "C" {
 	JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_media_video_CustomVideoSource_pushFrame
 	(JNIEnv *, jobject, jobject);
 
+	/*
+	 * Class:     io_github_sendablemetatype_webrtc_media_video_CustomVideoSource
+	 * Method:    pushFrameTimestamped
+	 * Signature: (Lio/github/sendablemetatype/webrtc/media/video/VideoFrame;J)V
+	 */
+	JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_media_video_CustomVideoSource_pushFrameTimestamped
+	(JNIEnv *, jobject, jobject, jlong);
+
 #ifdef __cplusplus
 }
 #endif

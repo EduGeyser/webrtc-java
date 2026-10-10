@@ -40,7 +40,9 @@ Build parameters are passed as Gradle project properties, for example `./gradlew
 | webrtc.variant      | The variant of the native library: `full`, or `data-channels` for a library without audio and video support, see below. | `data-channels`, see `gradle.properties`; `full` without it |
 | webrtc.windows.sdk.version | The Windows SDK version to build WebRTC with, when the one its build scripts expect is not installed. | The version the WebRTC build scripts expect |
 | webrtc.checkout.history | Whether to fetch the history of WebRTC and its dependencies. | false |
-| natives.dir        | A directory with prebuilt native library jars, `webrtc-java-<version>-<classifier>.jar`, used instead of building the native library. The tests run against the jar of the build platform. | -                           |
+| ffmpeg.version     | The FFmpeg release the media module's submodule is pinned to. | See `gradle.properties` |
+| ffmpeg.install.dir | The install path for the compiled FFmpeg libraries of the media module. A build reuses the libraries it finds there. | /\<user_home\>/ffmpeg/\<platform\> |
+| natives.dir        | A directory with prebuilt native library jars, `webrtc-java-<version>-<classifier>.jar` and, for the full variant, `webrtc-java-media-<version>-<classifier>.jar`, used instead of building the native libraries. The tests run against the jars of the build platform. | -                           |
 
 ## Data Channels Only
 
@@ -54,6 +56,17 @@ The Java API stays the same. The audio and video classes throw an `UnsatisfiedLi
 
 This fork selects this variant in `gradle.properties`, and its published native libraries are this variant. Pass `-Pwebrtc.variant=full` to build the full library. The build workflow builds the variant from `gradle.properties`, or the one chosen when it is dispatched.
 
+## Media Module
+
+The full variant also builds the `webrtc-java-media` module, which plays media files and records calls with FFmpeg. It builds FFmpeg from the `webrtc-java-media/third-party/ffmpeg` submodule, so check that out first:
+
+```shell
+git submodule update --init --depth 1 webrtc-java-media/third-party/ffmpeg
+./gradlew build -Pwebrtc.variant=full
+```
+
+Building FFmpeg needs `make` and `nasm`; on Windows they come from MSYS2, as the [Media Files](/guide/media/media-files) guide describes. The first build compiles FFmpeg into `/<user home>/ffmpeg/<platform>`, and later builds reuse it. The data channels variant has no audio and video, so it skips the module's native build, tests and publication.
+
 ## Reusing a Compiled WebRTC Install Tree
 
 To get the Linux x86-64 headers and static libraries without compiling WebRTC locally, dispatch the Build workflow with `upload-webrtc-install` enabled. This option defaults to off. Download the `webrtc-install-linux-x86_64-<variant>-<fingerprint>` artifact and extract its tar archive into a separate directory. The artifact expires after seven days.
@@ -65,7 +78,7 @@ Pass that directory as `-Pwebrtc.install.dir=<absolute-path>` when building the 
 The tests can run under `-Xcheck:jni`, which validates the local and global references of every JNI call and aborts the JVM on a violation. It is opt-in because it also warns about every native call that does not check for a pending exception, which is most of them:
 
 ```shell
-./gradlew :webrtc:test -Pjni-check
+./gradlew :webrtc:test :webrtc-java-media:test -Pjni-check
 ```
 
 [build-linux-ubuntu]: https://chromium.googlesource.com/chromium/src/+/master/docs/linux/build_instructions.md#system-requirements
