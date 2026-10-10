@@ -187,6 +187,54 @@ signalingChannel.onIceCandidate(candidateMessage -> {
 });
 ```
 
+### Letting the Peer Connection Create the Description
+
+`setLocalDescription` can also be called with only an observer. It then creates the offer or the answer, whichever the signaling state calls for, and applies it in one step, so nothing can change in between. That makes it the simpler way to implement "perfect negotiation". Read the result with `getLocalDescription()` once the observer reports success:
+
+```java
+peerConnection.setLocalDescription(new SetSessionDescriptionObserver() {
+    @Override
+    public void onSuccess() {
+        signalingChannel.send(peerConnection.getLocalDescription());
+    }
+
+    @Override
+    public void onFailure(String error) {
+        System.err.println("Failed to set local description: " + error);
+    }
+});
+```
+
+### Adding Candidates and Knowing the Outcome
+
+`addIceCandidate(candidate)` reports nothing and fails silently when the remote description is not set yet. The form that takes an `AddIceCandidateObserver` is queued behind any pending offer/answer operation, as the standard requires, so a candidate can be added right after `setRemoteDescription()` without waiting for it, and the observer says whether it was accepted:
+
+```java
+peerConnection.addIceCandidate(candidate, new AddIceCandidateObserver() {
+    @Override
+    public void onSuccess() {
+    }
+
+    @Override
+    public void onFailure(String error) {
+        // e.g. "[INVALID_STATE] The remote description was null"
+        System.err.println("Candidate rejected: " + error);
+    }
+});
+```
+
+A local candidate can also go away, for example when its network interface does. The observer's `onIceCandidateRemoved(RTCIceCandidate)` reports it; send it to the remote peer, which passes it to `removeIceCandidate(candidate)`.
+
+Once ICE has picked the candidate pair it uses, `onSelectedCandidatePairChanged(RTCCandidatePairChangeEvent)` reports both candidates of the pair and why it was chosen. It fires again whenever ICE switches pairs:
+
+```java
+@Override
+public void onSelectedCandidatePairChanged(RTCCandidatePairChangeEvent event) {
+    System.out.println("Using " + event.getLocal().sdp + " <-> " + event.getRemote().sdp
+            + " (" + event.getReason() + ")");
+}
+```
+
 ## Media Streams
 
 ### Accessing Media Devices
@@ -254,6 +302,28 @@ streamIds.add("stream1");
 RTCRtpSender videoSender = peerConnection.addTrack(videoTrack, streamIds);
 RTCRtpSender audioSender = peerConnection.addTrack(audioTrack, streamIds);
 ```
+
+### Receiving Tracks
+
+A remote track arrives in `onTrack` with the transceiver that carries it. To learn when its media actually starts flowing, for example to show a video only once there is something to show, set an `RTCRtpReceiverObserver`; an `RTCRtpSenderObserver` does the same for the first packet a sender sends. Either is called right away when that has already happened:
+
+```java
+@Override
+public void onTrack(RTCRtpTransceiver transceiver) {
+    RTCRtpReceiver receiver = transceiver.getReceiver();
+
+    receiver.setObserver(mediaType -> System.out.println("First " + mediaType + " packet received"));
+
+    MediaStreamTrack track = receiver.getTrack();
+
+    if (track instanceof AudioTrack) {
+        // Playout volume of this remote track, 0 to 10; 1 plays it as received.
+        ((AudioTrack) track).setVolume(0.5);
+    }
+}
+```
+
+An observer belongs to the `RTCRtpReceiver` or `RTCRtpSender` object it was set through, and is removed when that object is disposed. `getId()` identifies a sender or receiver, and `RTCRtpSender.getStreams()` returns the stream IDs its track was added with.
 
 ## Cleanup
 

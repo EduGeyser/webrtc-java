@@ -36,6 +36,13 @@ public abstract class MediaStreamTrack extends DisposableNativeObject {
 	private long listenerNativeHandle;
 
 	/**
+	 * Set by native code when this object is a view of a track that something
+	 * else owns, and holds no reference to it. Don't modify this value.
+	 */
+	@SuppressWarnings("unused")
+	private boolean view;
+
+	/**
 	 * If this object represents an audio track.
 	 */
 	public static final String AUDIO_TRACK_KIND = "audio";
@@ -86,6 +93,22 @@ public abstract class MediaStreamTrack extends DisposableNativeObject {
 		removeEndedEventListener(listener);
 	}
 
+	/**
+	 * Releases the native track held by this object.
+	 * <p>
+	 * A track created by the {@link io.github.sendablemetatype.webrtc.PeerConnectionFactory}
+	 * is owned by the object returned there: disposing it removes its
+	 * remaining listeners and releases the track, and an {@link Error} is
+	 * thrown if something else, such as an {@link io.github.sendablemetatype.webrtc.RTCRtpSender},
+	 * still holds it.
+	 * <p>
+	 * A track obtained from {@link io.github.sendablemetatype.webrtc.RTCRtpSender#getTrack()},
+	 * {@link io.github.sendablemetatype.webrtc.RTCRtpReceiver#getTrack()}, a {@link MediaStream}
+	 * or a track listener is a view of a track owned elsewhere. Disposing it
+	 * only detaches this object; the track and the listeners registered on it
+	 * are left as they are. A view is valid for as long as its owner keeps
+	 * the track.
+	 */
 	@Override
 	public native void dispose();
 

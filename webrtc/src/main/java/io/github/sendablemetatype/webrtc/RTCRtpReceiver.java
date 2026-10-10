@@ -29,6 +29,14 @@ import io.github.sendablemetatype.webrtc.media.MediaStreamTrack;
  */
 public class RTCRtpReceiver extends DisposableNativeObject {
 
+	/*
+	 * The native observer set through this object, owned by it and freed when
+	 * replaced, removed or disposed.
+	 */
+	@SuppressWarnings("unused")
+	private long observerHandle;
+
+
 	/**
 	 * Constructor to be used by the native api.
 	 */
@@ -37,10 +45,37 @@ public class RTCRtpReceiver extends DisposableNativeObject {
 	}
 
 	/**
+	 * Returns the ID of this receiver, which is unique within its peer
+	 * connection. It is the same for all RTCRtpReceiver objects of the same
+	 * receiver.
+	 *
+	 * @return The ID of this receiver.
+	 */
+	public native String getId();
+
+	/**
+	 * Sets the observer that is told when this receiver receives its first
+	 * RTP packet, replacing any observer set before. {@code null} removes the
+	 * observer.
+	 * <p>
+	 * A receiver has one observer. It belongs to the RTCRtpReceiver object it
+	 * was set through: disposing that object removes it, also when it was set
+	 * through another object of the same receiver in the meantime, so set it
+	 * through one object, such as the one {@link
+	 * PeerConnectionObserver#onTrack} provides.
+	 *
+	 * @param observer The observer, or {@code null}.
+	 */
+	public native void setObserver(RTCRtpReceiverObserver observer);
+
+	/**
 	 * The track that is associated with this RTCRtpReceiver object. Note that
 	 * track.stop() is final, although clones are not affected. Since
 	 * receiver.track.stop() does not implicitly stop receiver, Receiver Reports
 	 * continue to be sent.
+	 * <p>
+	 * The returned object is a view of the receiver's track; see
+	 * {@link MediaStreamTrack#dispose()}.
 	 *
 	 * @return The media track associated with this receiver.
 	 */

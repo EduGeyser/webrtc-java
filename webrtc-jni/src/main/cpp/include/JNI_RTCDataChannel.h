@@ -81,6 +81,14 @@ extern "C" {
 
 	/*
 	 * Class:     io_github_sendablemetatype_webrtc_RTCDataChannel
+	 * Method:    getPriority
+	 * Signature: ()Lio/github/sendablemetatype/webrtc/RTCPriorityType;
+	 */
+	JNIEXPORT jobject JNICALL Java_io_github_sendablemetatype_webrtc_RTCDataChannel_getPriority
+	(JNIEnv *, jobject);
+
+	/*
+	 * Class:     io_github_sendablemetatype_webrtc_RTCDataChannel
 	 * Method:    getId
 	 * Signature: ()I
 	 */

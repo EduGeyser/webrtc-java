@@ -43,7 +43,8 @@ public class MediaStream extends DisposableNativeObject {
 
 	/**
 	 * Returns an array of MediaStreamTrack objects representing the audio
-	 * tracks in this stream.
+	 * tracks in this stream. They are views of the stream's tracks; see
+	 * {@link MediaStreamTrack#dispose()}.
 	 *
 	 * @return The audio tracks in this stream.
 	 */
@@ -51,7 +52,8 @@ public class MediaStream extends DisposableNativeObject {
 
 	/**
 	 * Returns an array of MediaStreamTrack objects representing the video
-	 * tracks in this stream.
+	 * tracks in this stream. They are views of the stream's tracks; see
+	 * {@link MediaStreamTrack#dispose()}.
 	 *
 	 * @return The video tracks in this stream.
 	 */
@@ -71,6 +73,15 @@ public class MediaStream extends DisposableNativeObject {
 	 */
 	public native void removeTrack(MediaStreamTrack track);
 
+	/**
+	 * Detaches this object from its native stream.
+	 * <p>
+	 * A MediaStream is handed out by {@link
+	 * io.github.sendablemetatype.webrtc.PeerConnectionObserver#onAddTrack} as a view of a
+	 * remote stream that the peer connection owns, and holds no reference to
+	 * it. Disposing it leaves the stream and its tracks as they are. A view is
+	 * valid for as long as the peer connection keeps the stream.
+	 */
 	@Override
 	public native void dispose();
 

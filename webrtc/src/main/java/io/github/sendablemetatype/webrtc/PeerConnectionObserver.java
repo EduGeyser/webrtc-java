@@ -90,6 +90,20 @@ public interface PeerConnectionObserver {
 	}
 
 	/**
+	 * A local ICE candidate that was announced through {@link #onIceCandidate}
+	 * has been removed, for example because its network interface went away
+	 * or a TURN port was pruned. The remote peer should be told, so that it
+	 * can pass the candidate to {@link RTCPeerConnection#removeIceCandidate}.
+	 * <p>
+	 * The candidate's {@code sdpMLineIndex} is -1; its {@code sdpMid}
+	 * identifies the transport.
+	 *
+	 * @param candidate The removed ICE candidate.
+	 */
+	default void onIceCandidateRemoved(RTCIceCandidate candidate) {
+	}
+
+	/**
 	 * Media is received on a new stream from the remote peer.
 	 *
 	 * @param stream The new media stream.
@@ -131,7 +145,8 @@ public interface PeerConnectionObserver {
 	 *
 	 * @param receiver     The created RTP receiver.
 	 * @param mediaStreams Associated remote MediaStreams of the negotiated
-	 *                     media track.
+	 *                     media track. They are views of streams the peer
+	 *                     connection owns; see {@link MediaStream#dispose()}.
 	 */
 	default void onAddTrack(RTCRtpReceiver receiver, MediaStream[] mediaStreams) {
 	}
@@ -176,6 +191,23 @@ public interface PeerConnectionObserver {
 	 *                      "prflx", or "relay".
 	 */
 	default void onSelectedCandidatePairChanged(String remoteAddress, int remotePort, String candidateType) {
+	}
+
+	/**
+	 * ICE has selected (or later re-selected) a candidate pair for this
+	 * connection, with both candidates of the pair and why it was chosen.
+	 * Fires at the same moments as {@link
+	 * #onSelectedCandidatePairChanged(String, int, String)}.
+	 * <p>
+	 * The default implementation passes the remote candidate's address, port
+	 * and type on to {@link #onSelectedCandidatePairChanged(String, int,
+	 * String)}, so an observer overrides one of the two.
+	 *
+	 * @param event The candidate pair change event.
+	 */
+	default void onSelectedCandidatePairChanged(RTCCandidatePairChangeEvent event) {
+		onSelectedCandidatePairChanged(event.remoteAddress, event.remotePort,
+				event.remoteType);
 	}
 
 }

@@ -15,17 +15,21 @@
  */
 
 #include "JNI_RTCRtpSender.h"
+#include "api/RTCRtpSenderObserver.h"
 #include "api/RTCRtpSendParameters.h"
 #include "api/WebRTCUtils.h"
 #include "JavaFactories.h"
+#include "JavaArrayList.h"
 #include "JavaList.h"
 #include "JavaRef.h"
 #include "JavaRuntimeException.h"
+#include "JavaString.h"
 #include "JavaUtils.h"
 
 #include "api/EncodedFrameTransformer.h"
 #include "api/RTCDtmfSender.h"
 #include "api/rtp_sender_interface.h"
+#include "media/MediaStreamTrackView.h"
 
 JNIEXPORT jobject JNICALL Java_io_github_sendablemetatype_webrtc_RTCRtpSender_getTrack
 (JNIEnv * env, jobject caller)
@@ -35,14 +39,8 @@ JNIEXPORT jobject JNICALL Java_io_github_sendablemetatype_webrtc_RTCRtpSender_ge
 
 	webrtc::scoped_refptr<webrtc::MediaStreamTrackInterface> track = sender->track();
 
-	if (webrtc::AudioTrackInterface * t = dynamic_cast<webrtc::AudioTrackInterface *>(track.get())) {
-		return jni::JavaFactories::create(env, t).release();
-	}
-	else if (webrtc::VideoTrackInterface * t = dynamic_cast<webrtc::VideoTrackInterface *>(track.get())) {
-		return jni::JavaFactories::create(env, t).release();
-	}
-
-	return nullptr;
+	// The sender keeps the track; the Java object is only a view of it.
+	return jni::MediaStreamTrackView::create(env, track.get()).release();
 }
 
 JNIEXPORT jobject JNICALL Java_io_github_sendablemetatype_webrtc_RTCRtpSender_getTransport
@@ -162,11 +160,75 @@ JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_RTCRtpSender_gener
 	}
 }
 
+JNIEXPORT jstring JNICALL Java_io_github_sendablemetatype_webrtc_RTCRtpSender_getId
+(JNIEnv * env, jobject caller)
+{
+	webrtc::RtpSenderInterface * sender = GetHandle<webrtc::RtpSenderInterface>(env, caller);
+	CHECK_HANDLEV(sender, nullptr);
+
+	return jni::JavaString::toJava(env, sender->id()).release();
+}
+
+JNIEXPORT jobject JNICALL Java_io_github_sendablemetatype_webrtc_RTCRtpSender_getStreams
+(JNIEnv * env, jobject caller)
+{
+	webrtc::RtpSenderInterface * sender = GetHandle<webrtc::RtpSenderInterface>(env, caller);
+	CHECK_HANDLEV(sender, nullptr);
+
+	try {
+		const std::vector<std::string> streamIds = sender->stream_ids();
+
+		jni::JavaArrayList list(env, streamIds.size());
+
+		for (const auto & id : streamIds) {
+			list.add(jni::JavaString::toJava(env, id));
+		}
+
+		return list.listObject().release();
+	}
+	catch (...) {
+		ThrowCxxJavaException(env);
+		return nullptr;
+	}
+}
+
+JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_RTCRtpSender_setObserver
+(JNIEnv * env, jobject caller, jobject jObserver)
+{
+	webrtc::RtpSenderInterface * sender = GetHandle<webrtc::RtpSenderInterface>(env, caller);
+	CHECK_HANDLE(sender);
+
+	try {
+		jni::RTCRtpSenderObserver * observer = nullptr;
+
+		if (jObserver != nullptr) {
+			observer = new jni::RTCRtpSenderObserver(env, jni::JavaGlobalRef<jobject>(env, jObserver));
+		}
+
+		// Runs on the signaling thread, which is also the thread that calls
+		// the observer, so the previous one is out of use once this returns.
+		sender->SetObserver(observer);
+
+		ReplaceNativeObserver(env, caller, "observerHandle", observer);
+	}
+	catch (...) {
+		ThrowCxxJavaException(env);
+	}
+}
+
 JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_RTCRtpSender_dispose
 (JNIEnv * env, jobject caller)
 {
 	webrtc::RtpSenderInterface * sender = GetHandle<webrtc::RtpSenderInterface>(env, caller);
 	CHECK_HANDLE(sender);
+
+	// WebRTC must let go of an observer set through this object before it is
+	// deleted.
+	if (GetHandle<jni::RTCRtpSenderObserver>(env, caller, "observerHandle") != nullptr) {
+		sender->SetObserver(nullptr);
+
+		ClearNativeObserver<jni::RTCRtpSenderObserver>(env, caller, "observerHandle");
+	}
 
 	// Unlike e.g. MediaStreamTrack, an RTCRtpSender is not exclusively owned
 	// by one Java wrapper: the owning RtpTransceiver keeps its own reference,

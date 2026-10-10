@@ -137,6 +137,14 @@ extern "C" {
 
 	/*
 	 * Class:     io_github_sendablemetatype_webrtc_RTCPeerConnection
+	 * Method:    setLocalDescriptionImplicit
+	 * Signature: (Lio/github/sendablemetatype/webrtc/SetSessionDescriptionObserver;)V
+	 */
+	JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_RTCPeerConnection_setLocalDescriptionImplicit
+	(JNIEnv *, jobject, jobject);
+
+	/*
+	 * Class:     io_github_sendablemetatype_webrtc_RTCPeerConnection
 	 * Method:    setRemoteDescription
 	 * Signature: (Lio/github/sendablemetatype/webrtc/RTCSessionDescription;Lio/github/sendablemetatype/webrtc/SetSessionDescriptionObserver;)V
 	 */
@@ -150,6 +158,46 @@ extern "C" {
 	 */
 	JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_RTCPeerConnection_addIceCandidate
 	(JNIEnv *, jobject, jobject);
+
+	/*
+	 * Class:     io_github_sendablemetatype_webrtc_RTCPeerConnection
+	 * Method:    addIceCandidateWithObserver
+	 * Signature: (Lio/github/sendablemetatype/webrtc/RTCIceCandidate;Lio/github/sendablemetatype/webrtc/AddIceCandidateObserver;)V
+	 */
+	JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_RTCPeerConnection_addIceCandidateWithObserver
+	(JNIEnv *, jobject, jobject, jobject);
+
+	/*
+	 * Class:     io_github_sendablemetatype_webrtc_RTCPeerConnection
+	 * Method:    removeIceCandidate
+	 * Signature: (Lio/github/sendablemetatype/webrtc/RTCIceCandidate;)Z
+	 */
+	JNIEXPORT jboolean JNICALL Java_io_github_sendablemetatype_webrtc_RTCPeerConnection_removeIceCandidate
+	(JNIEnv *, jobject, jobject);
+
+	/*
+	 * Class:     io_github_sendablemetatype_webrtc_RTCPeerConnection
+	 * Method:    setBitrate
+	 * Signature: (Ljava/lang/Integer;Ljava/lang/Integer;Ljava/lang/Integer;)V
+	 */
+	JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_RTCPeerConnection_setBitrate
+	(JNIEnv *, jobject, jobject, jobject, jobject);
+
+	/*
+	 * Class:     io_github_sendablemetatype_webrtc_RTCPeerConnection
+	 * Method:    setAudioPlayout
+	 * Signature: (Z)V
+	 */
+	JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_RTCPeerConnection_setAudioPlayout
+	(JNIEnv *, jobject, jboolean);
+
+	/*
+	 * Class:     io_github_sendablemetatype_webrtc_RTCPeerConnection
+	 * Method:    setAudioRecording
+	 * Signature: (Z)V
+	 */
+	JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_RTCPeerConnection_setAudioRecording
+	(JNIEnv *, jobject, jboolean);
 
 	/*
 	 * Class:     io_github_sendablemetatype_webrtc_RTCPeerConnection

@@ -81,6 +81,30 @@ extern "C" {
 
 	/*
 	 * Class:     io_github_sendablemetatype_webrtc_RTCRtpSender
+	 * Method:    getId
+	 * Signature: ()Ljava/lang/String;
+	 */
+	JNIEXPORT jstring JNICALL Java_io_github_sendablemetatype_webrtc_RTCRtpSender_getId
+	(JNIEnv *, jobject);
+
+	/*
+	 * Class:     io_github_sendablemetatype_webrtc_RTCRtpSender
+	 * Method:    setObserver
+	 * Signature: (Lio/github/sendablemetatype/webrtc/RTCRtpSenderObserver;)V
+	 */
+	JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_RTCRtpSender_setObserver
+	(JNIEnv *, jobject, jobject);
+
+	/*
+	 * Class:     io_github_sendablemetatype_webrtc_RTCRtpSender
+	 * Method:    getStreams
+	 * Signature: ()Ljava/util/List;
+	 */
+	JNIEXPORT jobject JNICALL Java_io_github_sendablemetatype_webrtc_RTCRtpSender_getStreams
+	(JNIEnv *, jobject);
+
+	/*
+	 * Class:     io_github_sendablemetatype_webrtc_RTCRtpSender
 	 * Method:    dispose
 	 * Signature: ()V
 	 */

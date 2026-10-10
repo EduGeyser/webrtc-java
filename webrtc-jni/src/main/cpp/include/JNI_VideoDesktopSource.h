@@ -57,10 +57,10 @@ extern "C" {
 
 	/*
 	 * Class:     io_github_sendablemetatype_webrtc_media_video_VideoDesktopSource
-	 * Method:    dispose
+	 * Method:    disposeInternal
 	 * Signature: ()V
 	 */
-	JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_media_video_VideoDesktopSource_dispose
+	JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_media_video_VideoDesktopSource_disposeInternal
 	(JNIEnv*, jobject);
 
 	/*

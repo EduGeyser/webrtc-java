@@ -9,6 +9,14 @@ extern "C" {
 #endif
 	/*
 	 * Class:     io_github_sendablemetatype_webrtc_media_audio_AudioTrack
+	 * Method:    setVolumeInternal
+	 * Signature: (D)V
+	 */
+	JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_media_audio_AudioTrack_setVolumeInternal
+	(JNIEnv *, jobject, jdouble);
+
+	/*
+	 * Class:     io_github_sendablemetatype_webrtc_media_audio_AudioTrack
 	 * Method:    getSignalLevel
 	 * Signature: ()I
 	 */

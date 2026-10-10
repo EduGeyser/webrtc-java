@@ -27,6 +27,7 @@
 #include "modules/audio_device/include/audio_device.h"
 #include "rtc_base/logging.h"
 
+#include <exception>
 #include <stdlib.h>
 
 namespace jni
@@ -167,16 +168,22 @@ namespace jni
                 hr = deviceEnumerator->GetDevice(wDeviceID, &pDevice);
                 delete[] wDeviceID;
 
-                THROW_IF_FAILED(hr, "Audio Device Manager: Enumerator get device with ID: %S failed", device->getDescriptor().c_str());
-
-                hr = pDevice->QueryInterface(__uuidof(IMMEndpoint), (void**)&endpoint);
-                THROW_IF_FAILED(hr, "Audio Device Manager: Device get endpoint failed");
-
-                hr = pDevice->OpenPropertyStore(STGM_READ, &propertyStore);
-                THROW_IF_FAILED(hr, "Audio Device Manager: Device open property store failed");
-
-                hr = propertyStore->GetValue(PKEY_AudioEndpoint_FormFactor, &ff);
-                THROW_IF_FAILED(hr, "Audio Device Manager: PropertyStore get form factor property name failed");
+                // The transport and form factor are optional details: an endpoint that cannot be
+                // read (one that has just gone away) keeps the unknown ones, so that it does not
+                // fail the enumeration of all the other devices.
+                if (SUCCEEDED(hr)) {
+                    hr = pDevice->QueryInterface(__uuidof(IMMEndpoint), (void**)&endpoint);
+                }
+                if (SUCCEEDED(hr)) {
+                    hr = pDevice->OpenPropertyStore(STGM_READ, &propertyStore);
+                }
+                if (SUCCEEDED(hr)) {
+                    hr = propertyStore->GetValue(PKEY_AudioEndpoint_FormFactor, &ff);
+                }
+                if (FAILED(hr)) {
+                    RTC_LOG(LS_WARNING) << "MMF: Get form factor of device " << device->getDescriptor() << " failed: HRESULT = " << hr;
+                    return;
+                }
 
                 EndpointFormFactor formFactor = static_cast<EndpointFormFactor>(ff.uintVal);
                 PropVariantClear(&ff);
@@ -222,6 +229,12 @@ namespace jni
 			PropVariantInit(&pv);
 
 			HRESULT hr = deviceEnumerator->GetDefaultAudioEndpoint(dataFlow, eMultimedia, &defaultDevice);
+
+			// No device of this kind, so no default either.
+			if (hr == HRESULT_FROM_WIN32(ERROR_NOT_FOUND)) {
+				return nullptr;
+			}
+
 			THROW_IF_FAILED(hr, "MMF: Get default audio endpoint failed");
 
 			hr = defaultDevice->GetId(&defaultDeviceId);
@@ -408,7 +421,17 @@ namespace jni
 		{
 			RTC_LOG(LS_INFO) << "MMF: Device added: " << deviceId;
 
-			addDevice(deviceId);
+			// IMMNotificationClient callbacks run on a system thread. An exception that leaves one
+			// has no handler above it and terminates the process, so it is logged and dropped.
+			try {
+				addDevice(deviceId);
+			}
+			catch (const std::exception & e) {
+				RTC_LOG(LS_ERROR) << "MMF: Device added handling failed: " << e.what();
+			}
+			catch (...) {
+				RTC_LOG(LS_ERROR) << "MMF: Device added handling failed";
+			}
 
 			return S_OK;
 		}
@@ -417,7 +440,15 @@ namespace jni
 		{
 			RTC_LOG(LS_INFO) << "MMF: Device removed: " << deviceId;
 
-			removeDevice(deviceId);
+			try {
+				removeDevice(deviceId);
+			}
+			catch (const std::exception & e) {
+				RTC_LOG(LS_ERROR) << "MMF: Device removed handling failed: " << e.what();
+			}
+			catch (...) {
+				RTC_LOG(LS_ERROR) << "MMF: Device removed handling failed";
+			}
 
 			return S_OK;
 		}
@@ -430,16 +461,24 @@ namespace jni
 				return S_OK;
 			}
 
-			switch (newState) {
-				case DEVICE_STATE_ACTIVE:
-					addDevice(deviceId);
-					break;
+			try {
+				switch (newState) {
+					case DEVICE_STATE_ACTIVE:
+						addDevice(deviceId);
+						break;
 
-				case DEVICE_STATE_DISABLED:
-				case DEVICE_STATE_NOTPRESENT:
-				case DEVICE_STATE_UNPLUGGED:
-					removeDevice(deviceId);
-					break;
+					case DEVICE_STATE_DISABLED:
+					case DEVICE_STATE_NOTPRESENT:
+					case DEVICE_STATE_UNPLUGGED:
+						removeDevice(deviceId);
+						break;
+				}
+			}
+			catch (const std::exception & e) {
+				RTC_LOG(LS_ERROR) << "MMF: Device state change handling failed: " << e.what();
+			}
+			catch (...) {
+				RTC_LOG(LS_ERROR) << "MMF: Device state change handling failed";
 			}
 
 			return S_OK;
