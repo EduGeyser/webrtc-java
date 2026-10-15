@@ -24,10 +24,10 @@ extern "C" {
 #endif
 	/*
 	 * Class:     io_github_sendablemetatype_webrtc_media_video_codec_HardwareVideoEncoderFactory
-	 * Method:    getSupportedCodecsInternal
-	 * Signature: ()[Lio/github/sendablemetatype/webrtc/media/video/codec/VideoCodecInfo;
+	 * Method:    getCodecsInternal
+	 * Signature: ()[[Lio/github/sendablemetatype/webrtc/media/video/codec/VideoCodecInfo;
 	 */
-	JNIEXPORT jobjectArray JNICALL Java_io_github_sendablemetatype_webrtc_media_video_codec_HardwareVideoEncoderFactory_getSupportedCodecsInternal
+	JNIEXPORT jobjectArray JNICALL Java_io_github_sendablemetatype_webrtc_media_video_codec_HardwareVideoEncoderFactory_getCodecsInternal
 	(JNIEnv *, jclass);
 
 #ifdef __cplusplus

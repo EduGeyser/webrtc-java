@@ -34,31 +34,39 @@ import java.util.Objects;
  *     .build();
  * }</pre>
  * <p>
- * On Windows, H.264, AV1 and VP9 (profile 0) are decoded on the GPU through
- * Direct3D 11 by the Media Foundation decoders of Windows, where the GPU
- * decodes the codec and Windows has a decoder for it; VP9 needs the VP9 Video
- * Extensions of the Microsoft Store. VP9 streams with spatial layers go to
- * libvpx.
+ * On Windows, H.264, H.265 (Main profile), AV1 and VP9 (profile 0) are
+ * decoded on the GPU through Direct3D 11 by the Media Foundation decoders of
+ * Windows, where the GPU decodes the codec and Windows has a decoder for it;
+ * H.265 needs the HEVC Video Extensions and VP9 the VP9 Video Extensions of
+ * the Microsoft Store. VP9 streams with spatial layers go to libvpx.
  * Decoded frames are copied back to system memory, which WebRTC's frames are
  * in, so hardware decoding saves CPU mostly at high resolutions. A hardware
  * decoder that fails to start, or fails while decoding, is replaced by the
  * software decoder of the same codec, which starts with the next key frame.
  * On macOS, H.264 is decoded through VideoToolbox by the {@link
- * DefaultVideoDecoderFactory} already, and this factory adds VP9 (profile 0)
- * through the VP9 decoder of VideoToolbox, on Macs that have one; streams it
- * cannot decode, such as those with spatial layers, go to libvpx. Where there
- * is no hardware decoder, this factory decodes like a {@link
- * DefaultVideoDecoderFactory}.
+ * DefaultVideoDecoderFactory} already. This factory adds the hardware
+ * decoders of VideoToolbox for VP9 (profile 0) and H.265 (Main profile), on
+ * Macs that have them, and for AV1 (profile 0), on Apple M3 and newer. VP9
+ * and AV1 streams they cannot decode, such as those with spatial layers, go
+ * to libvpx and dav1d. Where there is no hardware decoder, this factory
+ * decodes like a {@link DefaultVideoDecoderFactory}.
  * <p>
- * On Linux, H.264 and VP9 (profile 0) are decoded on NVIDIA GPUs with NVDEC,
- * loaded from the NVIDIA driver when the factory is made; a machine without
- * the driver is not affected. Streams with spatial layers go to libvpx.
- * Decoding with VA-API, on the GPUs of Intel and AMD, is not there yet.
+ * On Linux, H.264, H.265 (Main profile), VP9 (profile 0) and AV1 (profile 0)
+ * are decoded on NVIDIA GPUs with NVDEC, each where the GPU decodes it (AV1
+ * since Ampere), loaded from the NVIDIA driver when the factory is made; a
+ * machine without the driver is not affected. Streams with spatial layers go
+ * to libvpx and dav1d. On the GPUs of Intel and AMD, H.264, VP9 (profile 0),
+ * H.265 (Main profile) and AV1 (profile 0) are decoded with VA-API, where the
+ * driver decodes them; interlaced H.264 goes to the software decoder, and so
+ * do AV1 streams with film grain, superres, more than 8 bits or a single
+ * plane.
  * <p>
- * The hardware decoders take over only codecs the software decoders have too,
- * so the supported codecs are the same as those of a {@link
- * DefaultVideoDecoderFactory}, and what a peer connection negotiates does not
- * depend on the GPU.
+ * The supported codecs are those of a {@link DefaultVideoDecoderFactory}, in
+ * the same order. On Windows and Linux, H.264 High 4:4:4 Predictive,
+ * which GPU decoders do not take, is decoded in software. H.265 comes after them, only where the hardware decodes it:
+ * there is no software decoder for it to fall back to, and it is never
+ * decoded in software, so an H.265 stream the hardware cannot decode is not
+ * decoded at all.
  *
  * @author Alex Andres
  */
@@ -76,18 +84,45 @@ public final class HardwareVideoDecoderFactory implements VideoDecoderFactory {
 
 	private final List<VideoCodecInfo> supportedCodecs;
 
+	private final List<VideoCodecInfo> hardwareCodecs;
+
 
 	/**
 	 * Creates a factory for the hardware video decoders.
 	 */
 	public HardwareVideoDecoderFactory() {
-		supportedCodecs = Collections.unmodifiableList(
-				Arrays.asList(getSupportedCodecsInternal()));
+		VideoCodecInfo[][] codecs = getCodecsInternal();
+
+		supportedCodecs = Collections.unmodifiableList(Arrays.asList(codecs[0]));
+		hardwareCodecs = Collections.unmodifiableList(Arrays.asList(codecs[1]));
 	}
 
 	@Override
 	public List<VideoCodecInfo> getSupportedCodecs() {
 		return supportedCodecs;
+	}
+
+	/**
+	 * Returns the supported codecs that are decoded on the GPU, in the order
+	 * of {@link #getSupportedCodecs()}. A codec counts when a hardware decoder
+	 * of the machine takes it; on macOS that includes H.264, which
+	 * VideoToolbox decodes. The other supported codecs are decoded in
+	 * software. The hardware is probed once per process, and again only for
+	 * a new setting of the system properties that turn hardware codecs on, so
+	 * a GPU or driver that changes later is seen by a new process only.
+	 * <p>
+	 * A hardware decoder is tried first, not guaranteed: one that fails to
+	 * start, or fails while decoding, is replaced by the software decoder of
+	 * the same codec, and streams the hardware cannot decode, such as VP9 and AV1 with
+	 * spatial layers, are decoded in software. The stats of a running
+	 * connection tell which decoder a stream uses, in the
+	 * {@code powerEfficientDecoder} attribute of its inbound RTP stats.
+	 *
+	 * @return The hardware codecs, unmodifiable; empty if the machine has no
+	 *         hardware decoder this library supports.
+	 */
+	public List<VideoCodecInfo> getHardwareCodecs() {
+		return hardwareCodecs;
 	}
 
 	/**
@@ -112,6 +147,10 @@ public final class HardwareVideoDecoderFactory implements VideoDecoderFactory {
 		return null;
 	}
 
-	private static native VideoCodecInfo[] getSupportedCodecsInternal();
+	/**
+	 * Returns the supported codecs and the hardware codecs, from one native
+	 * factory, as creating one probes the hardware.
+	 */
+	private static native VideoCodecInfo[][] getCodecsInternal();
 
 }

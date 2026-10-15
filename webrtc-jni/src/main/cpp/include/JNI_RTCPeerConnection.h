@@ -57,6 +57,14 @@ extern "C" {
 
 	/*
 	 * Class:     io_github_sendablemetatype_webrtc_RTCPeerConnection
+	 * Method:    addTransceiverOfType
+	 * Signature: (Lio/github/sendablemetatype/webrtc/media/MediaType;Lio/github/sendablemetatype/webrtc/RTCRtpTransceiverInit;)Lio/github/sendablemetatype/webrtc/RTCRtpTransceiver;
+	 */
+	JNIEXPORT jobject JNICALL Java_io_github_sendablemetatype_webrtc_RTCPeerConnection_addTransceiverOfType
+	(JNIEnv *, jobject, jobject, jobject);
+
+	/*
+	 * Class:     io_github_sendablemetatype_webrtc_RTCPeerConnection
 	 * Method:    createDataChannel
 	 * Signature: (Ljava/lang/String;Lio/github/sendablemetatype/webrtc/RTCDataChannelInit;)Lio/github/sendablemetatype/webrtc/RTCDataChannel;
 	 */

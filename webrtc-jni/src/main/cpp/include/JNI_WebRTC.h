@@ -22,6 +22,7 @@
 #define PKG_LOG      "io/github/sendablemetatype/webrtc/logging/"
 #define PKG_MEDIA    "io/github/sendablemetatype/webrtc/media/"
 #define PKG_AUDIO    "io/github/sendablemetatype/webrtc/media/audio/"
+#define PKG_AUDIO_CODEC "io/github/sendablemetatype/webrtc/media/audio/codec/"
 #define PKG_VIDEO    "io/github/sendablemetatype/webrtc/media/video/"
 #define PKG_CODEC    "io/github/sendablemetatype/webrtc/media/video/codec/"
 #define PKG_DESKTOP  "io/github/sendablemetatype/webrtc/media/video/desktop/"

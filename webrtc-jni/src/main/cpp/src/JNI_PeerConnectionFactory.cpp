@@ -38,6 +38,7 @@
 #include "api/ProxyAudioDeviceModule.h"
 #include "api/RTCRtpCapabilities.h"
 #include "media/audio/CustomAudioSource.h"
+#include "media/audio/codec/AudioCodecFactories.h"
 
 #include "api/audio/create_audio_device_module.h"
 #include "api/create_peerconnection_factory.h"
@@ -57,7 +58,8 @@
 
 JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_PeerConnectionFactory_initialize
 (JNIEnv * env, jobject caller, jobject jFieldTrials, jobject audioModule, jobject audioProcessing,
-	jobject jVideoEncoderFactory, jobject jVideoDecoderFactory)
+	jobject jVideoEncoderFactory, jobject jVideoDecoderFactory, jobject jAudioEncoderFactory,
+	jobject jAudioDecoderFactory, jboolean hardwareEncoders, jboolean hardwareDecoders)
 {
 #ifndef WEBRTC_DATA_CHANNELS_ONLY
 	webrtc::AudioDeviceModule * audioDevModule = (audioModule != nullptr)
@@ -87,13 +89,23 @@ JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_PeerConnectionFact
 
 #ifndef WEBRTC_DATA_CHANNELS_ONLY
 		// Asks the Java factories for their codecs, which is where a broken
-		// factory surfaces, before anything else is set up.
+		// factory surfaces, before anything else is set up. Without a Java
+		// factory, the built-in codecs are used directly.
 		std::unique_ptr<webrtc::VideoEncoderFactory> videoEncoderFactory = (jVideoEncoderFactory != nullptr)
 			? std::make_unique<jni::VideoEncoderFactoryWrapper>(env, jVideoEncoderFactory)
-			: jni::CreateDefaultVideoEncoderFactory();
+			: hardwareEncoders
+				? jni::CreateHardwareVideoEncoderFactory()
+				: jni::CreateDefaultVideoEncoderFactory();
 		std::unique_ptr<webrtc::VideoDecoderFactory> videoDecoderFactory = (jVideoDecoderFactory != nullptr)
 			? std::make_unique<jni::VideoDecoderFactoryWrapper>(env, jVideoDecoderFactory)
-			: jni::CreateDefaultVideoDecoderFactory();
+			: hardwareDecoders
+				? jni::CreateHardwareVideoDecoderFactory()
+				: jni::CreateDefaultVideoDecoderFactory();
+
+		webrtc::scoped_refptr<webrtc::AudioEncoderFactory> audioEncoderFactory =
+			jni::CreateAudioEncoderFactory(env, jni::JavaLocalRef<jobject>(env, jAudioEncoderFactory));
+		webrtc::scoped_refptr<webrtc::AudioDecoderFactory> audioDecoderFactory =
+			jni::CreateAudioDecoderFactory(env, jni::JavaLocalRef<jobject>(env, jAudioDecoderFactory));
 #endif
 
 		// No worker thread of its own: WebRTC does the work of the worker thread
@@ -127,7 +139,6 @@ JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_PeerConnectionFact
 		webrtc::AudioProcessing * processing = (audioProcessing != nullptr)
 			? GetHandle<webrtc::AudioProcessing>(env, audioProcessing)
 			: nullptr;
-		webrtc::scoped_refptr<webrtc::AudioProcessing> apm(processing);
 		webrtc::scoped_refptr<webrtc::AudioDeviceModule> adm(audioDevModule);
 
 		if (!adm) {
@@ -159,12 +170,12 @@ JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_PeerConnectionFact
 			networkThread.get(),
 			signalingThread.get(),
 			proxy,
-			webrtc::CreateBuiltinAudioEncoderFactory(),
-			webrtc::CreateBuiltinAudioDecoderFactory(),
+			audioEncoderFactory,
+			audioDecoderFactory,
 			std::move(videoEncoderFactory),
 			std::move(videoDecoderFactory),
 			nullptr,
-			apm,
+			webrtc::scoped_refptr<webrtc::AudioProcessing>(processing),
 			nullptr,
 			std::move(fieldTrials));
 #endif

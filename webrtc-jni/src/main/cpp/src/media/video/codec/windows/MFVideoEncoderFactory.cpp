@@ -15,6 +15,7 @@
  */
 
 #include "media/video/codec/windows/MFVideoEncoderFactory.h"
+#include "media/video/codec/H265Format.h"
 #include "media/video/codec/windows/MFEncoderUtils.h"
 #include "media/video/codec/windows/MFVideoEncoder.h"
 #include "platform/windows/ComInitializer.h"
@@ -46,33 +47,43 @@ namespace jni
 		}
 	}
 
-	std::unique_ptr<MFVideoEncoderFactory> MFVideoEncoderFactory::Create()
+	std::unique_ptr<MFVideoEncoderFactory> MFVideoEncoderFactory::Create(bool vp9Enabled)
 	{
 		bool h264 = false;
+		bool h265 = false;
 		bool av1 = false;
+		bool vp9 = false;
 
 		try {
 			ComInitializer comInitializer;
 			MFInitializer mfInitializer;
 
 			h264 = HasHardwareEncoder(MFVideoFormat_H264);
+			h265 = HasHardwareEncoder(MFVideoFormat_HEVC);
 			av1 = HasHardwareEncoder(MFVideoFormat_AV1);
+			vp9 = vp9Enabled && HasHardwareEncoder(MFVideoFormat_VP90);
 		}
 		catch (...) {
 			return nullptr;
 		}
 
-		if (!h264 && !av1) {
+		if (vp9Enabled && !vp9) {
+			RTC_LOG(LS_INFO) << "Hardware VP9 encoding is enabled, but there is no Media Foundation VP9 encoder";
+		}
+
+		if (!h264 && !h265 && !av1 && !vp9) {
 			RTC_LOG(LS_INFO) << "No Media Foundation hardware encoder found";
 			return nullptr;
 		}
 
-		return std::unique_ptr<MFVideoEncoderFactory>(new MFVideoEncoderFactory(h264, av1));
+		return std::unique_ptr<MFVideoEncoderFactory>(new MFVideoEncoderFactory(h264, h265, av1, vp9));
 	}
 
-	MFVideoEncoderFactory::MFVideoEncoderFactory(bool h264, bool av1) :
+	MFVideoEncoderFactory::MFVideoEncoderFactory(bool h264, bool h265, bool av1, bool vp9) :
 		h264(h264),
-		av1(av1)
+		h265(h265),
+		av1(av1),
+		vp9(vp9)
 	{
 	}
 
@@ -86,8 +97,14 @@ namespace jni
 			formats.push_back(webrtc::CreateH264Format(webrtc::H264Profile::kProfileBaseline,
 				webrtc::H264Level::kLevel3_1, "1"));
 		}
+		if (h265) {
+			formats.push_back(CreateH265MainFormat());
+		}
 		if (av1) {
 			formats.push_back(webrtc::SdpVideoFormat::AV1Profile0());
+		}
+		if (vp9) {
+			formats.push_back(webrtc::SdpVideoFormat::VP9Profile0());
 		}
 
 		return formats;

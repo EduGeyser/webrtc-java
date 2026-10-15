@@ -27,8 +27,11 @@ import io.github.sendablemetatype.webrtc.media.video.VideoTrack;
 import io.github.sendablemetatype.webrtc.media.video.VideoTrackSink;
 import io.github.sendablemetatype.webrtc.media.video.codec.DefaultVideoDecoderFactory;
 import io.github.sendablemetatype.webrtc.media.video.codec.HardwareVideoDecoderFactory;
+import io.github.sendablemetatype.webrtc.media.video.codec.HardwareVideoEncoderFactory;
+import io.github.sendablemetatype.webrtc.media.video.codec.VideoCodecInfo;
 
 import java.nio.ByteBuffer;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.CountDownLatch;
@@ -49,8 +52,11 @@ import org.junit.jupiter.api.parallel.ExecutionMode;
  * A machine without a hardware decoder skips the tests that need one, as CI
  * runners do. Set the system property {@code webrtc.test.hardwareDecoder} to
  * {@code true} on a machine that has one, to make those tests fail instead,
- * and {@code webrtc.test.hardwareAv1Decoder} for a GPU that decodes AV1, and
- * {@code webrtc.test.hardwareVp9Decoder} for one that decodes VP9 on Windows or Linux.
+ * and {@code webrtc.test.hardwareAv1Decoder} for a GPU that decodes AV1 (on
+ * macOS, Apple M3 and newer),
+ * {@code webrtc.test.hardwareVp9Decoder} for one that decodes VP9 on Windows or Linux,
+ * and {@code webrtc.test.hardwareH265Decoder} for one that decodes and encodes
+ * H.265, which a call in H.265 needs at both ends, having no software codec.
  * On macOS the VP9 tests follow {@code webrtc.test.hardwareDecoder}.
  */
 @Execution(ExecutionMode.SAME_THREAD)
@@ -65,6 +71,8 @@ class HardwareVideoDecoderIntegrationTest extends TestBase {
 
 	private static final boolean HARDWARE_VP9_REQUIRED = Boolean.getBoolean("webrtc.test.hardwareVp9Decoder");
 
+	private static final boolean HARDWARE_H265_REQUIRED = Boolean.getBoolean("webrtc.test.hardwareH265Decoder");
+
 	private static final String OS = System.getProperty("os.name").toLowerCase(Locale.ROOT);
 
 	private static final Predicate<RTCRtpCodecCapability> H264 = codec ->
@@ -78,12 +86,88 @@ class HardwareVideoDecoderIntegrationTest extends TestBase {
 			"VP9".equalsIgnoreCase(codec.getName())
 					&& "0".equals(codec.getSDPFmtp().getOrDefault("profile-id", "0"));
 
+	private static final Predicate<RTCRtpCodecCapability> H265 = codec -> "H265".equalsIgnoreCase(codec.getName());
+
 
 	@Test
 	void hardwareKeepsCodecs() {
-		// Hardware decoding must not change what is negotiated.
-		assertEquals(new DefaultVideoDecoderFactory().getSupportedCodecs(),
-				new HardwareVideoDecoderFactory().getSupportedCodecs());
+		// Hardware decoding must not change what is negotiated otherwise: the
+		// codecs of the default decoders come first, in their order. After
+		// them comes H.265 where the GPU decodes it, which has no software
+		// decoder.
+		List<VideoCodecInfo> software = new DefaultVideoDecoderFactory().getSupportedCodecs();
+		List<VideoCodecInfo> hardware = new HardwareVideoDecoderFactory().getSupportedCodecs();
+
+		assertTrue(hardware.size() >= software.size(), hardware.toString());
+		assertEquals(software, hardware.subList(0, software.size()));
+
+		for (VideoCodecInfo added : hardware.subList(software.size(), hardware.size())) {
+			assertEquals("H265", added.getName(), hardware.toString());
+		}
+	}
+
+	@Test
+	void hardwareDecodesH265() throws Exception {
+		assumeH265();
+
+		PeerConnectionFactory hardware = hardwareCallFactory();
+		String implementation;
+
+		try {
+			// 640x360: hardware H.265 encoders have a minimum size, and AMD's
+			// Media Foundation encoder refuses widths up to 352. WebRTC then
+			// switches to the next codec, there being no software H.265.
+			implementation = decoderImplementation(hardware, H265, 640, 360, "video/H265");
+		}
+		finally {
+			hardware.dispose();
+		}
+
+		assertTrue(isHardware(implementation), implementation);
+	}
+
+	@Test
+	void hardwareCropsPaddedH265() throws Exception {
+		// HEVC codes in blocks of up to 64, so 360 rows come in a larger
+		// surface. The encoder is a hardware one too, there being no software
+		// H.265, and AMD's pads the coded picture below the 360 rows with
+		// neutral chroma itself; its loop filters pull the last chroma row
+		// towards that, by up to about 20. That row is left out of the check:
+		// a crop at the wrong offset would show across the whole plane.
+		assumeH265();
+
+		assertCropsPaddedFrames(hardwareCallFactory(), H265, "video/H265", 1,
+				implementation -> assertTrue(isHardware(implementation), implementation));
+	}
+
+	/**
+	 * Skips the test where the GPU does not both encode and decode H.265, which
+	 * a call in it needs at either end, there being no software codec; fails
+	 * it where that is required.
+	 */
+	private static void assumeH265() {
+		boolean available = offersH265(new HardwareVideoEncoderFactory().getSupportedCodecs())
+				&& offersH265(new HardwareVideoDecoderFactory().getSupportedCodecs());
+
+		if (HARDWARE_H265_REQUIRED) {
+			assertTrue(available, "no hardware H.265 encoder and decoder");
+		}
+		else {
+			assumeTrue(available, "no hardware H.265 encoder and decoder");
+		}
+	}
+
+	private static boolean offersH265(List<VideoCodecInfo> codecs) {
+		return codecs.stream().anyMatch(codec -> "H265".equalsIgnoreCase(codec.getName()));
+	}
+
+	/** A factory that encodes as well as decodes in hardware. */
+	private PeerConnectionFactory hardwareCallFactory() {
+		return PeerConnectionFactory.builder()
+				.setAudioDeviceModule(audioDevModule)
+				.setVideoEncoderFactory(new HardwareVideoEncoderFactory())
+				.setVideoDecoderFactory(new HardwareVideoDecoderFactory())
+				.build();
 	}
 
 	@Test
@@ -123,10 +207,20 @@ class HardwareVideoDecoderIntegrationTest extends TestBase {
 	 */
 	private void assertCropsPaddedFrames(Predicate<RTCRtpCodecCapability> codec, Consumer<String> expectHardware)
 			throws Exception {
+		assertCropsPaddedFrames(hardwareFactory(), codec, null, 0, expectHardware);
+	}
+
+	/**
+	 * Does what {@link #assertCropsPaddedFrames(Predicate, Consumer)} does, on
+	 * a call of the given factory, which this disposes of, leaving the given
+	 * number of chroma rows at the bottom of the picture out of the check.
+	 * With a MIME type, checks that the call sent that codec.
+	 */
+	private void assertCropsPaddedFrames(PeerConnectionFactory hardware, Predicate<RTCRtpCodecCapability> codec,
+			String mimeType, int exemptChromaRows, Consumer<String> expectHardware) throws Exception {
 		final int width = 640;
 		final int height = 360;
 
-		PeerConnectionFactory hardware = hardwareFactory();
 		CountDownLatch received = new CountDownLatch(30);
 		AtomicReference<String> wrong = new AtomicReference<>();
 		AtomicInteger padded = new AtomicInteger();
@@ -147,7 +241,7 @@ class HardwareVideoDecoderIntegrationTest extends TestBase {
 					wrong.compareAndSet(null, "a frame of " + frameWidth + "x" + frameHeight);
 				}
 				else {
-					String error = checkPicture(frame.buffer.toI420());
+					String error = checkPicture(frame.buffer.toI420(), exemptChromaRows);
 
 					if (error != null) {
 						wrong.compareAndSet(null, "a " + frameWidth + "x" + frameHeight + " frame with " + error);
@@ -169,6 +263,11 @@ class HardwareVideoDecoderIntegrationTest extends TestBase {
 
 			implementation = decoderImplementationOf(call);
 
+			if (mimeType != null) {
+				// A call goes on in another codec when the encoder fails.
+				assertEquals(mimeType, call.getSentVideoCodec());
+			}
+
 			track.removeSink(sink);
 			receiver.dispose();
 		}
@@ -184,9 +283,10 @@ class HardwareVideoDecoderIntegrationTest extends TestBase {
 
 	/**
 	 * Returns what is wrong with the picture of a frame the call sent, or
-	 * {@code null}.
+	 * {@code null}. The given number of chroma rows at the bottom is not
+	 * checked.
 	 */
-	private static String checkPicture(I420Buffer buffer) {
+	private static String checkPicture(I420Buffer buffer, int exemptChromaRows) {
 		ByteBuffer y = buffer.getDataY();
 		int lastRow = (buffer.getHeight() - 1) * buffer.getStrideY();
 
@@ -198,7 +298,7 @@ class HardwareVideoDecoderIntegrationTest extends TestBase {
 		}
 
 		int chromaWidth = (buffer.getWidth() + 1) / 2;
-		int chromaHeight = (buffer.getHeight() + 1) / 2;
+		int chromaHeight = (buffer.getHeight() + 1) / 2 - exemptChromaRows;
 
 		if (!isFlat(buffer.getDataU(), buffer.getStrideU(), chromaWidth, chromaHeight, TestMediaCall.CHROMA_U)) {
 			return "U not at " + TestMediaCall.CHROMA_U;
@@ -249,9 +349,6 @@ class HardwareVideoDecoderIntegrationTest extends TestBase {
 	}
 
 	private void assertHardwareDecodes(Predicate<RTCRtpCodecCapability> codec, boolean required) throws Exception {
-		assumeTrue(OS.contains("win") || OS.contains("linux"),
-				"hardware decoders are implemented on Windows and Linux only");
-
 		PeerConnectionFactory hardware = PeerConnectionFactory.builder()
 				.setAudioDeviceModule(audioDevModule)
 				.setVideoDecoderFactory(new HardwareVideoDecoderFactory())
@@ -329,6 +426,21 @@ class HardwareVideoDecoderIntegrationTest extends TestBase {
 	void hardwareFollowsResolutionChange() throws Exception {
 		assumeVp9Platform();
 
+		assertFollowsResolutionChange(VP9, HardwareVideoDecoderIntegrationTest::expectVp9Hardware);
+	}
+
+	@Test
+	void hardwareFollowsAv1ResolutionChange() throws Exception {
+		assertFollowsResolutionChange(AV1, implementation -> expectHardware(implementation, HARDWARE_AV1_REQUIRED));
+	}
+
+	/**
+	 * Receives video that halves its size during the call, and checks that the
+	 * hardware decoder follows it, rather than handing over to the software
+	 * decoder.
+	 */
+	private void assertFollowsResolutionChange(Predicate<RTCRtpCodecCapability> codec,
+			Consumer<String> expectHardware) throws Exception {
 		PeerConnectionFactory hardware = PeerConnectionFactory.builder()
 				.setAudioDeviceModule(audioDevModule)
 				.setVideoDecoderFactory(new HardwareVideoDecoderFactory())
@@ -337,7 +449,7 @@ class HardwareVideoDecoderIntegrationTest extends TestBase {
 		CountDownLatch full = new CountDownLatch(10);
 		CountDownLatch half = new CountDownLatch(10);
 
-		try (TestMediaCall call = new TestMediaCall(hardware, true, false, VP9)) {
+		try (TestMediaCall call = new TestMediaCall(hardware, true, false, codec)) {
 			// Large enough that half the size is still one every hardware
 			// decoder takes: NVDEC does not decode VP9 below 128 pixels on the
 			// shorter side, and falls back to libvpx for such a stream.
@@ -367,7 +479,7 @@ class HardwareVideoDecoderIntegrationTest extends TestBase {
 
 			String implementation = decoderImplementationOf(call);
 
-			expectVp9Hardware(implementation);
+			expectHardware.accept(implementation);
 
 			// The sender restarts at half the size, with a key frame; the
 			// decoder has to start a session for it.
@@ -436,6 +548,28 @@ class HardwareVideoDecoderIntegrationTest extends TestBase {
 		assertFalse(isHardware(result.decoder), result.decoder);
 	}
 
+	@Test
+	void av1NeedsNoKeyFrames() throws Exception {
+		CallResult result = receiveVideo(hardwareFactory(), AV1, 320, 240, null, 60);
+
+		expectHardware(result.decoder, HARDWARE_AV1_REQUIRED);
+
+		// As with VP9: a stream that is decoded has the one key frame it
+		// started with.
+		assertTrue(result.pliCount <= 1, "key frames requested: " + result.pliCount);
+		assertTrue(result.keyFrames <= 2, "key frames decoded: " + result.keyFrames);
+	}
+
+	@Test
+	void av1TemporalLayers() throws Exception {
+		// Temporal layers are one spatial layer, which the hardware decodes.
+		CallResult result = receiveVideo(hardwareFactory(), AV1, 320, 240, "L1T3", 60);
+
+		expectHardware(result.decoder, HARDWARE_AV1_REQUIRED);
+
+		assertTrue(result.pliCount <= 1, "key frames requested: " + result.pliCount);
+	}
+
 	private PeerConnectionFactory hardwareFactory() {
 		return PeerConnectionFactory.builder()
 				.setAudioDeviceModule(audioDevModule)
@@ -453,7 +587,7 @@ class HardwareVideoDecoderIntegrationTest extends TestBase {
 
 	private static boolean isHardware(String implementation) {
 		return implementation.contains("VideoToolbox") || implementation.contains("MediaFoundation")
-				|| implementation.contains("NVDEC");
+				|| implementation.contains("NVDEC") || implementation.contains("VA-API");
 	}
 
 	/**
@@ -551,23 +685,34 @@ class HardwareVideoDecoderIntegrationTest extends TestBase {
 	 */
 	private static String decoderImplementation(PeerConnectionFactory factory,
 			Predicate<RTCRtpCodecCapability> codec) throws Exception {
+		return decoderImplementation(factory, codec, 320, 240, null);
+	}
+
+	/**
+	 * Does what {@link #decoderImplementation(PeerConnectionFactory, Predicate)}
+	 * does, with video of the given size; 320x240 is the call's default. With
+	 * a MIME type, checks that the call sent that codec.
+	 */
+	private static String decoderImplementation(PeerConnectionFactory factory,
+			Predicate<RTCRtpCodecCapability> codec, int sentWidth, int sentHeight, String mimeType) throws Exception {
 		CountDownLatch received = new CountDownLatch(10);
 		AtomicReference<String> wrongSize = new AtomicReference<>();
 		AtomicReference<String> blank = new AtomicReference<>();
 		String implementation;
 
 		try (TestMediaCall call = new TestMediaCall(factory, true, false, codec)) {
+			call.setVideoSize(sentWidth, sentHeight);
 			call.negotiate();
 
 			RTCRtpReceiver receiver = call.getReceiver("video");
 			VideoTrack track = (VideoTrack) receiver.getTrack();
 			VideoTrackSink sink = frame -> {
-				// The call sends 320x240; a decoder that returned the padded
-				// frame rather than the picture would be larger.
+				// A decoder that returned the padded frame rather than the
+				// picture would be larger than what was sent.
 				int width = frame.buffer.getWidth();
 				int height = frame.buffer.getHeight();
 
-				if (width != 320 || height != 240) {
+				if (width != sentWidth || height != sentHeight) {
 					wrongSize.compareAndSet(null, width + "x" + height);
 				}
 				else if (!hasPicture(frame.buffer.toI420())) {
@@ -585,6 +730,11 @@ class HardwareVideoDecoderIntegrationTest extends TestBase {
 			assertTrue(received.await(TIMEOUT_SECONDS, TimeUnit.SECONDS), "too few frames received");
 
 			implementation = decoderImplementationOf(call);
+
+			if (mimeType != null) {
+				// A call goes on in another codec when the encoder fails.
+				assertEquals(mimeType, call.getSentVideoCodec());
+			}
 
 			track.removeSink(sink);
 			receiver.dispose();

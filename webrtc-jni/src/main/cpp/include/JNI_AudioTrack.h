@@ -26,10 +26,10 @@ extern "C" {
 	/*
 	 * Class:     io_github_sendablemetatype_webrtc_media_audio_AudioTrack
 	 * Method:    addSinkInternal
-	 * Signature: (Lio/github/sendablemetatype/webrtc/media/audio/AudioTrackSink;)J
+	 * Signature: (Lio/github/sendablemetatype/webrtc/media/audio/AudioTrackSink;Z)J
 	 */
 	JNIEXPORT jlong JNICALL Java_io_github_sendablemetatype_webrtc_media_audio_AudioTrack_addSinkInternal
-	(JNIEnv *, jobject, jobject);
+	(JNIEnv *, jobject, jobject, jboolean);
 
 	/*
 	 * Class:     io_github_sendablemetatype_webrtc_media_audio_AudioTrack

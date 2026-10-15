@@ -82,10 +82,10 @@ extern "C" {
 	/*
 	 * Class:     io_github_sendablemetatype_webrtc_PeerConnectionFactory
 	 * Method:    initialize
-	 * Signature: (Ljava/util/Map;Lio/github/sendablemetatype/webrtc/media/audio/AudioDeviceModuleBase;Lio/github/sendablemetatype/webrtc/media/audio/AudioProcessing;Lio/github/sendablemetatype/webrtc/media/video/codec/VideoEncoderFactory;Lio/github/sendablemetatype/webrtc/media/video/codec/VideoDecoderFactory;)V
+	 * Signature: (Ljava/util/Map;Lio/github/sendablemetatype/webrtc/media/audio/AudioDeviceModuleBase;Lio/github/sendablemetatype/webrtc/media/audio/AudioProcessing;Lio/github/sendablemetatype/webrtc/media/video/codec/VideoEncoderFactory;Lio/github/sendablemetatype/webrtc/media/video/codec/VideoDecoderFactory;Lio/github/sendablemetatype/webrtc/media/audio/codec/AudioEncoderFactory;Lio/github/sendablemetatype/webrtc/media/audio/codec/AudioDecoderFactory;ZZ)V
 	 */
 	JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_PeerConnectionFactory_initialize
-	(JNIEnv *, jobject, jobject, jobject, jobject, jobject, jobject);
+	(JNIEnv *, jobject, jobject, jobject, jobject, jobject, jobject, jobject, jobject, jboolean, jboolean);
 
 #ifdef __cplusplus
 }

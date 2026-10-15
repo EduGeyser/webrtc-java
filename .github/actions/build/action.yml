@@ -71,34 +71,37 @@ runs:
     # FFmpeg's configure and makefiles are shell scripts, and nasm assembles
     # its x86 code, which the Intel macOS build needs too. On Windows the shell
     # has to be MSYS2's: Git for Windows' bash carries neither make nor nasm.
+    # Meson and Ninja build dav1d, the software decoder of AV1, and FFmpeg's
+    # configure finds it with pkg-config.
     - name: Install the FFmpeg build tools
       if: env.WEBRTC_VARIANT == 'full'
       run: |
         case "$RUNNER_OS" in
           Linux)
-            sudo apt-get install -y -q nasm
+            sudo apt-get install -y -q meson nasm
             ;;
           macOS)
-            HOMEBREW_NO_AUTO_UPDATE=1 HOMEBREW_NO_INSTALL_CLEANUP=1 brew install nasm
+            HOMEBREW_NO_AUTO_UPDATE=1 HOMEBREW_NO_INSTALL_CLEANUP=1 brew install meson nasm ninja pkgconf
             ;;
           Windows)
             if [ ! -f /c/msys64/usr/bin/bash.exe ]; then
               choco install msys2 --no-progress -y
             fi
             /c/msys64/usr/bin/bash.exe -lc "pacman -Sy --noconfirm && pacman -S --needed --noconfirm make nasm diffutils pkgconf"
+            python -m pip install meson
             # Where the media module's CMake looks for it.
             echo "MSYS2_ROOT=C:\\msys64" >> "$GITHUB_ENV"
             ;;
         esac
       shell: bash
 
-    - name: Check out the FFmpeg submodule
+    - name: Check out the FFmpeg and dav1d submodules
       if: env.WEBRTC_VARIANT == 'full'
-      run: git submodule update --init --depth 1 webrtc-java-media/third-party/ffmpeg
+      run: git submodule update --init --depth 1 webrtc-java-media/third-party/ffmpeg webrtc-java-media/third-party/dav1d
       shell: bash
 
-    # FFmpeg is built from the submodule with the compiler and sysroot of the
-    # toolchain files, so all of them make up its cache key.
+    # FFmpeg and dav1d are built from the submodules with the compiler and
+    # sysroot of the toolchain files, so all of them make up the cache key.
     - name: Fingerprint the FFmpeg build
       id: ffmpeg-build
       if: env.WEBRTC_VARIANT == 'full'
@@ -110,6 +113,7 @@ runs:
             printf '%s\n' "$BUILD_INPUTS"
             sed -n '/^ffmpeg\./p' gradle.properties
             git rev-parse HEAD:webrtc-java-media/third-party/ffmpeg
+            git rev-parse HEAD:webrtc-java-media/third-party/dav1d
           } | sha256sum | cut -d ' ' -f1
         )
         echo "value=$fingerprint" >> "$GITHUB_OUTPUT"

@@ -61,6 +61,7 @@ file(GLOB SOURCES_API_AUDIO "src/api/audio/*.cpp")
 file(GLOB SOURCES_MEDIA "src/media/*.cpp")
 file(GLOB SOURCES_MEDIA_AUDIO "src/media/audio/*.cpp")
 file(GLOB SOURCES_MEDIA_AUDIO_OS "src/media/audio/${SOURCE_TARGET}/*.cpp")
+file(GLOB SOURCES_MEDIA_AUDIO_CODEC "src/media/audio/codec/*.cpp")
 file(GLOB SOURCES_MEDIA_VIDEO "src/media/video/*.cpp")
 file(GLOB SOURCES_MEDIA_VIDEO_CODEC "src/media/video/codec/*.cpp")
 file(GLOB SOURCES_MEDIA_VIDEO_CODEC_OS "src/media/video/codec/${SOURCE_TARGET}/*.cpp")
@@ -88,6 +89,7 @@ list(APPEND SOURCES
     ${SOURCES_MEDIA}
     ${SOURCES_MEDIA_AUDIO}
     ${SOURCES_MEDIA_AUDIO_OS}
+    ${SOURCES_MEDIA_AUDIO_CODEC}
     ${SOURCES_MEDIA_VIDEO}
     ${SOURCES_MEDIA_VIDEO_CODEC}
     ${SOURCES_MEDIA_VIDEO_CODEC_OS}
@@ -104,7 +106,7 @@ if(WEBRTC_DATA_CHANNELS_ONLY)
     # The peer connection, data channel and transport bindings stay; the
     # media bindings and the device code go.
     list(FILTER SOURCES EXCLUDE REGEX "/src/(media|platform|api/audio)/")
-    list(FILTER SOURCES EXCLUDE REGEX "/src/JNI_(Audio|CustomAudio|CustomVideo|DefaultVideo|Desktop|HardwareVideo|Headless|Media|NativeApi|NativeI420|NativeVideo|Power|RTCDtmf|RTCEncoded|RTCRtp|Screen|SyncClock|Video|VoiceActivity|Window)[A-Za-z0-9]*\\.cpp$")
+    list(FILTER SOURCES EXCLUDE REGEX "/src/JNI_(Audio|BuiltinAudio|CustomAudio|CustomVideo|DefaultVideo|Desktop|HardwareVideo|Headless|Media|NativeApi|NativeI420|NativeVideo|Power|RTCDtmf|RTCEncoded|RTCRtp|Screen|SyncClock|Video|VoiceActivity|Window)[A-Za-z0-9]*\\.cpp$")
     list(FILTER SOURCES EXCLUDE REGEX "/src/api/(Audio|EncodedFrame|ExtensionApi|HeadlessAudio|ProxyAudio|RTCDtmf|RTCEncoded|RTCResolutionRestriction|RTCRtcp|RTCRtp|Video)[A-Za-z0-9]*\\.cpp$")
 endif()
 

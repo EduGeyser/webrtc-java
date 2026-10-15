@@ -34,6 +34,8 @@ import io.github.sendablemetatype.webrtc.media.video.VideoTrackSink;
 import io.github.sendablemetatype.webrtc.media.video.codec.DefaultVideoDecoderFactory;
 import io.github.sendablemetatype.webrtc.media.video.codec.DefaultVideoEncoderFactory;
 import io.github.sendablemetatype.webrtc.media.video.codec.EncodedImage;
+import io.github.sendablemetatype.webrtc.media.video.codec.HardwareVideoDecoderFactory;
+import io.github.sendablemetatype.webrtc.media.video.codec.HardwareVideoEncoderFactory;
 import io.github.sendablemetatype.webrtc.media.video.codec.NativeVideoEncoder;
 import io.github.sendablemetatype.webrtc.media.video.codec.VideoCodecInfo;
 import io.github.sendablemetatype.webrtc.media.video.codec.VideoCodecStatus;
@@ -43,9 +45,14 @@ import io.github.sendablemetatype.webrtc.media.video.codec.VideoEncoder;
 import io.github.sendablemetatype.webrtc.media.video.codec.VideoEncoderFactory;
 
 import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
@@ -72,6 +79,18 @@ class VideoCodecFactoryTests extends TestBase {
 	/** The codec of {@link TestEncoder} and {@link TestDecoder}. */
 	private static final String TEST_CODEC = "X-TEST";
 
+	/**
+	 * H.265 as WebRTC offers it, which {@link TestEncoder} and {@link
+	 * TestDecoder} speak as well, framing their payload in H.265 NAL units.
+	 */
+	private static final VideoCodecInfo H265 = new VideoCodecInfo("H265", h265Parameters());
+
+	/** What precedes the payload in the slice of an H.265 test access unit. */
+	private static final String H265_MARKER = "WRTC:";
+
+	/** The RTP capabilities WebRTC adds that are no media codec. */
+	private static final List<String> RTP_ONLY_CODECS = Arrays.asList("rtx", "red", "ulpfec", "flexfec-03");
+
 
 	@Test
 	void defaultFactoriesListBuiltInCodecs() {
@@ -82,6 +101,53 @@ class VideoCodecFactoryTests extends TestBase {
 		assertTrue(encoders.contains("VP9"), encoders.toString());
 		assertTrue(decoders.contains("VP8"), decoders.toString());
 		assertTrue(decoders.contains("VP9"), decoders.toString());
+	}
+
+	@Test
+	void hardwareFactoriesListHardwareCodecs() {
+		HardwareVideoEncoderFactory encoders = new HardwareVideoEncoderFactory();
+		HardwareVideoDecoderFactory decoders = new HardwareVideoDecoderFactory();
+
+		assertHardwareCodecs(new DefaultVideoEncoderFactory().getSupportedCodecs(),
+				encoders.getSupportedCodecs(), encoders.getHardwareCodecs());
+		assertHardwareCodecs(new DefaultVideoDecoderFactory().getSupportedCodecs(),
+				decoders.getSupportedCodecs(), decoders.getHardwareCodecs());
+	}
+
+	@Test
+	void builtFactoryUsesHardwareCodecs() {
+		// The hardware factories are made natively, without their Java
+		// objects; what is negotiated has to be what those list.
+		HardwareVideoEncoderFactory encoders = new HardwareVideoEncoderFactory();
+		HardwareVideoDecoderFactory decoders = new HardwareVideoDecoderFactory();
+
+		PeerConnectionFactory built = PeerConnectionFactory.builder()
+				.setAudioDeviceModule(audioDevModule)
+				.setVideoEncoderFactory(encoders)
+				.setVideoDecoderFactory(decoders)
+				.build();
+
+		try {
+			assertEquals(names(encoders.getSupportedCodecs()),
+					mediaCodecNames(built.getRtpSenderCapabilities(MediaType.VIDEO).getCodecs()));
+			assertEquals(names(decoders.getSupportedCodecs()),
+					mediaCodecNames(built.getRtpReceiverCapabilities(MediaType.VIDEO).getCodecs()));
+		}
+		finally {
+			built.dispose();
+		}
+	}
+
+	@Test
+	void hardwareDecodesNoH264High444() {
+		// GPU decoders take 4:2:0 only, so H.264 High 4:4:4 Predictive (profile
+		// 0xf4) stays with the software decoder.
+		for (VideoCodecInfo codec : new HardwareVideoDecoderFactory().getHardwareCodecs()) {
+			String profileLevelId = codec.getParameters().getOrDefault("profile-level-id", "");
+
+			assertFalse("H264".equalsIgnoreCase(codec.getName()) && profileLevelId.startsWith("f4"),
+					codec.toString());
+		}
 	}
 
 	@Test
@@ -134,23 +200,31 @@ class VideoCodecFactoryTests extends TestBase {
 
 	@Test
 	void javaCodecRoundTrips() throws Exception {
-		assertRoundTrip(false);
+		assertRoundTrip(new VideoCodecInfo(TEST_CODEC), false);
 	}
 
 	@Test
 	void javaFrameBufferRoundTrips() throws Exception {
 		// The decoder hands back frames whose buffer is no NativeI420Buffer,
 		// which WebRTC has to copy.
-		assertRoundTrip(true);
+		assertRoundTrip(new VideoCodecInfo(TEST_CODEC), true);
+	}
+
+	@Test
+	void h265CallRoundTrips() throws Exception {
+		// WebRTC has no H.265 codec of its own, so this is H.265 as a codec
+		// factory brings it: negotiated, packetized into RTP and depacketized
+		// as H.265, which WebRTC does only when built with it.
+		assertRoundTrip(H265, false);
 	}
 
 	/**
 	 * Sends a call through the test codec and checks that every frame
 	 * received is one that was sent, and how WebRTC used the codecs.
 	 */
-	private void assertRoundTrip(boolean javaBuffers) throws Exception {
-		TestEncoderFactory encoderFactory = new TestEncoderFactory();
-		TestDecoderFactory decoderFactory = new TestDecoderFactory();
+	private void assertRoundTrip(VideoCodecInfo codec, boolean javaBuffers) throws Exception {
+		TestEncoderFactory encoderFactory = new TestEncoderFactory(codec);
+		TestDecoderFactory decoderFactory = new TestDecoderFactory(codec);
 		decoderFactory.javaBuffers = javaBuffers;
 		PeerConnectionFactory built = testCodecFactory(encoderFactory, decoderFactory);
 
@@ -164,7 +238,7 @@ class VideoCodecFactoryTests extends TestBase {
 			encodedLuma.add(luma);
 		};
 
-		try (TestMediaCall call = new TestMediaCall(built, true, false, TEST_CODEC)) {
+		try (TestMediaCall call = new TestMediaCall(built, true, false, codec.getName())) {
 			call.negotiate();
 
 			RTCRtpReceiver receiver = call.getReceiver("video");
@@ -207,6 +281,26 @@ class VideoCodecFactoryTests extends TestBase {
 		assertTrue(encoder.rates.get() > 0, "rates were never set");
 		assertTrue(encoder.released.get(), "encoder was never released");
 		assertTrue(decoderFactory.last.get().released.get(), "decoder was never released");
+	}
+
+	@Test
+	void javaEncoderDroppingFramesKeepsSending() throws Exception {
+		// A Java encoder drops a frame by producing nothing for it. WebRTC is
+		// told about the frames dropped once a later one comes out, and the
+		// frames encoded still arrive.
+		TestEncoderFactory encoderFactory = new TestEncoderFactory();
+		encoderFactory.dropEveryOtherFrame = true;
+
+		PeerConnectionFactory built = testCodecFactory(encoderFactory, new TestDecoderFactory());
+
+		try {
+			assertFramesReceived(built, TEST_CODEC);
+		}
+		finally {
+			built.dispose();
+		}
+
+		assertTrue(encoderFactory.dropped.get() > 0, "the encoder dropped no frames");
 	}
 
 	@Test
@@ -363,12 +457,141 @@ class VideoCodecFactoryTests extends TestBase {
 				.build();
 	}
 
+	/**
+	 * Checks the hardware codecs of a hardware factory against its supported
+	 * codecs and those of the matching default factory. Which codecs the
+	 * hardware takes depends on the machine; that the codecs without a
+	 * software implementation are among them does not.
+	 */
+	private static void assertHardwareCodecs(List<VideoCodecInfo> software,
+			List<VideoCodecInfo> supported, List<VideoCodecInfo> hardware) {
+		// Supported codecs, in the same order.
+		int next = 0;
+
+		for (VideoCodecInfo codec : hardware) {
+			int index = supported.subList(next, supported.size()).indexOf(codec);
+
+			assertTrue(index >= 0, codec + " is not supported or out of order: " + supported);
+
+			next += index + 1;
+		}
+
+		for (VideoCodecInfo codec : supported) {
+			if (!software.contains(codec)) {
+				assertTrue(hardware.contains(codec), codec + " has no software codec: " + hardware);
+			}
+		}
+
+		assertThrows(UnsupportedOperationException.class, () -> hardware.add(new VideoCodecInfo(TEST_CODEC)));
+	}
+
+	/**
+	 * The names of the media codecs among RTP capabilities, without those
+	 * WebRTC adds for retransmission, redundancy and error correction.
+	 */
+	private static List<String> mediaCodecNames(List<RTCRtpCodecCapability> capabilities) {
+		return names(capabilities).stream()
+				.filter(name -> !RTP_ONLY_CODECS.contains(name.toLowerCase(Locale.ROOT)))
+				.collect(Collectors.toList());
+	}
+
 	private static List<String> names(List<?> codecs) {
 		return codecs.stream()
 				.map(codec -> codec instanceof VideoCodecInfo
 						? ((VideoCodecInfo) codec).getName()
 						: ((RTCRtpCodecCapability) codec).getName())
 				.collect(Collectors.toList());
+	}
+
+	/** The SDP parameters of H.265 Main profile, main tier, level 3.1. */
+	private static Map<String, String> h265Parameters() {
+		Map<String, String> parameters = new HashMap<>();
+		parameters.put("profile-id", "1");
+		parameters.put("tier-flag", "0");
+		parameters.put("level-id", "93");
+		parameters.put("tx-mode", "SRST");
+		return parameters;
+	}
+
+	private static boolean isH265(VideoCodecInfo codec) {
+		return H265.getName().equalsIgnoreCase(codec.getName());
+	}
+
+	/**
+	 * Frames a payload as an H.265 access unit, in Annex B: the parameter sets
+	 * WebRTC wants with every key frame (VPS, SPS, PPS), then an IDR slice that
+	 * starts a picture and carries the payload. The payload goes in as hex
+	 * text after a marker, so that no byte of it is zero and nothing in it
+	 * reads as a start code. WebRTC looks at the NAL unit types only; the
+	 * parameter sets need not make sense.
+	 */
+	static ByteBuffer toH265AccessUnit(ByteBuffer payload) {
+		StringBuilder text = new StringBuilder(H265_MARKER);
+
+		while (payload.hasRemaining()) {
+			text.append(String.format("%02X", payload.get() & 0xFF));
+		}
+
+		byte[] slice = text.toString().getBytes(StandardCharsets.US_ASCII);
+		byte[][] nalUnits = {
+			// The NAL unit header: the type in bits 1 to 6 of the first byte,
+			// then layer 0 and temporal ID 1.
+			{ 0x40, 0x01, 0x0C, 0x01, (byte) 0xFF },	// VPS (32)
+			{ 0x42, 0x01, 0x01, 0x01, (byte) 0xFF },	// SPS (33)
+			{ 0x44, 0x01, (byte) 0xC1, 0x72 },			// PPS (34)
+			// IDR_W_RADL (19); the first bit of the slice header says that it
+			// is the first slice of its picture.
+			concat(new byte[] { 0x26, 0x01, (byte) 0x80 }, slice)
+		};
+
+		int size = 0;
+
+		for (byte[] nalUnit : nalUnits) {
+			size += 4 + nalUnit.length;
+		}
+
+		ByteBuffer accessUnit = ByteBuffer.allocateDirect(size);
+
+		for (byte[] nalUnit : nalUnits) {
+			accessUnit.put(new byte[] { 0, 0, 0, 1 }).put(nalUnit);
+		}
+
+		accessUnit.flip();
+
+		return accessUnit;
+	}
+
+	/**
+	 * The payload an access unit of {@link #toH265AccessUnit} carries, or
+	 * null if there is none.
+	 */
+	static ByteBuffer fromH265AccessUnit(ByteBuffer accessUnit) {
+		byte[] bytes = new byte[accessUnit.remaining()];
+		accessUnit.duplicate().get(bytes);
+
+		String text = new String(bytes, StandardCharsets.ISO_8859_1);
+		int start = text.indexOf(H265_MARKER);
+
+		if (start < 0) {
+			return null;
+		}
+
+		String hex = text.substring(start + H265_MARKER.length());
+		ByteBuffer payload = ByteBuffer.allocate(hex.length() / 2);
+
+		for (int i = 0; i + 1 < hex.length(); i += 2) {
+			payload.put((byte) Integer.parseInt(hex.substring(i, i + 2), 16));
+		}
+
+		payload.flip();
+
+		return payload;
+	}
+
+	private static byte[] concat(byte[] first, byte[] second) {
+		byte[] result = Arrays.copyOf(first, first.length + second.length);
+		System.arraycopy(second, 0, result, first.length, second.length);
+		return result;
 	}
 
 
@@ -389,14 +612,27 @@ class VideoCodecFactoryTests extends TestBase {
 		final DefaultVideoEncoderFactory builtIn = new DefaultVideoEncoderFactory();
 		final AtomicInteger created = new AtomicInteger();
 		final AtomicReference<TestEncoder> last = new AtomicReference<>();
+		final AtomicInteger dropped = new AtomicInteger();
+		final VideoCodecInfo codec;
 
 		volatile EncodeListener onEncode;
 
+		/** Makes the encoders produce nothing for every other frame. */
+		volatile boolean dropEveryOtherFrame;
+
+
+		TestEncoderFactory() {
+			this(new VideoCodecInfo(TEST_CODEC));
+		}
+
+		TestEncoderFactory(VideoCodecInfo codec) {
+			this.codec = codec;
+		}
 
 		@Override
 		public List<VideoCodecInfo> getSupportedCodecs() {
 			List<VideoCodecInfo> codecs = new ArrayList<>();
-			codecs.add(new VideoCodecInfo(TEST_CODEC));
+			codecs.add(codec);
 			codecs.addAll(builtIn.getSupportedCodecs());
 			return codecs;
 		}
@@ -405,11 +641,11 @@ class VideoCodecFactoryTests extends TestBase {
 		public VideoEncoder createEncoder(VideoCodecInfo info) {
 			created.incrementAndGet();
 
-			if (!TEST_CODEC.equalsIgnoreCase(info.getName())) {
+			if (!codec.getName().equalsIgnoreCase(info.getName())) {
 				return builtIn.createEncoder(info);
 			}
 
-			TestEncoder encoder = new TestEncoder(this);
+			TestEncoder encoder = new TestEncoder(this, isH265(codec));
 			last.set(encoder);
 			return encoder;
 		}
@@ -426,14 +662,23 @@ class VideoCodecFactoryTests extends TestBase {
 		final DefaultVideoDecoderFactory builtIn = new DefaultVideoDecoderFactory();
 		final AtomicInteger created = new AtomicInteger();
 		final AtomicReference<TestDecoder> last = new AtomicReference<>();
+		final VideoCodecInfo codec;
 
 		volatile boolean javaBuffers;
 
 
+		TestDecoderFactory() {
+			this(new VideoCodecInfo(TEST_CODEC, Collections.emptyMap()));
+		}
+
+		TestDecoderFactory(VideoCodecInfo codec) {
+			this.codec = codec;
+		}
+
 		@Override
 		public List<VideoCodecInfo> getSupportedCodecs() {
 			List<VideoCodecInfo> codecs = new ArrayList<>();
-			codecs.add(new VideoCodecInfo(TEST_CODEC, Collections.emptyMap()));
+			codecs.add(codec);
 			codecs.addAll(builtIn.getSupportedCodecs());
 			return codecs;
 		}
@@ -442,11 +687,11 @@ class VideoCodecFactoryTests extends TestBase {
 		public VideoDecoder createDecoder(VideoCodecInfo info) {
 			created.incrementAndGet();
 
-			if (!TEST_CODEC.equalsIgnoreCase(info.getName())) {
+			if (!codec.getName().equalsIgnoreCase(info.getName())) {
 				return builtIn.createDecoder(info);
 			}
 
-			TestDecoder decoder = new TestDecoder(javaBuffers);
+			TestDecoder decoder = new TestDecoder(javaBuffers, isH265(codec));
 			last.set(decoder);
 			return decoder;
 		}
@@ -463,6 +708,8 @@ class VideoCodecFactoryTests extends TestBase {
 
 		private final TestEncoderFactory factory;
 
+		private final boolean h265;
+
 		final AtomicInteger rates = new AtomicInteger();
 		final AtomicReference<Boolean> released = new AtomicReference<>(false);
 
@@ -470,9 +717,12 @@ class VideoCodecFactoryTests extends TestBase {
 
 		private Callback callback;
 
+		private int frames;
 
-		TestEncoder(TestEncoderFactory factory) {
+
+		TestEncoder(TestEncoderFactory factory, boolean h265) {
 			this.factory = factory;
+			this.h265 = h265;
 		}
 
 		@Override
@@ -490,6 +740,12 @@ class VideoCodecFactoryTests extends TestBase {
 
 		@Override
 		public VideoCodecStatus encode(VideoFrame frame, EncodeInfo info) {
+			if (factory.dropEveryOtherFrame && frames++ % 2 == 1) {
+				// Dropped: no output, as a rate controlled encoder would do.
+				factory.dropped.incrementAndGet();
+				return VideoCodecStatus.OK;
+			}
+
 			int width = frame.buffer.getWidth();
 			int height = frame.buffer.getHeight();
 			int luma = frame.buffer.toI420().getDataY().get(0) & 0xFF;
@@ -503,6 +759,10 @@ class VideoCodecFactoryTests extends TestBase {
 			ByteBuffer payload = ByteBuffer.allocateDirect(9);
 			payload.putInt(width).putInt(height).put((byte) luma);
 			payload.flip();
+
+			if (h265) {
+				payload = toH265AccessUnit(payload);
+			}
 
 			callback.onEncodedFrame(EncodedImage.builder()
 					.setBuffer(payload)
@@ -543,11 +803,14 @@ class VideoCodecFactoryTests extends TestBase {
 
 		private final boolean javaBuffers;
 
+		private final boolean h265;
+
 		private Callback callback;
 
 
-		TestDecoder(boolean javaBuffers) {
+		TestDecoder(boolean javaBuffers, boolean h265) {
 			this.javaBuffers = javaBuffers;
+			this.h265 = h265;
 		}
 
 		@Override
@@ -564,9 +827,9 @@ class VideoCodecFactoryTests extends TestBase {
 
 		@Override
 		public VideoCodecStatus decode(EncodedImage image) {
-			ByteBuffer payload = image.getBuffer();
+			ByteBuffer payload = h265 ? fromH265AccessUnit(image.getBuffer()) : image.getBuffer();
 
-			if (payload.remaining() != 9) {
+			if (payload == null || payload.remaining() != 9) {
 				return VideoCodecStatus.ERR_PARAMETER;
 			}
 

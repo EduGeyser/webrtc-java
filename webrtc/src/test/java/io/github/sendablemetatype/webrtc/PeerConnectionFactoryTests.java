@@ -399,6 +399,38 @@ class PeerConnectionFactoryTests extends TestBase {
 
 	@Tag("media")
 	@Test
+	void deviceAudioSourceAfterPeerConnection() {
+		// A peer connection starts the factory's media engine on the worker
+		// thread, which is the network thread. Device capture is then switched
+		// on that thread, which must still work once audio is being sent.
+		AudioDeviceModule audioModule = new AudioDeviceModule(AudioLayer.kDummyAudio);
+		PeerConnectionFactory audioFactory = new PeerConnectionFactory(audioModule);
+
+		try {
+			RTCPeerConnection peerConnection = audioFactory.createPeerConnection(
+					new RTCConfiguration(), candidate -> { });
+
+			AudioTrackSource deviceSource = audioFactory.createAudioSource(new AudioOptions());
+			AudioTrack deviceTrack = audioFactory.createAudioTrack("deviceTrack", deviceSource);
+
+			RTCRtpSender sender = peerConnection.addTrack(deviceTrack,
+					Collections.singletonList("stream0"));
+
+			assertNotNull(sender);
+
+			sender.dispose();
+			peerConnection.close();
+			deviceTrack.dispose();
+			deviceSource.dispose();
+		}
+		finally {
+			audioFactory.dispose();
+			audioModule.dispose();
+		}
+	}
+
+	@Tag("media")
+	@Test
 	void createVideoTrackNullParams() {
 		assertThrows(NullPointerException.class, () -> {
 			factory.createVideoTrack(null, null);

@@ -81,6 +81,22 @@ extern "C" {
 
 	/*
 	 * Class:     io_github_sendablemetatype_webrtc_RTCRtpSender
+	 * Method:    createVideoFrameInjector
+	 * Signature: (Lio/github/sendablemetatype/webrtc/RTCEncodedVideoFrameInjectorObserver;)Lio/github/sendablemetatype/webrtc/RTCEncodedVideoFrameInjector;
+	 */
+	JNIEXPORT jobject JNICALL Java_io_github_sendablemetatype_webrtc_RTCRtpSender_createVideoFrameInjector
+	(JNIEnv *, jobject, jobject);
+
+	/*
+	 * Class:     io_github_sendablemetatype_webrtc_RTCRtpSender
+	 * Method:    createAudioFrameInjector
+	 * Signature: (Lio/github/sendablemetatype/webrtc/RTCEncodedAudioFrameInjectorObserver;)Lio/github/sendablemetatype/webrtc/RTCEncodedAudioFrameInjector;
+	 */
+	JNIEXPORT jobject JNICALL Java_io_github_sendablemetatype_webrtc_RTCRtpSender_createAudioFrameInjector
+	(JNIEnv *, jobject, jobject);
+
+	/*
+	 * Class:     io_github_sendablemetatype_webrtc_RTCRtpSender
 	 * Method:    getId
 	 * Signature: ()Ljava/lang/String;
 	 */

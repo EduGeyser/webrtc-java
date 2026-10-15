@@ -26,6 +26,7 @@
 #include "api/video_codecs/video_codec.h"
 #include "api/video_codecs/video_encoder.h"
 #include "common_video/h264/h264_bitstream_parser.h"
+#include "common_video/h265/h265_bitstream_parser.h"
 #include "modules/video_coding/codecs/vp9/include/vp9_globals.h"
 #include "modules/video_coding/include/video_codec_interface.h"
 #include "modules/video_coding/svc/scalable_video_controller_no_layering.h"
@@ -79,6 +80,8 @@ namespace jni
 			int32_t HandleReturnCode(JNIEnv * env, int32_t status, const char * method);
 			void InvalidateCallback(JNIEnv * env);
 			void UpdateEncoderInfo(JNIEnv * env);
+			// Tells WebRTC that a frame given to the encoder will not come out.
+			void ReportDroppedFrame(uint32_t rtpTimestamp);
 
 			ScalingSettings GetScalingSettings(JNIEnv * env) const;
 			std::vector<ResolutionBitrateLimits> GetResolutionBitrateLimits(JNIEnv * env) const;
@@ -155,6 +158,7 @@ namespace jni
 
 			// Used on the thread the Java encoder hands its frames over on.
 			webrtc::H264BitstreamParser h264BitstreamParser;
+			webrtc::H265BitstreamParser h265BitstreamParser;
 			webrtc::ScalableVideoControllerNoLayering svcController;
 			webrtc::GofInfoVP9 gof;
 			size_t gofIndex;

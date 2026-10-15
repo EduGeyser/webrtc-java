@@ -95,9 +95,10 @@ jobs:
           config: .github/changelog/cliff.toml
           args: -v --prepend CHANGELOG.md -u --tag ${{ steps.release-version.outputs.tag }} --use-branch-tags
 
-      # The release commit sets the release version and is tagged; the next
-      # commit moves on to the development version and records the release in
-      # the documentation. A dry run creates no commit and no tag.
+      # The release commit sets the release version, records it in the
+      # documentation and is tagged, so that the tagged tree names the version
+      # it releases; the next commit moves on to the development version. A dry
+      # run creates no commit and no tag.
       - name: Prepare release
         if: ${{ !inputs.dryRun }}
         env:
@@ -109,11 +110,11 @@ jobs:
           git commit -m "chore(release): Update CHANGELOG.md for $RELEASE_TAG"
 
           sed -i "s/^version=.*/version=$RELEASE_VERSION/" gradle.properties
+          sed -i "s/VERSION: '.*'/VERSION: '$RELEASE_VERSION'/g" docs/.vitepress/versions.ts
           git commit -am "Prepare release $RELEASE_TAG"
           git tag -a "$RELEASE_TAG" -m "$RELEASE_TAG"
 
           sed -i "s/^version=.*/version=$DEVELOPMENT_VERSION/" gradle.properties
-          sed -i "s/VERSION: '.*'/VERSION: '$RELEASE_VERSION'/g" docs/.vitepress/versions.ts
           git commit -am "Prepare for next development iteration"
 
       # The branch and the tag land together or not at all.

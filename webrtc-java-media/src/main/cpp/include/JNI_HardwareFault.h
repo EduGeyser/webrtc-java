@@ -40,6 +40,14 @@ extern "C" {
 
 	/*
 	 * Class:     io_github_sendablemetatype_webrtc_media_player_HardwareFault
+	 * Method:    hideDevices
+	 * Signature: ()V
+	 */
+	JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_media_player_HardwareFault_hideDevices
+	(JNIEnv *, jclass);
+
+	/*
+	 * Class:     io_github_sendablemetatype_webrtc_media_player_HardwareFault
 	 * Method:    disarm
 	 * Signature: ()V
 	 */

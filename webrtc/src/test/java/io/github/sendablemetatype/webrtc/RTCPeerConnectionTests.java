@@ -18,6 +18,8 @@ package io.github.sendablemetatype.webrtc;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+import io.github.sendablemetatype.webrtc.media.MediaStreamTrack;
+import io.github.sendablemetatype.webrtc.media.MediaType;
 import io.github.sendablemetatype.webrtc.media.audio.AudioOptions;
 import io.github.sendablemetatype.webrtc.media.audio.AudioTrackSource;
 import io.github.sendablemetatype.webrtc.media.audio.AudioTrack;
@@ -217,7 +219,10 @@ class RTCPeerConnectionTests extends TestBase {
 	@Test
 	void addTransceiverNullParams() {
 		assertThrows(NullPointerException.class, () -> {
-			peerConnection.addTransceiver(null, null);
+			peerConnection.addTransceiver((MediaStreamTrack) null, null);
+		});
+		assertThrows(NullPointerException.class, () -> {
+			peerConnection.addTransceiver((MediaType) null, null);
 		});
 	}
 
