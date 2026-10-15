@@ -49,12 +49,25 @@ You can configure various aspects of the logging system:
 ```java
 // Configure logging to debug output with minimum severity level
 Logging.logToDebug(Logging.Severity.INFO);
+```
 
-// Enable/disable thread ID in log messages
-Logging.logThreads(true);
+WebRTC takes the rest of its logging configuration once, when the native library is loaded. To add more details to each log line, set these system properties to `true` before the library is first used:
 
-// Enable/disable timestamps in log messages
-Logging.logTimestamps(true);
+| Property | Adds to each line |
+|----------|-------------------|
+| `io.github.sendablemetatype.webrtc.logging.threads` | The ID of the thread that wrote it |
+| `io.github.sendablemetatype.webrtc.logging.timestamps` | The time since the first log line, in seconds and milliseconds |
+
+Set them on the command line:
+
+```shell
+java -Dio.github.sendablemetatype.webrtc.logging.threads=true -jar app.jar
+```
+
+Or set them in code, before the first use of the library:
+
+```java
+System.setProperty("io.github.sendablemetatype.webrtc.logging.threads", "true");
 ```
 
 ### Custom Log Sinks

@@ -39,22 +39,6 @@ extern "C" {
 	JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_logging_Logging_logToDebug
 	(JNIEnv *, jclass, jobject);
 
-	/*
-	 * Class:     io_github_sendablemetatype_webrtc_logging_Logging
-	 * Method:    logThreads
-	 * Signature: (Z)V
-	 */
-	JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_logging_Logging_logThreads
-	(JNIEnv *, jclass, jboolean);
-
-	/*
-	 * Class:     io_github_sendablemetatype_webrtc_logging_Logging
-	 * Method:    logTimestamps
-	 * Signature: (Z)V
-	 */
-	JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_logging_Logging_logTimestamps
-	(JNIEnv *, jclass, jboolean);
-
 #ifdef __cplusplus
 }
 #endif

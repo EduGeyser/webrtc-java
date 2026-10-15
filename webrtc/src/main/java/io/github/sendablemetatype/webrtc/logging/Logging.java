@@ -21,6 +21,17 @@ import java.io.StringWriter;
 
 import io.github.sendablemetatype.webrtc.internal.NativeLoader;
 
+/**
+ * Access to the native WebRTC logging.
+ * <p>
+ * WebRTC takes its logging configuration once, when the native library is
+ * loaded. To add the ID of the logging thread or the time since the first log
+ * line to each line, set the system property
+ * {@code io.github.sendablemetatype.webrtc.logging.threads} or
+ * {@code io.github.sendablemetatype.webrtc.logging.timestamps} to
+ * {@code true} before the library is first used, for example with {@code -D}
+ * on the command line.
+ */
 public class Logging {
 
 	static {
@@ -108,10 +119,6 @@ public class Logging {
 	public static native void log(Severity severity, String message);
 
 	public static native void logToDebug(Severity severity);
-
-	public static native void logThreads(boolean enable);
-
-	public static native void logTimestamps(boolean enable);
 
 	public static void verbose(String message) {
 		log(Severity.VERBOSE, message);

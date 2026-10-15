@@ -119,15 +119,3 @@ JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_logging_Logging_lo
 		debugLogSinkAttached = true;
 	}
 }
-
-JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_logging_Logging_logThreads
-(JNIEnv * env, jclass caller, jboolean enable)
-{
-	webrtc::LogMessage::LogThreads(static_cast<bool>(enable));
-}
-
-JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_logging_Logging_logTimestamps
-(JNIEnv * env, jclass caller, jboolean enable)
-{
-	webrtc::LogMessage::LogTimestamps(static_cast<bool>(enable));
-}
