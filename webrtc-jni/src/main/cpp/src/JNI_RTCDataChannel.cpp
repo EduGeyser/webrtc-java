@@ -27,8 +27,10 @@
 #include "api/data_channel_interface.h"
 #include "rtc_base/logging.h"
 
+#include <cstdint>
 #include <initializer_list>
 #include <memory>
+#include <span>
 
 JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_RTCDataChannel_registerObserver
 (JNIEnv * env, jobject caller, jobject jObserver)
@@ -209,7 +211,7 @@ JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_RTCDataChannel_sen
 	if (address != NULL) {
 		jlong bufferLength = env->GetDirectBufferCapacity(jBuffer);
 
-		webrtc::CopyOnWriteBuffer data(address, static_cast<size_t>(bufferLength));
+		webrtc::CopyOnWriteBuffer data(std::span<const uint8_t>(address, static_cast<size_t>(bufferLength)));
 
 		if (!channel->Send(webrtc::DataBuffer(data, static_cast<bool>(isBinary)))) {
 			env->Throw(jni::JavaRuntimeException(env, "Data channel rejected the send"));
@@ -229,7 +231,7 @@ JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_RTCDataChannel_sen
 	int8_t * arrayPtr = env->GetByteArrayElements(jBufferArray, nullptr);
 	size_t arrayLength = env->GetArrayLength(jBufferArray);
 
-	webrtc::CopyOnWriteBuffer data(arrayPtr, arrayLength);
+	webrtc::CopyOnWriteBuffer data(std::span(reinterpret_cast<const uint8_t *>(arrayPtr), arrayLength));
 
 	env->ReleaseByteArrayElements(jBufferArray, arrayPtr, JNI_ABORT);
 
@@ -295,7 +297,7 @@ static void sendDirectBufferAsync(JNIEnv * env, jobject caller, jobject jBuffer,
 			}
 
 			// The data is copied before returning, so the caller may reuse the buffer.
-			webrtc::CopyOnWriteBuffer data(address + position, static_cast<size_t>(length));
+			webrtc::CopyOnWriteBuffer data(std::span<const uint8_t>(address + position, static_cast<size_t>(length)));
 
 			sendAsync(env, channel, webrtc::DataBuffer(data, static_cast<bool>(isBinary)), jObserver);
 		}
@@ -323,7 +325,8 @@ static void sendByteArrayBufferAsync(JNIEnv * env, jobject caller, jbyteArray jB
 		if (!bytes) {
 			return;
 		}
-		webrtc::CopyOnWriteBuffer data(bytes.get(), env->GetArrayLength(jBufferArray));
+		webrtc::CopyOnWriteBuffer data(std::span(reinterpret_cast<const uint8_t *>(bytes.get()),
+			static_cast<size_t>(env->GetArrayLength(jBufferArray))));
 		bytes.reset();
 
 		sendAsync(env, channel, webrtc::DataBuffer(data, static_cast<bool>(isBinary)), jObserver);
