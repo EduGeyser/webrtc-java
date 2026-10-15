@@ -78,6 +78,7 @@ namespace jni
 			return std::make_unique<VideoEncoderWrapper>(env, encoder, format);
 		}
 		catch (...) {
+			ThrowCxxJavaException(env);
 			ClearCodecException(env, "createEncoder");
 
 			RTC_LOG(LS_WARNING) << "Java encoder factory failed to create an encoder for " << format.ToString();

@@ -67,6 +67,7 @@ namespace jni
 					JavaLocalRef<jstring>(env, static_cast<jstring>(env->NewLocalRef(name))));
 			}
 			catch (...) {
+				ThrowCxxJavaException(env);
 				ClearCodecException(env, "getImplementationName");
 			}
 		}
@@ -182,6 +183,7 @@ namespace jni
 			jImage = EncodedImage::toJava(env, image).release();
 		}
 		catch (...) {
+			ThrowCxxJavaException(env);
 			ClearCodecException(env, "decode");
 		}
 

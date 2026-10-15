@@ -25,10 +25,10 @@
 
 namespace jni
 {
-	// Logs and clears a pending Java exception, which is how the codec
-	// wrappers deal with whatever a Java codec or factory throws: nothing
-	// may throw into WebRTC, and no JNI call may be made with an exception
-	// pending. Returns whether there was one.
+	// Reports, logs and clears a pending Java exception, which is how the
+	// codec wrappers deal with whatever a Java codec or factory throws:
+	// nothing may throw into WebRTC, and no JNI call may be made with an
+	// exception pending. Returns whether there was one.
 	bool ClearCodecException(JNIEnv * env, const char * context);
 
 	// Converts a Java VideoCodecStatus to a WEBRTC_VIDEO_CODEC_* code. A

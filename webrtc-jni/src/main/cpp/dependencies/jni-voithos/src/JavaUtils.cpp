@@ -21,9 +21,10 @@
 
 bool ExceptionCheck(JNIEnv * env)
 {
+	// The exception is not printed: it travels on in the C++ exception, to be
+	// thrown into the Java caller or reported by the callback that catches it.
 	if (env->ExceptionCheck()) {
 		jthrowable exception = env->ExceptionOccurred();
-		env->ExceptionDescribe();
 		env->ExceptionClear();
 
 		if (exception) {

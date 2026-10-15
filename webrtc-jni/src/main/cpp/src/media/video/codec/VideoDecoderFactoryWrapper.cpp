@@ -79,6 +79,7 @@ namespace jni
 			return std::make_unique<VideoDecoderWrapper>(env, decoder);
 		}
 		catch (...) {
+			ThrowCxxJavaException(env);
 			ClearCodecException(env, "createDecoder");
 
 			RTC_LOG(LS_WARNING) << "Java decoder factory failed to create a decoder for " << format.ToString();

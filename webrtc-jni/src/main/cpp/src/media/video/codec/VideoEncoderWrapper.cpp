@@ -233,6 +233,7 @@ namespace jni
 			jFrame = VideoFrame::toJava(env, frame).release();
 		}
 		catch (...) {
+			ThrowCxxJavaException(env);
 			ClearCodecException(env, "encode");
 		}
 
@@ -449,6 +450,7 @@ namespace jni
 					JavaLocalRef<jstring>(env, static_cast<jstring>(env->NewLocalRef(name))));
 			}
 			catch (...) {
+				ThrowCxxJavaException(env);
 				ClearCodecException(env, "getImplementationName");
 			}
 		}
@@ -488,6 +490,7 @@ namespace jni
 			high = OptionalInt(env, env->GetObjectField(settings, javaClass->scalingHigh));
 		}
 		catch (...) {
+			ThrowCxxJavaException(env);
 			ClearCodecException(env, "getScalingSettings");
 		}
 

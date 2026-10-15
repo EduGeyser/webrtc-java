@@ -15,8 +15,10 @@
  */
 
 #include "rtc/LogSink.h"
+#include "api/WebRTCUtils.h"
 #include "JavaEnums.h"
 #include "JavaString.h"
+#include "JavaUtils.h"
 #include "JNI_WebRTC.h"
 
 namespace jni
@@ -57,16 +59,13 @@ namespace jni
 			JavaLocalRef<jstring> jMessage = JavaString::toJava(env, message);
 
 			env->CallVoidMethod(javaSink, javaClass->onLogMessage, jSeverity.get(), jMessage.get());
-
-			// What the sink threw is reported, but not rethrown.
-			if (env->ExceptionCheck()) {
-				env->ExceptionDescribe();
-				env->ExceptionClear();
-			}
 		}
 		catch (...) {
-			env->ExceptionClear();
+			ThrowCxxJavaException(env);
 		}
+
+		// What the sink threw is reported, but not rethrown.
+		ReportPendingException(env);
 
 		if (pending != nullptr) {
 			env->Throw(pending);

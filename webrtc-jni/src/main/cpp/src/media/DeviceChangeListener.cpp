@@ -17,14 +17,11 @@
 #include "media/DeviceChangeListener.h"
 #include "media/audio/AudioDevice.h"
 #include "media/video/VideoDevice.h"
+#include "api/WebRTCUtils.h"
 #include "JavaFactories.h"
 #include "JavaString.h"
 #include "JavaUtils.h"
 #include "JNI_WebRTC.h"
-
-#include "rtc_base/logging.h"
-
-#include <exception>
 
 namespace jni
 {
@@ -54,9 +51,10 @@ namespace jni
 
 		// This runs on a thread the operating system owns (a CoreAudio queue, the MMDevice
 		// notification thread, the PulseAudio main loop, ...), which has no handler for a C++
-		// exception and never returns to Java. So nothing may be thrown from here, and what the
-		// Java listener throws is reported and cleared: left pending, it would be there for the
-		// next JNI call on this thread, which may be the next listener or the next event.
+		// exception and never returns to Java. So nothing may be thrown from here, and a failure
+		// here or what the Java listener throws is reported and cleared: left pending, it would be
+		// there for the next JNI call on this thread, which may be the next listener or the next
+		// event.
 		try {
 			JavaLocalRef<jobject> jdevice = nullptr;
 
@@ -72,17 +70,11 @@ namespace jni
 				env->CallVoidMethod(listener, method, jdevice.get());
 			}
 		}
-		catch (const std::exception & e) {
-			RTC_LOG(LS_ERROR) << "Device change notification failed: " << e.what();
-		}
 		catch (...) {
-			RTC_LOG(LS_ERROR) << "Device change notification failed";
+			ThrowCxxJavaException(env);
 		}
 
-		if (env->ExceptionCheck()) {
-			env->ExceptionDescribe();
-			env->ExceptionClear();
-		}
+		ReportPendingException(env);
 	}
 
 	DeviceChangeListener::JavaDeviceChangeListenerClass::JavaDeviceChangeListenerClass(JNIEnv * env)
