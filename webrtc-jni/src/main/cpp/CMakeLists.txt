@@ -106,7 +106,7 @@ if(WEBRTC_DATA_CHANNELS_ONLY)
     # The peer connection, data channel and transport bindings stay; the
     # media bindings and the device code go.
     list(FILTER SOURCES EXCLUDE REGEX "/src/(media|platform|api/audio)/")
-    list(FILTER SOURCES EXCLUDE REGEX "/src/JNI_(Audio|BuiltinAudio|CustomAudio|CustomVideo|DefaultVideo|Desktop|HardwareVideo|Headless|Media|NativeApi|NativeI420|NativeVideo|Power|RTCDtmf|RTCEncoded|RTCRtp|Screen|SyncClock|Video|VoiceActivity|Window)[A-Za-z0-9]*\\.cpp$")
+    list(FILTER SOURCES EXCLUDE REGEX "/src/JNI_(Audio|BuiltinAudio|CustomAudio|CustomVideo|DefaultVideo|Desktop|HardwareVideo|Headless|Media|NativeApi|NativeI420|NativeVideo|Power|RTCDtmf|RTCEncoded|RTCRtp|Screen|StandaloneVoiceActivity|SyncClock|Video|VoiceActivity|Window)[A-Za-z0-9]*\\.cpp$")
     list(FILTER SOURCES EXCLUDE REGEX "/src/api/(Audio|EncodedFrame|ExtensionApi|HeadlessAudio|ProxyAudio|RTCDtmf|RTCEncoded|RTCResolutionRestriction|RTCRtcp|RTCRtp|Video)[A-Za-z0-9]*\\.cpp$")
 endif()
 

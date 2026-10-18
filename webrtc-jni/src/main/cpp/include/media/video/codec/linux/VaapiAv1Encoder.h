@@ -20,15 +20,18 @@
 #include "media/video/codec/EncoderOutputProcessor.h"
 #include "media/video/codec/linux/VaapiEncodeSession.h"
 #include "media/video/codec/linux/VaapiLibrary.h"
+#include "media/video/codec/linux/VaapiTemporalLayers.h"
 
 #include "api/video/video_frame.h"
 #include "api/video_codecs/sdp_video_format.h"
 #include "api/video_codecs/video_codec.h"
 #include "api/video_codecs/video_encoder.h"
+#include "modules/video_coding/svc/scalable_video_controller.h"
 
 #include <va/va.h>
 #include <va/va_enc_av1.h>
 
+#include <array>
 #include <cstdint>
 #include <string>
 #include <vector>
@@ -39,12 +42,16 @@ namespace jni
 	// drivers provide it on Linux.
 	//
 	// It works as FFmpeg's VA-API encoder does without B-frames: synchronous,
-	// one tile, inter frames that refer to the frame before them only, which
-	// alternate between two reference slots. The sequence and frame headers
+	// one tile, inter frames that refer to one frame before them. Without
+	// layers that is the frame just before; with temporal layers (L1T2, L1T3)
+	// it is the one of the same layer or a lower one that WebRTC's structure
+	// of the mode names, so that a receiver can do without the upper layers.
+	// Each reference buffer of the structure is the reference slot of the
+	// same number. The sequence and frame headers
 	// are written here and handed to the driver as packed headers, with where
 	// the quantizer, loop filter and CDEF parameters are in the frame header,
-	// which the driver's rate control fills in. Anything that fails is an
-	// error, upon which libaom takes over.
+	// which the driver's rate control fills in. Spatial layers, and anything
+	// that fails, are left to libaom.
 	class VaapiAv1Encoder : public webrtc::VideoEncoder
 	{
 		public:
@@ -74,10 +81,11 @@ namespace jni
 			// Reads which headers the driver takes and how it codes them.
 			void QueryCapabilities();
 
-			bool Submit(bool keyFrame);
+			bool Submit(bool keyFrame, const VaapiTemporalLayers::Frame & frame);
 
 			void WriteSequenceHeader(std::vector<uint8_t> & obu) const;
-			void WriteFrameHeader(std::vector<uint8_t> & obu, FrameHeaderLayout & layout, bool keyFrame) const;
+			void WriteFrameHeader(std::vector<uint8_t> & obu, FrameHeaderLayout & layout, bool keyFrame,
+				const VaapiTemporalLayers::Frame & frame) const;
 			// The seq_level_idx the stream's size, frame rate and bitrate fit.
 			uint8_t Level() const;
 
@@ -100,9 +108,7 @@ namespace jni
 			// The sequence header, kept for the key frames.
 			std::vector<uint8_t> sequenceHeader;
 
-			// Which of the reconstructed surfaces, and so which reference slot,
-			// holds the current frame.
-			int current;
+			VaapiTemporalLayers layers;
 			bool referenceValid;
 			// The frames since the last key frame, whose low bits are the
 			// order hint.

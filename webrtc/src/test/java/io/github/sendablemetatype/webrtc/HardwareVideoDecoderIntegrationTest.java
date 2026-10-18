@@ -23,14 +23,25 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import io.github.sendablemetatype.webrtc.media.video.I420Buffer;
+import io.github.sendablemetatype.webrtc.media.video.VideoFrame;
 import io.github.sendablemetatype.webrtc.media.video.VideoTrack;
 import io.github.sendablemetatype.webrtc.media.video.VideoTrackSink;
 import io.github.sendablemetatype.webrtc.media.video.codec.DefaultVideoDecoderFactory;
+import io.github.sendablemetatype.webrtc.media.video.codec.DefaultVideoEncoderFactory;
+import io.github.sendablemetatype.webrtc.media.video.codec.EncodedImage;
 import io.github.sendablemetatype.webrtc.media.video.codec.HardwareVideoDecoderFactory;
 import io.github.sendablemetatype.webrtc.media.video.codec.HardwareVideoEncoderFactory;
 import io.github.sendablemetatype.webrtc.media.video.codec.VideoCodecInfo;
+import io.github.sendablemetatype.webrtc.media.video.codec.VideoCodecStatus;
+import io.github.sendablemetatype.webrtc.media.video.codec.VideoDecoderFactory;
+import io.github.sendablemetatype.webrtc.media.video.codec.VideoEncoder;
+import io.github.sendablemetatype.webrtc.media.video.codec.VideoEncoderFactory;
 
+import java.io.ByteArrayOutputStream;
+import java.io.InputStream;
 import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -505,6 +516,205 @@ class HardwareVideoDecoderIntegrationTest extends TestBase {
 		}
 	}
 
+	/**
+	 * Decodes a VP9 stream with a fixed interpolation filter (regular, as
+	 * Intel's VA-API encoder codes it), whose numbering in the bitstream
+	 * differs from VA-API's. Its frames zoom, so that a wrong filter drifts
+	 * from frame to frame: the last frame must match libvpx's.
+	 */
+	@Test
+	void hardwareDecodesVp9FixedInterpolationFilter() throws Exception {
+		assumeVp9Platform();
+
+		List<ByteBuffer> stream = readIvf("vp9-fixed-filter.ivf");
+
+		byte[] hardware = lastVp9Frame(new HardwareVideoDecoderFactory(), stream,
+				HardwareVideoDecoderIntegrationTest::expectVp9Hardware);
+		byte[] software = lastVp9Frame(new DefaultVideoDecoderFactory(), stream, implementation -> {});
+
+		double psnr = psnr(hardware, software);
+
+		assertTrue(psnr > 45, "the last frame differs from libvpx's: " + String.format(Locale.ROOT, "%.1f dB", psnr));
+	}
+
+	/**
+	 * Sends the recorded VP9 frames through a call whose receiver decodes
+	 * with the given factory, and returns the luma of the last frame.
+	 */
+	private byte[] lastVp9Frame(VideoDecoderFactory decoders, List<ByteBuffer> stream,
+			Consumer<String> expectHardware) throws Exception {
+		final int width = 320;
+		final int height = 180;
+
+		PeerConnectionFactory factory = PeerConnectionFactory.builder()
+				.setAudioDeviceModule(audioDevModule)
+				.setVideoEncoderFactory(new ReplayEncoderFactory(stream, width, height))
+				.setVideoDecoderFactory(decoders)
+				.build();
+
+		CountDownLatch received = new CountDownLatch(stream.size());
+		AtomicReference<byte[]> last = new AtomicReference<>();
+		String implementation;
+
+		try (TestMediaCall call = new TestMediaCall(factory, true, false, VP9)) {
+			call.setVideoSize(width, height);
+			call.negotiate();
+
+			RTCRtpReceiver receiver = call.getReceiver("video");
+			VideoTrack track = (VideoTrack) receiver.getTrack();
+			VideoTrackSink sink = frame -> {
+				if (received.getCount() == 1) {
+					I420Buffer buffer = frame.buffer.toI420();
+					byte[] luma = new byte[width * height];
+
+					for (int row = 0; row < height; row++) {
+						ByteBuffer line = buffer.getDataY().duplicate();
+						line.position(row * buffer.getStrideY());
+						line.get(luma, row * width, width);
+					}
+
+					last.set(luma);
+				}
+
+				frame.release();
+				received.countDown();
+			};
+			track.addSink(sink);
+
+			call.awaitConnected();
+			call.startMedia();
+
+			assertTrue(received.await(TIMEOUT_SECONDS, TimeUnit.SECONDS), "too few frames received");
+
+			implementation = decoderImplementationOf(call);
+
+			track.removeSink(sink);
+			receiver.dispose();
+		}
+		finally {
+			factory.dispose();
+		}
+
+		expectHardware.accept(implementation);
+
+		return last.get();
+	}
+
+	private static List<ByteBuffer> readIvf(String name) throws Exception {
+		ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+
+		try (InputStream input = HardwareVideoDecoderIntegrationTest.class.getResourceAsStream(name)) {
+			byte[] chunk = new byte[8192];
+			int read;
+
+			while ((read = input.read(chunk)) > 0) {
+				bytes.write(chunk, 0, read);
+			}
+		}
+
+		byte[] file = bytes.toByteArray();
+
+		ByteBuffer data = ByteBuffer.wrap(file).order(ByteOrder.LITTLE_ENDIAN);
+		List<ByteBuffer> frames = new ArrayList<>();
+		int position = data.getShort(6);
+
+		while (position + 12 <= file.length) {
+			int size = data.getInt(position);
+			frames.add(ByteBuffer.wrap(file, position + 12, size).slice());
+			position += 12 + size;
+		}
+
+		return frames;
+	}
+
+	private static double psnr(byte[] a, byte[] b) {
+		double error = 0;
+
+		for (int i = 0; i < a.length; i++) {
+			int difference = (a[i] & 0xff) - (b[i] & 0xff);
+			error += difference * difference;
+		}
+
+		return error == 0 ? Double.POSITIVE_INFINITY : 10 * Math.log10(255.0 * 255.0 * a.length / error);
+	}
+
+	/**
+	 * Offers VP9 as the built-in factory does, and "encodes" each frame into
+	 * the next one of a recorded stream; frames after the end produce nothing.
+	 */
+	private static final class ReplayEncoderFactory implements VideoEncoderFactory {
+
+		private final DefaultVideoEncoderFactory builtIn = new DefaultVideoEncoderFactory();
+
+		private final List<ByteBuffer> stream;
+
+		private final int width;
+
+		private final int height;
+
+
+		ReplayEncoderFactory(List<ByteBuffer> stream, int width, int height) {
+			this.stream = stream;
+			this.width = width;
+			this.height = height;
+		}
+
+		@Override
+		public List<VideoCodecInfo> getSupportedCodecs() {
+			return builtIn.getSupportedCodecs();
+		}
+
+		@Override
+		public VideoEncoder createEncoder(VideoCodecInfo info) {
+			if (!"VP9".equalsIgnoreCase(info.getName())) {
+				return builtIn.createEncoder(info);
+			}
+
+			return new VideoEncoder() {
+
+				private Callback callback;
+
+				private int next;
+
+				@Override
+				public VideoCodecStatus initEncode(Settings settings, Callback callback) {
+					this.callback = callback;
+					return VideoCodecStatus.OK;
+				}
+
+				@Override
+				public VideoCodecStatus release() {
+					return VideoCodecStatus.OK;
+				}
+
+				@Override
+				public VideoCodecStatus encode(VideoFrame frame, EncodeInfo info) {
+					if (next < stream.size()) {
+						ByteBuffer payload = ByteBuffer.allocateDirect(stream.get(next).remaining());
+						payload.put(stream.get(next).duplicate()).flip();
+
+						callback.onEncodedFrame(EncodedImage.builder()
+								.setBuffer(payload)
+								.setEncodedWidth(width)
+								.setEncodedHeight(height)
+								.setCaptureTimeNs(frame.timestampNs)
+								.setFrameType(next == 0 ? EncodedImage.FrameType.KEY : EncodedImage.FrameType.DELTA)
+								.build());
+						next++;
+					}
+
+					return VideoCodecStatus.OK;
+				}
+
+				@Override
+				public VideoCodecStatus setRates(RateControlParameters parameters) {
+					return VideoCodecStatus.OK;
+				}
+			};
+		}
+
+	}
+
 	@Test
 	void vp9NeedsNoKeyFrames() throws Exception {
 		assumeVp9Platform();
@@ -542,10 +752,115 @@ class HardwareVideoDecoderIntegrationTest extends TestBase {
 
 		assumeTrue(result.scalability.startsWith("L2"), "no spatial layers were encoded: " + result.scalability);
 
-		// The frames arrive, from libvpx: the layers of a frame come without a
-		// superframe index, which VideoToolbox does not decode, and which a
-		// Media Foundation or NVDEC decoder is not known to.
-		assertFalse(isHardware(result.decoder), result.decoder);
+		if (OS.contains("linux") && result.decoder.startsWith("VA-API")) {
+			// VA-API uses the layer sizes WebRTC supplies to decode the layers
+			// in order, including references at a different resolution.
+			assertTrue(result.pliCount <= 1, "key frames requested: " + result.pliCount);
+		}
+		else {
+			assertFalse(isHardware(result.decoder), result.decoder);
+		}
+	}
+
+	@Test
+	void vaapiDecodesThreeSpatialLayers() throws Exception {
+		assumeTrue(OS.contains("linux"), "VA-API is available on Linux only");
+		for (String mode : new String[] { "L3T3", "L3T3_KEY" }) {
+			CallResult result = receiveVideo(hardwareFactory(), VP9, 1280, 720, mode, 90);
+			assertEquals(mode, result.scalability);
+			expectVp9Hardware(result.decoder);
+			assertTrue(result.decoder.startsWith("VA-API"), result.decoder);
+			assertTrue(result.pliCount <= 1, "key frames requested: " + result.pliCount);
+		}
+	}
+
+	@Test
+	void vaapiFollowsSpatialLayerChanges() throws Exception {
+		assertSpatialLayerChanges("L3T3", 1280, false);
+	}
+
+	@Test
+	void vaapiFollowsTwoSpatialLayerChanges() throws Exception {
+		assertSpatialLayerChanges("L2T2", 640, false);
+	}
+
+	@Test
+	void vaapiFollowsKeySpatialLayerChanges() throws Exception {
+		assertSpatialLayerChanges("L3T3_KEY", 1280, false);
+	}
+
+	@Test
+	void vaapiAddsSpatialLayersAfterStartingAtBaseLayer() throws Exception {
+		assertSpatialLayerChanges("L3T3", 1280, true);
+	}
+
+	/** Changes the bitrate budget without resizing the source or changing the SVC mode. */
+	private void assertSpatialLayerChanges(String mode, int fullWidth, boolean startAtBase) throws Exception {
+		assumeTrue(OS.contains("linux"), "VA-API is available on Linux only");
+		PeerConnectionFactory hardware = hardwareFactory();
+		AtomicInteger expectedWidth = new AtomicInteger(startAtBase ? 320 : fullWidth);
+		AtomicReference<CountDownLatch> frames = new AtomicReference<>(new CountDownLatch(10));
+
+		try (TestMediaCall call = new TestMediaCall(hardware, true, false, VP9)) {
+			call.setVideoSize(fullWidth, fullWidth * 9 / 16);
+			call.negotiate();
+			RTCRtpReceiver receiver = call.getReceiver("video");
+			VideoTrack track = (VideoTrack) receiver.getTrack();
+			VideoTrackSink sink = frame -> {
+				int width = expectedWidth.get();
+				if (frame.buffer.getWidth() == width && frame.buffer.getHeight() == width * 9 / 16) {
+					frames.get().countDown();
+				}
+				frame.release();
+			};
+			track.addSink(sink);
+			try {
+				call.awaitConnected();
+				RTCRtpSender sender = call.getVideoSender();
+				RTCRtpSendParameters parameters = sender.getParameters();
+				parameters.degradationPreference = RTCDegradationPreference.MAINTAIN_RESOLUTION;
+				parameters.encodings.get(0).scalabilityMode = mode;
+				parameters.encodings.get(0).minBitrate = startAtBase ? 30_000 : 2_000_000;
+				parameters.encodings.get(0).maxBitrate = startAtBase ? 100_000 : 3_000_000;
+				sender.setParameters(parameters);
+				call.startMedia();
+				assertTrue(frames.get().await(TIMEOUT_SECONDS, TimeUnit.SECONDS), "no initial spatial layer");
+				String implementation = decoderImplementationOf(call);
+				expectVp9Hardware(implementation);
+				assumeTrue(implementation.startsWith("VA-API"), implementation);
+				assertEquals(mode, call.getOutboundVideoStats().get("scalabilityMode"));
+
+				// Keep the source and SVC mode unchanged. The bitrate allocator
+				// disables upper spatial layers, then enables them again.
+				int[] widths = fullWidth == 1280
+						? new int[] { 640, 320, 640, 1280, 320, 1280 }
+						: new int[] { 320, 640, 320, 640 };
+				for (int width : widths) {
+					expectedWidth.set(width);
+					CountDownLatch received = new CountDownLatch(10);
+					frames.set(received);
+					parameters = sender.getParameters();
+					parameters.encodings.get(0).minBitrate = width == 320 ? 30_000
+							: width == fullWidth ? 2_000_000 : 400_000;
+					parameters.encodings.get(0).maxBitrate = width == 320 ? 100_000
+							: width == fullWidth ? 3_000_000 : 500_000;
+					sender.setParameters(parameters);
+					assertTrue(received.await(TIMEOUT_SECONDS, TimeUnit.SECONDS), "no frames at width " + width);
+					assertEquals(implementation, decoderImplementationOf(call));
+				}
+				// Starting with only the base layer may require new surfaces as
+				// upper layers arrive. At most one request per growth step.
+				long pliCount = count(call.getInboundVideoStats(), "pliCount");
+				assertTrue(pliCount <= (startAtBase ? 3 : 2), "key frames requested: " + pliCount);
+			}
+			finally {
+				track.removeSink(sink);
+				receiver.dispose();
+			}
+		}
+		finally {
+			hardware.dispose();
+		}
 	}
 
 	@Test

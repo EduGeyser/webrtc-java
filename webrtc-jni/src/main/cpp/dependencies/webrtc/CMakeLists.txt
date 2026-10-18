@@ -245,7 +245,29 @@ endif()
 # the JNI code is compiled with below. Changing an arg or a target here thus
 # rebuilds WebRTC on its own; CI's cache key covers this file.
 set(WEBRTC_ARGS_FILE "webrtc-java-gn-args.txt")
-set(WEBRTC_BUILD_RECORD "${COMPILE_ARGS} extra_targets=\"${WEBRTC_EXTRA_TARGETS}\"")
+# Patch content is part of a compiled library's identity, including local
+# installs outside CI. Otherwise an installed archive bypasses patch application.
+file(GLOB WEBRTC_PATCHES CONFIGURE_DEPENDS
+    "${CMAKE_CURRENT_LIST_DIR}/patches/common/*.patch"
+    "${CMAKE_CURRENT_LIST_DIR}/patches/${SOURCE_TARGET}/*.patch")
+list(SORT WEBRTC_PATCHES)
+
+if(WEBRTC_DATA_CHANNELS_ONLY AND (APPLE OR WIN32))
+    # Both variants share the sources. Make desktop capture a GN argument with
+    # its original default, so regenerating a full output directory stays safe
+    # even while the data channels patch is present in the checkout.
+    set(DESKTOP_CAPTURE_PATCH "${CMAKE_CURRENT_LIST_DIR}/patches/data-channels/desktop_capture_argument.patch")
+    list(APPEND WEBRTC_PATCHES "${DESKTOP_CAPTURE_PATCH}")
+endif()
+
+set(WEBRTC_PATCH_RECORD "")
+foreach(PATCH IN LISTS WEBRTC_PATCHES)
+    file(SHA256 "${PATCH}" PATCH_HASH)
+    file(RELATIVE_PATH PATCH_NAME "${CMAKE_CURRENT_LIST_DIR}/patches" "${PATCH}")
+    string(APPEND WEBRTC_PATCH_RECORD "${PATCH_NAME}:${PATCH_HASH}\n")
+endforeach()
+string(SHA256 WEBRTC_PATCH_HASH "${WEBRTC_PATCH_RECORD}")
+set(WEBRTC_BUILD_RECORD "${COMPILE_ARGS} extra_targets=\"${WEBRTC_EXTRA_TARGETS}\" patches=\"${WEBRTC_PATCH_HASH}\"")
 
 function(webrtc_args_match DIRECTORY RESULT)
     set(MATCHES FALSE)
@@ -569,15 +591,7 @@ if(LINUX)
     sysroot_install()
 endif()
 
-file(GLOB PATCHES "${CMAKE_CURRENT_LIST_DIR}/patches/${SOURCE_TARGET}/*.patch")
-
-if(WEBRTC_DATA_CHANNELS_ONLY AND (APPLE OR WIN32))
-    # Both variants share the sources. Make desktop capture a GN argument with
-    # its original default, so regenerating a full output directory stays safe
-    # even while the data channels patch is present in the checkout.
-    set(DESKTOP_CAPTURE_PATCH "${CMAKE_CURRENT_LIST_DIR}/patches/data-channels/desktop_capture_argument.patch")
-    list(APPEND PATCHES "${DESKTOP_CAPTURE_PATCH}")
-endif()
+set(PATCHES ${WEBRTC_PATCHES})
 
 if (PATCHES)
     message(STATUS "WebRTC: patch")
@@ -596,6 +610,8 @@ if (PATCHES)
             message(STATUS "Patch applied: ${PATCH}")
         elseif(PATCH STREQUAL "${DESKTOP_CAPTURE_PATCH}")
             message(FATAL_ERROR "Cannot configure the data channels desktop capture switch")
+        elseif(PATCH MATCHES "/patches/common/")
+            message(FATAL_ERROR "Required WebRTC patch could not be applied: ${PATCH}")
         else()
             message(STATUS "Warning: Patch ${PATCH} not applied ....")
         endif()

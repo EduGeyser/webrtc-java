@@ -18,6 +18,7 @@ package io.github.sendablemetatype.webrtc;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assumptions.assumeFalse;
@@ -41,6 +42,7 @@ import io.github.sendablemetatype.webrtc.media.video.codec.VideoEncoderFactory;
 
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
@@ -52,6 +54,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Predicate;
+import java.util.function.Supplier;
 
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -520,6 +523,115 @@ class HardwareVideoEncoderIntegrationTest extends TestBase {
 		finally {
 			hardware.dispose();
 		}
+	}
+
+	@Test
+	void av1EncodesTemporalLayers() throws Exception {
+		assertEncodesTemporalLayers(this::hardwareFactory, AV1, HARDWARE_AV1_REQUIRED);
+	}
+
+	@Test
+	void vp9EncodesTemporalLayers() throws Exception {
+		// VA-API encodes VP9 in temporal layers, Media Foundation does not.
+		assumeTrue(OS.contains("linux"), "hardware VP9 encodes temporal layers on Linux only");
+
+		assertEncodesTemporalLayers(this::hardwareFactory, VP9, HARDWARE_VP9_REQUIRED);
+	}
+
+	@Test
+	void h264EncodesTemporalLayers() throws Exception {
+		// VA-API encodes H.264 in temporal layers; NVENC and Media Foundation
+		// leave them to OpenH264. Received with the hardware decoders, which
+		// decode the layers too.
+		assumeTrue(OS.contains("linux"), "hardware H.264 encodes temporal layers on Linux only");
+
+		assertEncodesTemporalLayers(this::hardwareCallFactory, H264, HARDWARE_REQUIRED);
+	}
+
+	@Test
+	void h265EncodesTemporalLayers() throws Exception {
+		// There is no software H.265 to receive it, so the hardware decoders do.
+		assumeTrue(OS.contains("linux"), "hardware H.265 encodes temporal layers on Linux only");
+		assumeH265();
+
+		assertEncodesTemporalLayers(this::hardwareCallFactory, H265, true);
+	}
+
+	/**
+	 * Sends the codec in L1T2 and then L1T3, each on a call of a factory the
+	 * supplier makes, and checks that the hardware encodes the layers, rather
+	 * than handing them to the software encoder.
+	 * Temporal layers are references between frames of one size, which a
+	 * hardware encoder can make; an SFU can then forward a lower frame rate
+	 * without asking for key frames.
+	 */
+	private void assertEncodesTemporalLayers(Supplier<PeerConnectionFactory> factory,
+			Predicate<RTCRtpCodecCapability> codec, boolean required) throws Exception {
+		for (String mode : new String[] { "L1T2", "L1T3" }) {
+			PeerConnectionFactory hardware = factory.get();
+			CountDownLatch received = new CountDownLatch(30);
+
+			try (TestMediaCall call = new TestMediaCall(hardware, true, false, codec)) {
+				call.setVideoSize(640, 360);
+				call.negotiate();
+
+				RTCRtpReceiver receiver = call.getReceiver("video");
+				VideoTrack track = (VideoTrack) receiver.getTrack();
+				VideoTrackSink sink = frame -> {
+					frame.release();
+					received.countDown();
+				};
+				track.addSink(sink);
+
+				call.awaitConnected();
+
+				RTCRtpSendParameters parameters = call.getVideoSender().getParameters();
+				parameters.encodings.get(0).scalabilityMode = mode;
+				call.getVideoSender().setParameters(parameters);
+
+				call.startMedia();
+
+				assertTrue(received.await(TIMEOUT_SECONDS, TimeUnit.SECONDS), "too few frames received in " + mode);
+
+				Map<String, Object> outbound = awaitOutboundStats(call, "encoderImplementation", "scalabilityMode");
+				Map<String, Object> inbound = call.getInboundVideoStats();
+				Object pliCount = inbound == null ? null : inbound.get("pliCount");
+
+				track.removeSink(sink);
+				receiver.dispose();
+
+				assertHardware(String.valueOf(outbound.get("encoderImplementation")), required);
+				assertEquals(mode, outbound.get("scalabilityMode"));
+				assertTrue(!(pliCount instanceof Number) || ((Number) pliCount).longValue() <= 1,
+						"key frames requested: " + pliCount);
+			}
+			finally {
+				hardware.dispose();
+			}
+		}
+	}
+
+	/**
+	 * Returns the outbound video statistics once they have all the given
+	 * members, which come shortly after the encoder.
+	 */
+	private static Map<String, Object> awaitOutboundStats(TestMediaCall call, String... members)
+			throws InterruptedException {
+		long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(TIMEOUT_SECONDS);
+		Map<String, Object> outbound = null;
+
+		while (System.nanoTime() < deadline) {
+			outbound = call.getOutboundVideoStats();
+
+			if (outbound != null && Arrays.stream(members).allMatch(outbound::containsKey)) {
+				return outbound;
+			}
+
+			Thread.sleep(100);
+		}
+
+		assertNotNull(outbound, "no outbound statistics");
+		return outbound;
 	}
 
 	@Test
