@@ -157,7 +157,7 @@ JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_media_audio_Standa
 	}
 }
 
-JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_media_audio_StandaloneVoiceActivityDetector_dispose
+JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_media_audio_StandaloneVoiceActivityDetector_disposeInternal
 (JNIEnv * env, jobject caller)
 {
 	try {

@@ -55,25 +55,41 @@ public class VoiceActivityDetector extends DisposableNativeObject {
 	 * @param samplesPerChannel The number of samples in the audio chunk.
 	 * @param sampleRate        The sample rate of the audio data in Hz.
 	 */
-	public synchronized native void process(byte[] audio, int samplesPerChannel, int sampleRate);
+	public synchronized void process(byte[] audio, int samplesPerChannel, int sampleRate) {
+		processInternal(audio, samplesPerChannel, sampleRate);
+	}
 
 	/**
 	 * Gets the probability of voice presence from the last processed audio data.
 	 *
 	 * @return A value between 0.0 and 1.0 representing the probability of voice presence.
 	 */
-	public synchronized native float getLastVoiceProbability();
+	public synchronized float getLastVoiceProbability() {
+		return getLastVoiceProbabilityInternal();
+	}
 
 	/**
 	 * Releases native resources held by this object. Repeated calls are harmless.
 	 */
 	@Override
-	public synchronized native void dispose();
+	public synchronized void dispose() {
+		disposeInternal();
+	}
 
 	/**
 	 * Initializes the native resources for the voice activity detector. This method is called during construction and
 	 * sets up the underlying native implementation.
 	 */
 	private native void initialize();
+
+	// The methods above take the lock in Java rather than as synchronized
+	// native methods: the 32-bit ARM JVM of JDK 27 crashes when a synchronized
+	// native method has to wait for its lock.
+
+	private native void processInternal(byte[] audio, int samplesPerChannel, int sampleRate);
+
+	private native float getLastVoiceProbabilityInternal();
+
+	private native void disposeInternal();
 
 }
