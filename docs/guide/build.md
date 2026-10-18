@@ -81,6 +81,17 @@ The tests can run under `-Xcheck:jni`, which validates the local and global refe
 ./gradlew :webrtc:test :webrtc-java-media:test -Pjni-check
 ```
 
+## WebRTC patches and cached builds
+
+The native build applies the patches in
+`webrtc-jni/src/main/cpp/dependencies/webrtc/patches/common/` on every platform,
+followed by the platform-specific patches. Common safety patches are required:
+configuration stops if one cannot be applied.
+
+A compiled WebRTC build records its GN arguments, extra targets, and patch
+fingerprint. Changes to patch content invalidate both build-tree and installed
+caches, so a native rebuild also includes the updated patches.
+
 [build-linux-ubuntu]: https://chromium.googlesource.com/chromium/src/+/master/docs/linux/build_instructions.md#system-requirements
 [build-linux-other]: https://chromium.googlesource.com/chromium/src/+/master/docs/linux/build_instructions.md#Notes-for-other-distros
 [build-windows]: https://chromium.googlesource.com/chromium/src/+/master/docs/windows_build_instructions.md#visual-studio

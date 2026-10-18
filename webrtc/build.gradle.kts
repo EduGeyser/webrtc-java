@@ -131,6 +131,9 @@ tasks.test {
 
 	val moduleJar = tasks.jar.flatMap { it.archiveFile }
 	val testOutput = sourceSets.test.map { it.output }
+	// The patched module includes the test resources, which the replaced class
+	// path no longer brings along.
+	inputs.files(testOutput).withPropertyName("testOutput")
 
 	jvmArgumentProviders.add(CommandLineArgumentProvider {
 		val patch = testOutput.get().filter { it.exists() }.asPath
