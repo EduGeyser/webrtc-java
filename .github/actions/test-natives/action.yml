@@ -142,7 +142,8 @@ runs:
       run: ./gradlew $WEBRTC_TEST_TASKS --continue -Pnatives.dir=natives -Pwebrtc.platform=${{ inputs.classifier }} $WEBRTC_VARIANT_ARG ${VERSION:+-Pversion=$VERSION} --no-daemon -Dorg.gradle.native=false -Dorg.gradle.vfs.watch=false
       shell: bash
 
-    # What failed, for runners that cannot be reproduced locally.
+    # What failed, for runners that cannot be reproduced locally, including
+    # the report the JVM writes into the module directory when it crashes.
     - name: Upload test reports
       if: failure()
       uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -151,5 +152,6 @@ runs:
         path: |
           */build/reports/tests/
           */build/test-results/
+          */hs_err_pid*.log
         if-no-files-found: ignore
         retention-days: 7
