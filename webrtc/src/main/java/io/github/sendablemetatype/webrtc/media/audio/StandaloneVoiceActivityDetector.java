@@ -120,10 +120,17 @@ public final class StandaloneVoiceActivityDetector extends DisposableNativeObjec
 
     /** Frees native resources. Repeated calls are harmless. */
     @Override
-    public synchronized native void dispose();
+    public synchronized void dispose() {
+        disposeInternal();
+    }
 
     private native void initialize(int mode);
     private native boolean processInternal(short[] samples, int sampleRate);
     private native void setModeInternal(int mode);
     private native void resetInternal(int mode);
+
+    // dispose() takes the lock in Java rather than as a synchronized native
+    // method: the 32-bit ARM JVM of JDK 27 crashes when a synchronized native
+    // method has to wait for its lock.
+    private native void disposeInternal();
 }

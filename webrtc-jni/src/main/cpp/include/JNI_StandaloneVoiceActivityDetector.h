@@ -11,7 +11,7 @@ JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_media_audio_Standa
 JNIEXPORT jboolean JNICALL Java_io_github_sendablemetatype_webrtc_media_audio_StandaloneVoiceActivityDetector_processInternal(JNIEnv*, jobject, jshortArray, jint);
 JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_media_audio_StandaloneVoiceActivityDetector_setModeInternal(JNIEnv*, jobject, jint);
 JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_media_audio_StandaloneVoiceActivityDetector_resetInternal(JNIEnv*, jobject, jint);
-JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_media_audio_StandaloneVoiceActivityDetector_dispose(JNIEnv*, jobject);
+JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_media_audio_StandaloneVoiceActivityDetector_disposeInternal(JNIEnv*, jobject);
 #ifdef __cplusplus
 }
 #endif

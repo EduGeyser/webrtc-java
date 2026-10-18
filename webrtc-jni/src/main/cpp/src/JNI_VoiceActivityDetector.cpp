@@ -65,7 +65,7 @@ JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_media_audio_VoiceA
 	}
 }
 
-JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_media_audio_VoiceActivityDetector_process
+JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_media_audio_VoiceActivityDetector_processInternal
 (JNIEnv * env, jobject caller, jbyteArray audio, jint samplesPerChannel, jint sampleRate)
 {
 	try {
@@ -104,7 +104,7 @@ JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_media_audio_VoiceA
 	}
 }
 
-JNIEXPORT jfloat JNICALL Java_io_github_sendablemetatype_webrtc_media_audio_VoiceActivityDetector_getLastVoiceProbability
+JNIEXPORT jfloat JNICALL Java_io_github_sendablemetatype_webrtc_media_audio_VoiceActivityDetector_getLastVoiceProbabilityInternal
 (JNIEnv * env, jobject caller)
 {
 	try {
@@ -117,7 +117,7 @@ JNIEXPORT jfloat JNICALL Java_io_github_sendablemetatype_webrtc_media_audio_Voic
 	}
 }
 
-JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_media_audio_VoiceActivityDetector_dispose
+JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_media_audio_VoiceActivityDetector_disposeInternal
 (JNIEnv * env, jobject caller)
 {
 	try {

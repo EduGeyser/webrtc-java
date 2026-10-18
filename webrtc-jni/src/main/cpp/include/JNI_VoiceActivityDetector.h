@@ -9,26 +9,26 @@ extern "C" {
 #endif
     /*
      * Class:     io_github_sendablemetatype_webrtc_media_audio_VoiceActivityDetector
-     * Method:    process
+     * Method:    processInternal
      * Signature: ([BII)V
      */
-    JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_media_audio_VoiceActivityDetector_process
+    JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_media_audio_VoiceActivityDetector_processInternal
       (JNIEnv *, jobject, jbyteArray, jint, jint);
 
     /*
      * Class:     io_github_sendablemetatype_webrtc_media_audio_VoiceActivityDetector
-     * Method:    getLastVoiceProbability
+     * Method:    getLastVoiceProbabilityInternal
      * Signature: ()F
      */
-    JNIEXPORT jfloat JNICALL Java_io_github_sendablemetatype_webrtc_media_audio_VoiceActivityDetector_getLastVoiceProbability
+    JNIEXPORT jfloat JNICALL Java_io_github_sendablemetatype_webrtc_media_audio_VoiceActivityDetector_getLastVoiceProbabilityInternal
       (JNIEnv *, jobject);
 
     /*
      * Class:     io_github_sendablemetatype_webrtc_media_audio_VoiceActivityDetector
-     * Method:    dispose
+     * Method:    disposeInternal
      * Signature: ()V
      */
-    JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_media_audio_VoiceActivityDetector_dispose
+    JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_media_audio_VoiceActivityDetector_disposeInternal
       (JNIEnv *, jobject);
 
     /*
