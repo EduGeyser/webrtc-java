@@ -1,14 +1,16 @@
 name: Platforms
 
 # Builds the native libraries of all seven platforms and tests them on a
-# runner of each platform. The Build and Release workflows both run it, so the
-# platforms are defined here only.
+# runner of each platform. The Build workflow runs it for every push and PR,
+# Publish release for the tag it publishes, and Prepare release for a dry run,
+# so the platforms are defined here only. Every job builds the commit that
+# triggered the caller.
 
 on:
   workflow_call:
     inputs:
-      ref:
-        description: "The ref to build, when not the ref of the calling workflow."
+      version:
+        description: "The project version to build with, when not the one gradle.properties sets. A release dry run builds with the release version."
         required: false
         type: string
         default: ''
@@ -51,7 +53,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ inputs.ref }}
+          ref: ${{ github.sha }}
 
       - id: prepare
         name: Prepare build
@@ -64,6 +66,7 @@ jobs:
           java-version: ${{ matrix.java }}
           platform-name: ${{ matrix.platform.name }}
           variant: ${{ inputs.variant }}
+          version: ${{ inputs.version }}
           retention-days: ${{ inputs.retention-days }}
 
   build-linux:
@@ -83,7 +86,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ inputs.ref }}
+          ref: ${{ github.sha }}
 
       - id: prepare
         name: Prepare build
@@ -96,6 +99,7 @@ jobs:
           java-version: ${{ matrix.java }}
           platform-name: ${{ matrix.platform.name }}
           variant: ${{ inputs.variant }}
+          version: ${{ inputs.version }}
           upload-webrtc-install: ${{ inputs.upload-webrtc-install }}
           retention-days: ${{ inputs.retention-days }}
 
@@ -116,7 +120,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ inputs.ref }}
+          ref: ${{ github.sha }}
 
       - id: prepare-build
         name: Prepare build
@@ -129,6 +133,7 @@ jobs:
           java-version: ${{ matrix.java }}
           platform-name: ${{ matrix.platform.name }}
           variant: ${{ inputs.variant }}
+          version: ${{ inputs.version }}
           retention-days: ${{ inputs.retention-days }}
 
   # Every platform is tested on a runner of its own, on every runner image in
@@ -138,4 +143,4 @@ jobs:
     uses: ./.github/workflows/test-natives.yml
     with:
       variant: ${{ inputs.variant }}
-      ref: ${{ inputs.ref }}
+      version: ${{ inputs.version }}

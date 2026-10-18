@@ -1,4 +1,4 @@
-name: Release
+name: Prepare release
 
 on:
   workflow_dispatch:
@@ -8,18 +8,19 @@ on:
         required: true
         default: "X.Y.Z-sm.N-SNAPSHOT"
       dryRun:
-        description: "Dry run: build every platform and assemble the deployment bundle, but push no commits or tags and publish nothing."
+        description: "Dry run: build every platform with the release version and assemble the deployment bundle, but push no commits or tags and publish nothing."
         required: false
         type: boolean
         default: false
 
-# Only the jobs that push commits, tags or the GitHub release get write access.
+# Only preparation pushes commits and the tag and starts the publication. The
+# jobs of a dry run stay read-only.
 permissions:
   contents: read
 
 # Two releases at once would race on the pushed commits and tags.
 concurrency:
-  group: release
+  group: release-prepare
   cancel-in-progress: false
 
 jobs:
@@ -29,18 +30,20 @@ jobs:
   # untouched, so the release can simply be dispatched again.
   prepare-release:
     name: Prepare release
+    # A release is made from main. A dry run can check another branch first.
+    if: github.ref == 'refs/heads/main' || inputs.dryRun
     runs-on: ubuntu-26.04
     permissions:
       contents: write
+      actions: write
     outputs:
-      release_tag: ${{ steps.release-version.outputs.tag }}
-      release_body: ${{ steps.git-cliff.outputs.content }}
+      release_version: ${{ steps.release-version.outputs.version }}
     steps:
       # The full history, for git-cliff.
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: main
+          ref: ${{ github.sha }}
           fetch-depth: 0
 
       - name: Git config
@@ -64,6 +67,10 @@ jobs:
             echo "::error::gradle.properties has $current, which is not a snapshot"
             exit 1
           fi
+          if ! [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+-sm\.[0-9]+$ ]]; then
+            echo "::error::The release version must look like 1.2.3-sm.4, got '$version'"
+            exit 1
+          fi
           if ! [[ "$DEVELOPMENT_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+-sm\.[0-9]+-SNAPSHOT$ ]]; then
             echo "::error::developmentVersion must look like 1.2.3-sm.4-SNAPSHOT, got '$DEVELOPMENT_VERSION'"
             exit 1
@@ -79,13 +86,6 @@ jobs:
 
           echo "version=$version" >> "$GITHUB_OUTPUT"
           echo "tag=v$version" >> "$GITHUB_OUTPUT"
-
-      - name: Generate the release notes
-        uses: orhun/git-cliff-action@a9a95522b26fe6403f7bb24031f21fb573d0f5ff # v4.9.1
-        id: git-cliff
-        with:
-          config: .github/changelog/cliff-release.toml
-          args: -v -u --strip footer --tag ${{ steps.release-version.outputs.tag }} --use-branch-tags
 
       # The new release's section is added on top of the file; the older
       # sections are left as they are.
@@ -117,33 +117,46 @@ jobs:
           sed -i "s/^version=.*/version=$DEVELOPMENT_VERSION/" gradle.properties
           git commit -am "Prepare for next development iteration"
 
-      # The branch and the tag land together or not at all.
+      # The branch and the tag land together or not at all. The push fails if
+      # main has moved since the dispatch.
       - name: Push release commits and tag
         if: ${{ !inputs.dryRun }}
         env:
           RELEASE_TAG: ${{ steps.release-version.outputs.tag }}
         run: git push --atomic origin HEAD:main "refs/tags/$RELEASE_TAG"
 
-  # The tag prepare-release pushed. A dry run pushes none and builds the
-  # dispatched commit instead. The variant is the one gradle.properties
-  # selects.
+      # A tag that GITHUB_TOKEN pushes starts no workflow, but GITHUB_TOKEN may
+      # dispatch one. --ref makes the release commit the github.sha of the new
+      # run.
+      - name: Start publication on the release tag
+        if: ${{ !inputs.dryRun }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG: ${{ steps.release-version.outputs.tag }}
+        run: gh workflow run release-publish.yml --ref "$RELEASE_TAG"
+
+  # A dry run builds and tests the dispatched commit with the release version,
+  # so that the jars and the bundle are named as in a release. The variant is
+  # the one gradle.properties selects.
   platforms:
     needs: prepare-release
+    if: inputs.dryRun
     uses: ./.github/workflows/platforms.yml
     with:
-      ref: ${{ !inputs.dryRun && needs.prepare-release.outputs.release_tag || '' }}
+      version: ${{ needs.prepare-release.outputs.release_version }}
       retention-days: 7
 
-  publish-central:
-    name: Publish to Maven Central
+  dry-run-bundle:
+    name: Assemble dry-run deployment bundle
     needs: [prepare-release, platforms]
+    if: inputs.dryRun
     runs-on: ubuntu-26.04
 
     steps:
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ !inputs.dryRun && needs.prepare-release.outputs.release_tag || '' }}
+          ref: ${{ github.sha }}
 
       - name: Set up JDK 27
         uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
@@ -154,14 +167,6 @@ jobs:
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
 
-      - name: Determine the version to publish
-        id: release-version
-        run: |
-          version=$(sed -n 's/^version=//p' gradle.properties)
-
-          echo "Version to publish: $version"
-          echo "version=$version" >> "$GITHUB_OUTPUT"
-
       # The full variant adds the natives-media-* jars of the media module.
       - name: Download the native library jars of all platforms
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
@@ -170,31 +175,30 @@ jobs:
           path: natives
           merge-multiple: true
 
-      # The build checks that natives holds the jar of every platform before it
-      # attaches them. A dry run assembles and signs the deployment bundle without
-      # uploading it; the Central credentials are replaced by a placeholder as a
-      # second line of defence, so an upload would fail on authentication instead
-      # of publishing a release. Signing does run, so the GPG key stays intact.
-      - name: Deploy
+      # The bundle is assembled and signed as for a release, but not uploaded.
+      # The Central credentials are a placeholder as a second line of defence,
+      # so an upload would fail on authentication instead of publishing a
+      # release. Signing does run, which checks the GPG key.
+      - name: Assemble the deployment bundle
         env:
-          MAVEN_USERNAME: ${{ inputs.dryRun && 'dry-run-must-not-upload' || secrets.MAVEN_USERNAME }}
-          MAVEN_TOKEN: ${{ inputs.dryRun && 'dry-run-must-not-upload' || secrets.MAVEN_TOKEN }}
+          RELEASE_VERSION: ${{ needs.prepare-release.outputs.release_version }}
+          MAVEN_USERNAME: dry-run-must-not-upload
+          MAVEN_TOKEN: dry-run-must-not-upload
           MAVEN_GPG_PRIVATE_KEY: ${{ secrets.MAVEN_GPG_PRIVATE_KEY }}
           MAVEN_GPG_PASSPHRASE: ${{ secrets.MAVEN_GPG_PASSPHRASE }}
-        run: |
-          if [ "${{ inputs.dryRun }}" == "true" ]; then
-            ./gradlew nmcpZipAggregation -Pnatives.dir=natives
-          else
-            ./gradlew publishAggregationToCentralPortal -Pnatives.dir=natives
-          fi
+        run: ./gradlew nmcpZipAggregation -Pnatives.dir=natives -Pversion="$RELEASE_VERSION"
+
+      - name: Check that the deployment bundle exists
+        run: test -s build/nmcp/zip/aggregation.zip
 
       - name: Summarize what would have been published
-        if: ${{ inputs.dryRun }}
+        env:
+          RELEASE_VERSION: ${{ needs.prepare-release.outputs.release_version }}
         run: |
           {
             echo "## Dry run: nothing was published"
             echo
-            echo "Version: \`${{ steps.release-version.outputs.version }}\`"
+            echo "Version: \`$RELEASE_VERSION\`"
             echo
             echo "Contents of the deployment bundle:"
             echo '```'
@@ -203,35 +207,9 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload the deployment bundle for inspection
-        if: ${{ inputs.dryRun }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: deployment-bundle-dry-run
           path: build/nmcp/zip/aggregation.zip
-          if-no-files-found: warn
+          if-no-files-found: error
           retention-days: 7
-
-  publish-release:
-    name: Publish GitHub release
-    needs: [prepare-release, publish-central]
-    if: ${{ !inputs.dryRun }}
-    runs-on: ubuntu-26.04
-    permissions:
-      contents: write
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-
-      # The notes are commit subjects, so they go through the environment and a
-      # file rather than into the script, where a quote or a backtick would run.
-      # --verify-tag fails instead of creating a tag the release did not push.
-      - name: Publish
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          RELEASE_TAG: ${{ needs.prepare-release.outputs.release_tag }}
-          RELEASE_BODY: ${{ needs.prepare-release.outputs.release_body }}
-        run: |
-          printf '%s\n' "$RELEASE_BODY" > release-notes.md
-          gh release create "$RELEASE_TAG" --draft --verify-tag \
-            -t "Release $RELEASE_TAG" -F release-notes.md

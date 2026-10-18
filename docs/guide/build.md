@@ -92,6 +92,16 @@ A compiled WebRTC build records its GN arguments, extra targets, and patch
 fingerprint. Changes to patch content invalidate both build-tree and installed
 caches, so a native rebuild also includes the updated patches.
 
+## Release Workflow
+
+Maintainers start **Prepare release** (`release.yml`) from `main`, with the next development version, such as `0.22.0-sm.1-SNAPSHOT`. Preparation commits the changelog and the version changes, and pushes `main` and the release tag in one atomic push. It then starts **Publish release** (`release-publish.yml`) on that tag. A tag that `GITHUB_TOKEN` pushes starts no workflow on its own, but `GITHUB_TOKEN` can dispatch one, so no other token is needed.
+
+Publication requires a `vX.Y.Z-sm.N` tag whose commit is on `main` and whose version matches `gradle.properties`. Every build, test and publication job checks out the commit of the tag. After the tests pass on every platform, the workflow publishes one Maven Central bundle and creates a draft GitHub release.
+
+A **dryRun** of Prepare release builds and tests the dispatched commit with the release version, then signs and assembles the deployment bundle and uploads it as `deployment-bundle-dry-run`. It pushes no commits or tags, starts no publication, and uses placeholder Central credentials. A dry run can also check a branch other than `main`.
+
+If preparation pushed the tag but did not start the publication, start Publish release by hand on that tag. Before you retry a failed publication, check whether Maven Central already accepted the version, because a published release cannot be replaced. A release tag that a maintainer pushes also starts Publish release.
+
 [build-linux-ubuntu]: https://chromium.googlesource.com/chromium/src/+/master/docs/linux/build_instructions.md#system-requirements
 [build-linux-other]: https://chromium.googlesource.com/chromium/src/+/master/docs/linux/build_instructions.md#Notes-for-other-distros
 [build-windows]: https://chromium.googlesource.com/chromium/src/+/master/docs/windows_build_instructions.md#visual-studio

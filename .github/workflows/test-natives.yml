@@ -11,8 +11,8 @@ on:
         required: false
         type: string
         default: ''
-      ref:
-        description: "The ref to test, when not the ref of the workflow."
+      version:
+        description: "The project version the native library jars were built with, when not the one gradle.properties sets."
         required: false
         type: string
         default: ''
@@ -110,7 +110,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ inputs.ref }}
+          ref: ${{ github.sha }}
 
       - name: Test natives
         uses: ./.github/actions/test-natives
@@ -119,5 +119,6 @@ jobs:
           classifier: ${{ matrix.platform.classifier }}
           runner-image: ${{ matrix.platform.runs-on }}
           variant: ${{ inputs.variant }}
+          version: ${{ inputs.version }}
           java-distribution: ${{ matrix.platform.java-distribution }}
           java-architecture: ${{ matrix.platform.java-architecture }}
