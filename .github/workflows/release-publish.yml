@@ -1,0 +1,140 @@
+name: Publish release
+
+# A tag that GITHUB_TOKEN pushes starts no push workflow, so Prepare release
+# dispatches this one on the tag after its atomic push. A maintainer can
+# dispatch it on that tag again to retry, or push a release tag directly.
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-publish-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release-version:
+    name: Validate release tag
+    runs-on: ubuntu-26.04
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - name: Checkout release commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      # No repository actions, build tools or caches run before the tag is
+      # checked against the triggering commit and the history of main.
+      - name: Validate the tag and the project version
+        id: version
+        env:
+          RELEASE_REF: ${{ github.ref }}
+          RELEASE_SHA: ${{ github.sha }}
+        run: |
+          if ! [[ "$RELEASE_REF" =~ ^refs/tags/v[0-9]+\.[0-9]+\.[0-9]+-sm\.[0-9]+$ ]]; then
+            echo "::error::Publish release must run on a vX.Y.Z-sm.N tag"
+            exit 1
+          fi
+          if [ "$(git rev-parse --verify "$RELEASE_REF^{commit}")" != "$RELEASE_SHA" ]; then
+            echo "::error::The release tag no longer points to the triggering commit"
+            exit 1
+          fi
+          if ! git merge-base --is-ancestor "$RELEASE_SHA" refs/remotes/origin/main; then
+            echo "::error::The release commit must be on main"
+            exit 1
+          fi
+
+          version="${RELEASE_REF#refs/tags/v}"
+          project_version=$(sed -n 's/^version=//p' gradle.properties)
+          if [ "$project_version" != "$version" ]; then
+            echo "::error::The release tag $version does not match the project version $project_version"
+            exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+  # The variant is the one gradle.properties selects.
+  platforms:
+    needs: release-version
+    uses: ./.github/workflows/platforms.yml
+    with:
+      retention-days: 7
+
+  publish-central:
+    name: Publish to Maven Central
+    needs: [release-version, platforms]
+    runs-on: ubuntu-26.04
+
+    steps:
+      - name: Checkout release commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+
+      - name: Set up JDK 27
+        uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+        with:
+          java-version: '27'
+          distribution: 'liberica'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
+
+      # The full variant adds the natives-media-* jars of the media module.
+      - name: Download the native library jars of all platforms
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: natives-*
+          path: natives
+          merge-multiple: true
+
+      # The build checks that natives holds the jar of every platform before it
+      # attaches them. Maven Central publishes the version as one bundle.
+      - name: Deploy
+        env:
+          MAVEN_USERNAME: ${{ secrets.MAVEN_USERNAME }}
+          MAVEN_TOKEN: ${{ secrets.MAVEN_TOKEN }}
+          MAVEN_GPG_PRIVATE_KEY: ${{ secrets.MAVEN_GPG_PRIVATE_KEY }}
+          MAVEN_GPG_PASSPHRASE: ${{ secrets.MAVEN_GPG_PASSPHRASE }}
+        run: ./gradlew publishAggregationToCentralPortal -Pnatives.dir=natives
+
+  publish-release:
+    name: Publish GitHub release
+    needs: publish-central
+    runs-on: ubuntu-26.04
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout release commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      # The commits since the previous tag. The notes go to a file rather than
+      # into a script, where a quote or a backtick in a commit subject would run.
+      - name: Generate the release notes
+        uses: orhun/git-cliff-action@a9a95522b26fe6403f7bb24031f21fb573d0f5ff # v4.9.1
+        with:
+          config: .github/changelog/cliff-release.toml
+          args: -v --current --strip footer --use-branch-tags
+        env:
+          OUTPUT: ${{ runner.temp }}/release-notes.md
+
+      # --verify-tag fails instead of creating a tag that preparation did not
+      # push.
+      - name: Publish
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          gh release create "$RELEASE_TAG" --draft --verify-tag \
+            -t "Release $RELEASE_TAG" -F "$RUNNER_TEMP/release-notes.md"

@@ -17,6 +17,11 @@ inputs:
     required: false
     default: ''
 
+  version:
+    description: 'The project version to build with, when not the one gradle.properties sets.'
+    required: false
+    default: ''
+
   upload-webrtc-install:
     description: 'Upload the compiled WebRTC install tree of a Linux x86-64 build.'
     required: false
@@ -150,10 +155,18 @@ runs:
         echo "WEBRTC_PLATFORM=$platform" >> "$GITHUB_ENV"
       shell: bash
 
+    # The native library jars are named after the version, which the tests and
+    # the publication look them up by.
+    - name: Select the version
+      env:
+        VERSION: ${{ inputs.version }}
+      run: echo "WEBRTC_VERSION_ARG=${VERSION:+-Pversion=$VERSION}" >> "$GITHUB_ENV"
+      shell: bash
+
     # Configuring the JNI build fetches and compiles WebRTC, and building it
     # installs WebRTC along with the JNI library.
     - name: Build WebRTC and the JNI library
-      run: ./gradlew :webrtc-jni:cmakeBuild $WEBRTC_PLATFORM $WEBRTC_VARIANT_ARG
+      run: ./gradlew :webrtc-jni:cmakeBuild $WEBRTC_PLATFORM $WEBRTC_VARIANT_ARG $WEBRTC_VERSION_ARG
       shell: bash
 
     - name: Save WebRTC cache
@@ -166,7 +179,7 @@ runs:
     # Configuring the media build compiles FFmpeg.
     - name: Build FFmpeg
       if: env.WEBRTC_VARIANT == 'full'
-      run: ./gradlew :webrtc-java-media:cmakeGenerate $WEBRTC_PLATFORM $WEBRTC_VARIANT_ARG
+      run: ./gradlew :webrtc-java-media:cmakeGenerate $WEBRTC_PLATFORM $WEBRTC_VARIANT_ARG $WEBRTC_VERSION_ARG
       shell: bash
 
     - name: Save FFmpeg cache
@@ -179,7 +192,7 @@ runs:
     # The tests run in the test workflow, on every runner image, against the
     # uploaded jars.
     - name: Build
-      run: ./gradlew assemble $WEBRTC_PLATFORM $WEBRTC_VARIANT_ARG
+      run: ./gradlew assemble $WEBRTC_PLATFORM $WEBRTC_VARIANT_ARG $WEBRTC_VERSION_ARG
       shell: bash
 
     # The jars of all platforms go to the test workflow and to the publishing

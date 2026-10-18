@@ -16,6 +16,11 @@ inputs:
     required: false
     default: ''
 
+  version:
+    description: 'The project version the native library jars were built with, when not the one gradle.properties sets.'
+    required: false
+    default: ''
+
   runner-image:
     description: 'The runner image, which tells the test reports of a platform apart.'
     required: true
@@ -132,7 +137,9 @@ runs:
     # Gradle's native integration has no binaries for the 32-bit arm JDK, hence
     # the switches.
     - name: Test
-      run: ./gradlew $WEBRTC_TEST_TASKS --continue -Pnatives.dir=natives -Pwebrtc.platform=${{ inputs.classifier }} $WEBRTC_VARIANT_ARG --no-daemon -Dorg.gradle.native=false -Dorg.gradle.vfs.watch=false
+      env:
+        VERSION: ${{ inputs.version }}
+      run: ./gradlew $WEBRTC_TEST_TASKS --continue -Pnatives.dir=natives -Pwebrtc.platform=${{ inputs.classifier }} $WEBRTC_VARIANT_ARG ${VERSION:+-Pversion=$VERSION} --no-daemon -Dorg.gradle.native=false -Dorg.gradle.vfs.watch=false
       shell: bash
 
     # What failed, for runners that cannot be reproduced locally.
