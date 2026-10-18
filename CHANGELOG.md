@@ -2,6 +2,193 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.21.0-sm.1] - 2026-10-18
+
+### Features
+- Decode VP9 spatial layers with VA-API
+- Encode H.264 and H.265 temporal layers with VA-API
+- Encode VP9 temporal layers with VA-API
+- Encode AV1 temporal layers with VA-API
+- Encode AV1 with VA-API on Linux
+- Decode AV1 with VA-API on Linux
+- Decode H.264 with VA-API on Linux
+- Encode VP9 with VA-API on Linux without turning it on
+- Decode H.265 with VA-API on Linux
+- Let the audio codecs of a factory be limited and ordered
+- Report receiver source changes and audio packet infos
+- Send encoded frames through RTP sender injectors
+- List the hardware codecs of the hardware video codec factories
+- Decode H.265 and AV1 with NVDEC on Linux
+- Encode H.265 and VP9 and decode VP9 with VA-API on Linux, when turned on
+- Encode VP9 in hardware on Windows, when turned on
+- Encode and decode H.265 in hardware on Windows
+- Build WebRTC with H.265
+- Decode with Vulkan Video on Linux in the media player
+- Decode HEVC and AV1 in hardware in the media player
+- Let a video processor change camera and desktop frames
+- Add first-packet observers, sender and receiver IDs, and track volume
+- Add the missing peer connection signaling and control calls
+- Decode H.264 and VP9 with NVDEC on NVIDIA GPUs on Linux
+- Decode video in hardware in the media player
+- Decode VP9 on the GPU with Media Foundation on Windows
+- Decode VP9 with VideoToolbox on macOS
+- Add a hardware video decoder factory, with Media Foundation on Windows
+- Encode AV1 on the GPU with Media Foundation and NVENC
+- Encode H.264 with VA-API on Intel and AMD GPUs on Linux
+- Encode H.264 with NVENC on NVIDIA GPUs, on Windows and Linux
+- Add a hardware video encoder factory, with Media Foundation H.264
+- Add custom video codec factories
+- Map the remaining peer connection configuration fields
+- Map the remaining sender encoding parameters
+- Add encoded frame transforms and a media recorder
+- Add a native extension API and an FFmpeg-based media module
+- Allow setting custom WebRTC field trials on PeerConnectionFactory
+
+### Bug Fixes
+- Take the voice activity detectors' locks in Java
+- Update logging defaults and smoke test output
+- Restore version and changelog before 0.20.0 release
+- Map the VP9 interpolation filter to VA-API's order
+- Write the H.264 and H.265 headers for VA-API drivers that need them
+- Call network thread observers on a callback thread
+- Play and record on Windows devices that mix in more than two channels
+- Capture screens with ScreenCaptureKit on macOS
+- Mark encoded frames as the end of their temporal unit
+- Report callback exceptions to the uncaught exception handler
+- Dispose a MediaStream from onAddTrack as a view, and return its ID
+- Keep camera hotplug and track views from crashing or releasing shared tracks
+- Stop exceptions from callbacks unwinding through WebRTC
+- Keep audio device change handling from aborting or corrupting state
+- Keep exceptions inside the audio device change callbacks
+- Limit the native builds to a job per processor
+- Fall back from a failed hardware video decoder without losing or damaging pictures
+- Keep a seek near the end of the source and the position after seeking back
+- Keep hardware encoders for sources whose first frame has an odd size
+- Repair the release pipeline and publish the media module
+- Clear the CI build annotations
+- Check out patch files with LF line endings
+- Include direct dependencies in JNI utility headers
+- Release native log sink registrations through a removal API
+- Include <system_error> in the V4L2 device manager
+- Take Map method IDs from the interface instead of from HashMap
+- Keep device-captured audio out of sink-fed audio senders
+- Give AudioTrackSource a dispose() to release its native reference
+- Make CustomVideoSource's frame_id_ counter thread-safe
+- Synchronize CustomAudioSource's sinks_ against AddSink/RemoveSink
+- JNI memory-safety and thread-safety bugs in the native bridge
+
+### Refactor
+- Query codec support without the deprecated overloads
+- Let the PeerConnectionFactory own its worker thread
+- Take log thread IDs and timestamps from system properties
+- Stop creating a separate worker thread
+
+### Documentation
+- Link the unreleased docs from the README and release notes
+- Note that VP9 cannot be injected
+- Add icons and links to the home page features
+- List the hardware codecs in tables
+- Open the other channel's docs in the same tab
+- List hardware codecs, video processing and frame injection as features
+- Correct the build requirements and the variant descriptions
+- Build the site with Node.js 26
+- Update VitePress to 2.0.0-alpha.20 and the Node.js types to 24
+- Correct changelog v0.16.0 and supported os matrix
+- Keep the older changelog sections when a release is added
+
+### Performance
+- Cut the processor time of hardware decoding on Windows
+
+### Testing
+- Accept hardware decoders that take 10-bit and 4:4:4 H.264
+- Play real sizes and formats the GPU refuses in the media player
+- Cover the lifecycle of hardware decoding in the media player
+- Check that hardware decoders crop padded frames to the picture
+- Await complete ICE gathering before checking candidates
+- Exercise log sinks without media or unbounded waits
+
+### Miscellaneous Tasks
+- Keep the crash report of a test JVM that crashed
+- Split release preparation from tag-scoped publication
+- Update CHANGELOG.md for v0.20.0
+- Bump @vue/server-renderer and vue in /docs
+- Bump source-map-js from 1.2.1 to 1.2.2 in /docs
+- Publish the docs of the latest release, and main's under /next/
+- Send Central credentials again under Maven 3.10
+- Bump the github-actions group across 3 directories with 3 updates
+- Share one platform matrix and deploy snapshots once
+- Add Dependabot and trim caches and artifacts
+- Harden the release workflow and keep native caches warm
+- Update CHANGELOG.md for v0.19.0
+- Cache the FFmpeg build of the macOS x86_64 target
+- Pin action versions to verified commit hashes
+- Export compiled WebRTC install trees on demand
+- Fingerprint native caches and build all non-documentation changes
+- Retry the clang lookup on transient googlesource errors
+- Check for an installable GLib package in the native tests
+- Use the ports archive for ARMv7 runtime packages
+- Install libc++ for the Linux compiler check
+- Install the Windows SDK the WebRTC branch expects
+- Build and test on the newest runner images
+- Update the GitHub Actions to their newest major versions
+- Stop publishing snapshots
+- Update CHANGELOG.md for v0.18.0
+- Update CHANGELOG.md for v0.17.0
+
+### Other
+- Build WebRTC from 64525537e2 on main
+- Prepare 0.21.0-sm.1-SNAPSHOT
+- Merge upstream main at 6cc938a
+- Add standalone WebRTC VAD and harden detector lifecycle
+- Split release preparation from tag-scoped publication
+- Prepare for next development iteration
+- Prepare release v0.20.0
+- Fix Central release bundling and dry runs
+- Fix badge link text formatting in README.md
+- Update documentation badge for next version
+- Build WebRTC from c3a079cbcb on main
+- Merge upstream main at dbcadb6
+- Bump the maven-dependencies group with 3 updates
+- Update WebRTC branch from 7977 to 8059 (M155)
+- Build WebRTC with autoninja
+- Build WebRTC from bd53d175d2 on main
+- Merge upstream main at b0008ff
+- Prepare 0.20.0-sm.1-SNAPSHOT
+- Merge upstream main at 4d205e9
+- Patch FFmpeg so that Direct3D 12 decoding works on AMD and Intel
+- Bump the maven-dependencies group with 7 updates
+- Bump the maven-plugins group with 9 updates
+- Bump com.fasterxml.jackson.core:jackson-databind
+- Prepare for next development iteration
+- Prepare release v0.19.0
+- Sync the WebRTC checkout without git history
+- Cross compile the macOS x86_64 target natively on Apple Silicon
+- Build FFmpeg on every platform and make the media module part of the normal build
+- Expose implementation versions in Java and native jars
+- Disable desktop capture per data channels output
+- Link the clang compiler runtime into the Windows JNI library
+- Keep static library symbols inside the Linux JNI library
+- Link the Linux JNI library against the clang compiler runtime
+- Link the Rust code of WebRTC into the JNI library
+- Link the Linux JNI library against the shared libgcc_s
+- Update the bundled JNI headers to JDK 27
+- Compile the JNI code as C++23
+- Update the Linux sysroots to the pinned WebRTC build revision
+- Update Jackson to 3.2.3
+- Build WebRTC from a commit on main
+- Build with JDK 27 and compile for Java 25
+- Update WebRTC branch version from 8037 to 8059 (m155)
+- Update Gradle to 9.8.0
+- Update JUnit to 6.1.3, Jetty to 12.1.13, Jackson to 2.22.3 and SLF4J to 2.0.20
+- Prepare 0.19.0-sm.1-SNAPSHOT
+- Merge upstream main at 315bb99
+- Prepare for next development iteration
+- Prepare release v0.18.0
+- Prepare for next development iteration
+- Prepare release v0.17.0
+- Prepare for next development iteration
+
+
 ## [0.20.0] - 2026-10-16
 
 ### Features
