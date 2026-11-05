@@ -105,6 +105,14 @@ extern "C" {
 
 	/*
 	 * Class:     io_github_sendablemetatype_webrtc_RTCDataChannel
+	 * Method:    getError
+	 * Signature: ()Lio/github/sendablemetatype/webrtc/RTCError;
+	 */
+	JNIEXPORT jobject JNICALL Java_io_github_sendablemetatype_webrtc_RTCDataChannel_getError
+	(JNIEnv *, jobject);
+
+	/*
+	 * Class:     io_github_sendablemetatype_webrtc_RTCDataChannel
 	 * Method:    getBufferedAmount
 	 * Signature: ()J
 	 */

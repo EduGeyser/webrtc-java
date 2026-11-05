@@ -153,6 +153,17 @@ public class RTCDataChannel extends DisposableNativeObject {
 	public native RTCDataChannelState getState();
 
 	/**
+	 * Returns why this RTCDataChannel failed or was closed. WebRTC sets the
+	 * error when the underlying transport closes, for example with
+	 * {@link RTCErrorDetailType#SCTP_FAILURE} and the SCTP cause code when the
+	 * peer aborted the association. A failed send sets it too, so read it
+	 * when the channel reaches {@link RTCDataChannelState#CLOSED}.
+	 *
+	 * @return The error, or {@code null} if WebRTC reports none.
+	 */
+	public native RTCError getError();
+
+	/**
 	 * Returns the number of bytes of application data (UTF-8 text and binary
 	 * data) that have been queued using {@link #send(RTCDataChannelBuffer)}.
 	 * The value does not include framing overhead incurred by the protocol, or
