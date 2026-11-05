@@ -31,6 +31,7 @@
 #include "api/RTCTransportMetrics.h"
 #include "api/WebRTCUtils.h"
 #include "JavaArray.h"
+#include "JavaBoundary.h"
 #include "JavaEnums.h"
 #include "JavaError.h"
 #include "JavaFactories.h"
@@ -841,21 +842,25 @@ JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_RTCPeerConnection_
 JNIEXPORT jobject JNICALL Java_io_github_sendablemetatype_webrtc_RTCPeerConnection_getTransportMetrics
 (JNIEnv * env, jobject caller)
 {
-	jni::PeerConnectionObserver * observer = GetHandle<jni::PeerConnectionObserver>(env, caller, "observerHandle");
+	return jni::CallFromJava(env, [&]() -> jobject {
+		// Closing frees the observer only after the last call that holds the
+		// connection, so the lease keeps it too. A closed connection has none.
+		jni::NativeLease<webrtc::PeerConnectionInterface> pc(env, caller);
 
-	if (observer == nullptr) {
-		return nullptr;
-	}
+		if (pc == nullptr) {
+			return nullptr;
+		}
 
-	try {
+		auto observer = GetHandle<jni::PeerConnectionObserver>(env, caller, "observerHandle");
+
+		if (observer == nullptr) {
+			return nullptr;
+		}
+
 		std::optional<jni::TransportMetrics> metrics = observer->transportMetrics();
 
 		return metrics ? jni::RTCTransportMetrics::toJava(env, *metrics).release() : nullptr;
-	}
-	catch (...) {
-		ThrowCxxJavaException(env);
-		return nullptr;
-	}
+	});
 }
 
 JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_RTCPeerConnection_restartIce

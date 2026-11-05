@@ -86,7 +86,7 @@ namespace
 		std::shared_ptr<jni::IceUdpEndpoint> endpoint;
 
 		if (jEndpoint.get() != nullptr) {
-			auto handle = GetHandle<std::shared_ptr<jni::IceUdpEndpoint>>(env, jEndpoint.get());
+			jni::NativeLease<std::shared_ptr<jni::IceUdpEndpoint>> handle(env, jEndpoint.get());
 
 			if (handle == nullptr) {
 				throw jni::JavaWrappedException(jni::JavaLocalRef<jthrowable>(env,

@@ -15,6 +15,7 @@
  */
 
 #include "JNI_IceUdpEndpoint.h"
+#include "NativeHandle.h"
 #include "api/IceUdpEndpoint.h"
 #include "api/WebRTCUtils.h"
 #include "rtc/InetAddress.h"
@@ -29,6 +30,7 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <thread>
 #include <utility>
 #include <vector>
 
@@ -53,7 +55,7 @@ JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_IceUdpEndpoint_ini
 JNIEXPORT jint JNICALL Java_io_github_sendablemetatype_webrtc_IceUdpEndpoint_getPort
 (JNIEnv * env, jobject caller)
 {
-	EndpointHandle * endpoint = GetHandle<EndpointHandle>(env, caller);
+	jni::NativeLease<EndpointHandle> endpoint(env, caller);
 	CHECK_HANDLEV(endpoint, 0);
 
 	return (*endpoint)->port();
@@ -63,7 +65,7 @@ JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_IceUdpEndpoint_inj
 (JNIEnv * env, jobject caller, jobject jLocalAddress, jint localPort, jobject jRemoteAddress, jint remotePort,
 	jbyteArray jData)
 {
-	EndpointHandle * endpoint = GetHandle<EndpointHandle>(env, caller);
+	jni::NativeLease<EndpointHandle> endpoint(env, caller);
 	CHECK_HANDLE(endpoint);
 
 	try {
@@ -93,7 +95,7 @@ namespace
 JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_IceUdpEndpoint_setPendingLimits
 (JNIEnv * env, jobject caller, jint maxPending, jlong timeoutMs)
 {
-	EndpointHandle * endpoint = GetHandle<EndpointHandle>(env, caller);
+	jni::NativeLease<EndpointHandle> endpoint(env, caller);
 	CHECK_HANDLE(endpoint);
 
 	(*endpoint)->SetPendingLimits(static_cast<size_t>(maxPending), static_cast<int64_t>(timeoutMs));
@@ -102,7 +104,7 @@ JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_IceUdpEndpoint_set
 JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_IceUdpEndpoint_enablePendingRequests
 (JNIEnv * env, jobject caller, jboolean enabled)
 {
-	EndpointHandle * endpoint = GetHandle<EndpointHandle>(env, caller);
+	jni::NativeLease<EndpointHandle> endpoint(env, caller);
 	CHECK_HANDLE(endpoint);
 
 	if (!enabled) {
@@ -147,7 +149,7 @@ JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_IceUdpEndpoint_ena
 JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_IceUdpEndpoint_setDerivedPasswords
 (JNIEnv * env, jobject caller, jbyteArray jContext, jobjectArray jPrefixes, jobjectArray jKeys)
 {
-	EndpointHandle * endpoint = GetHandle<EndpointHandle>(env, caller);
+	jni::NativeLease<EndpointHandle> endpoint(env, caller);
 	CHECK_HANDLE(endpoint);
 
 	std::string context = CopyBytes(env, jContext);
@@ -168,7 +170,7 @@ JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_IceUdpEndpoint_set
 JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_IceUdpEndpoint_rejectRequest
 (JNIEnv * env, jobject caller, jlong request)
 {
-	EndpointHandle * endpoint = GetHandle<EndpointHandle>(env, caller);
+	jni::NativeLease<EndpointHandle> endpoint(env, caller);
 	CHECK_HANDLE(endpoint);
 
 	(*endpoint)->Reject(static_cast<uint64_t>(request));
@@ -177,7 +179,7 @@ JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_IceUdpEndpoint_rej
 JNIEXPORT jboolean JNICALL Java_io_github_sendablemetatype_webrtc_IceUdpEndpoint_applyProxyRelays
 (JNIEnv * env, jobject caller, jobjectArray jRelays)
 {
-	EndpointHandle * endpoint = GetHandle<EndpointHandle>(env, caller);
+	jni::NativeLease<EndpointHandle> endpoint(env, caller);
 	CHECK_HANDLEV(endpoint, JNI_FALSE);
 
 	std::vector<std::string> relays;
@@ -194,7 +196,7 @@ JNIEXPORT jboolean JNICALL Java_io_github_sendablemetatype_webrtc_IceUdpEndpoint
 JNIEXPORT jobject JNICALL Java_io_github_sendablemetatype_webrtc_IceUdpEndpoint_getProxyRelay
 (JNIEnv * env, jobject caller, jobject jAddress, jint port)
 {
-	EndpointHandle * endpoint = GetHandle<EndpointHandle>(env, caller);
+	jni::NativeLease<EndpointHandle> endpoint(env, caller);
 	CHECK_HANDLEV(endpoint, nullptr);
 
 	try {
@@ -212,7 +214,7 @@ JNIEXPORT jobject JNICALL Java_io_github_sendablemetatype_webrtc_IceUdpEndpoint_
 JNIEXPORT jlong JNICALL Java_io_github_sendablemetatype_webrtc_IceUdpEndpoint_openStunMonitor
 (JNIEnv * env, jobject caller, jobject jLocal, jobject jServer, jint port)
 {
-	EndpointHandle * endpoint = GetHandle<EndpointHandle>(env, caller);
+	jni::NativeLease<EndpointHandle> endpoint(env, caller);
 	CHECK_HANDLEV(endpoint, 0);
 
 	try {
@@ -230,7 +232,7 @@ JNIEXPORT jlong JNICALL Java_io_github_sendablemetatype_webrtc_IceUdpEndpoint_op
 JNIEXPORT jobject JNICALL Java_io_github_sendablemetatype_webrtc_IceUdpEndpoint_readStunMonitor
 (JNIEnv * env, jobject caller, jlong monitor)
 {
-	EndpointHandle * endpoint = GetHandle<EndpointHandle>(env, caller);
+	jni::NativeLease<EndpointHandle> endpoint(env, caller);
 	CHECK_HANDLEV(endpoint, nullptr);
 
 	std::optional<jni::IceUdpEndpoint::StunReading> reading = (*endpoint)->ReadStunMonitor(static_cast<uint64_t>(monitor));
@@ -275,7 +277,7 @@ JNIEXPORT jobject JNICALL Java_io_github_sendablemetatype_webrtc_IceUdpEndpoint_
 JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_IceUdpEndpoint_closeStunMonitor
 (JNIEnv * env, jobject caller, jlong monitor)
 {
-	EndpointHandle * endpoint = GetHandle<EndpointHandle>(env, caller);
+	jni::NativeLease<EndpointHandle> endpoint(env, caller);
 	CHECK_HANDLE(endpoint);
 
 	(*endpoint)->CloseStunMonitor(static_cast<uint64_t>(monitor));
@@ -284,7 +286,7 @@ JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_IceUdpEndpoint_clo
 JNIEXPORT jobject JNICALL Java_io_github_sendablemetatype_webrtc_IceUdpEndpoint_getStats
 (JNIEnv * env, jobject caller)
 {
-	EndpointHandle * endpoint = GetHandle<EndpointHandle>(env, caller);
+	jni::NativeLease<EndpointHandle> endpoint(env, caller);
 	CHECK_HANDLEV(endpoint, nullptr);
 
 	jni::IceUdpEndpoint::Stats stats = (*endpoint)->GetStats();
@@ -313,17 +315,24 @@ JNIEXPORT jobject JNICALL Java_io_github_sendablemetatype_webrtc_IceUdpEndpoint_
 JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_IceUdpEndpoint_dispose
 (JNIEnv * env, jobject caller)
 {
-	EndpointHandle * endpoint = GetHandle<EndpointHandle>(env, caller);
-	CHECK_HANDLE(endpoint);
+	EndpointHandle * endpoint = jni::TakeHandle<EndpointHandle>(env, caller);
 
-	SetHandle<std::nullptr_t>(env, caller, nullptr);
+	if (endpoint == nullptr) {
+		return;
+	}
 
-	try {
+	jni::ReleaseHandle(env, endpoint, [endpoint](bool) {
+		// A call from the request handler runs on the endpoint's thread, which
+		// cannot stop itself.
+		if ((*endpoint)->IsCurrent()) {
+			std::thread([endpoint]() {
+				(*endpoint)->Close();
+				delete endpoint;
+			}).detach();
+			return;
+		}
+
 		(*endpoint)->Close();
-	}
-	catch (...) {
-		ThrowCxxJavaException(env);
-	}
-
-	delete endpoint;
+		delete endpoint;
+	});
 }

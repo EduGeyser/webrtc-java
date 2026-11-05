@@ -158,6 +158,9 @@ namespace jni
 
 			uint16_t port() const { return port_; }
 
+			// Whether the calling thread is the endpoint's own.
+			bool IsCurrent() const { return thread_->IsCurrent(); }
+
 			bool Allows(const webrtc::IPAddress & address) const;
 
 			// Empty allows every local address.

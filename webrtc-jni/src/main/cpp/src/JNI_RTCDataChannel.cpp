@@ -19,6 +19,7 @@
 #include "api/RTCDataChannelObserver.h"
 #include "api/RTCDataChannelSendObserver.h"
 #include "api/RTCError.h"
+#include "JavaBoundary.h"
 #include "JavaEnums.h"
 #include "JavaError.h"
 #include "JavaRef.h"
@@ -212,17 +213,12 @@ JNIEXPORT jobject JNICALL Java_io_github_sendablemetatype_webrtc_RTCDataChannel_
 JNIEXPORT jobject JNICALL Java_io_github_sendablemetatype_webrtc_RTCDataChannel_getError
 (JNIEnv * env, jobject caller)
 {
-	webrtc::DataChannelInterface * channel = GetHandle<webrtc::DataChannelInterface>(env, caller);
-	CHECK_HANDLEV(channel, nullptr);
+	return jni::CallFromJava(env, [&]() -> jobject {
+		jni::NativeLease<webrtc::DataChannelInterface> channel(env, caller);
+		CHECK_HANDLEV(channel, nullptr);
 
-	try {
 		return jni::RTCError::toJava(env, channel->error()).release();
-	}
-	catch (...) {
-		ThrowCxxJavaException(env);
-	}
-
-	return nullptr;
+	});
 }
 
 JNIEXPORT jlong JNICALL Java_io_github_sendablemetatype_webrtc_RTCDataChannel_getBufferedAmount
