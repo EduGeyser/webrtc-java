@@ -15,5 +15,5 @@ rootProject.name = "webrtc-java"
 
 include("webrtc-jni")
 include("webrtc")
-include("webrtc-java-media")
+include("webrtc-media")
 include("webrtc-examples")

@@ -58,10 +58,10 @@ This fork selects this variant in `gradle.properties`, and its published native 
 
 ## Media Module
 
-The full variant also builds the `webrtc-java-media` module, which plays media files and records calls with FFmpeg. It builds FFmpeg from the `webrtc-java-media/third-party/ffmpeg` submodule, so check that out first:
+The full variant also builds the `webrtc-java-media` module, which plays media files and records calls with FFmpeg. It builds FFmpeg and dav1d from the `webrtc-media/third-party/ffmpeg` and `webrtc-media/third-party/dav1d` submodules, so check them out first:
 
 ```shell
-git submodule update --init --depth 1 webrtc-java-media/third-party/ffmpeg
+git submodule update --init --depth 1 webrtc-media/third-party/ffmpeg webrtc-media/third-party/dav1d
 ./gradlew build -Pwebrtc.variant=full
 ```
 
@@ -78,7 +78,7 @@ Pass that directory as `-Pwebrtc.install.dir=<absolute-path>` when building the 
 The tests can run under `-Xcheck:jni`, which validates the local and global references of every JNI call and aborts the JVM on a violation. It is opt-in because it also warns about every native call that does not check for a pending exception, which is most of them:
 
 ```shell
-./gradlew :webrtc:test :webrtc-java-media:test -Pjni-check
+./gradlew :webrtc:test :webrtc-media:test -Pjni-check
 ```
 
 ## WebRTC patches and cached builds

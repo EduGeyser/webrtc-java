@@ -10,10 +10,10 @@ extern "C" {
 	/*
 	 * Class:     io_github_sendablemetatype_webrtc_media_video_VideoTrack
 	 * Method:    addSinkInternal
-	 * Signature: (Lio/github/sendablemetatype/webrtc/media/video/VideoTrackSink;)J
+	 * Signature: (Lio/github/sendablemetatype/webrtc/media/video/VideoTrackSink;Z)J
 	 */
 	JNIEXPORT jlong JNICALL Java_io_github_sendablemetatype_webrtc_media_video_VideoTrack_addSinkInternal
-	(JNIEnv *, jobject, jobject);
+	(JNIEnv *, jobject, jobject, jboolean);
 
 	/*
 	 * Class:     io_github_sendablemetatype_webrtc_media_video_VideoTrack

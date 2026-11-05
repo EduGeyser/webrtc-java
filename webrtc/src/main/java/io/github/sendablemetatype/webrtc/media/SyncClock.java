@@ -16,8 +16,8 @@
 
 package io.github.sendablemetatype.webrtc.media;
 
+import io.github.sendablemetatype.webrtc.internal.DisposableNativeObject;
 import io.github.sendablemetatype.webrtc.internal.NativeLoader;
-import io.github.sendablemetatype.webrtc.internal.NativeObject;
 
 /**
  * Synchronized Clock for A/V timing. Provides timing functionality for
@@ -25,7 +25,7 @@ import io.github.sendablemetatype.webrtc.internal.NativeObject;
  *
  * @author Alex Andres
  */
-public class SyncClock extends NativeObject {
+public class SyncClock extends DisposableNativeObject {
 
     static {
         try {
@@ -53,7 +53,8 @@ public class SyncClock extends NativeObject {
      * example by {@link io.github.sendablemetatype.webrtc.media.video.CustomVideoSource#pushFrame(
      * io.github.sendablemetatype.webrtc.media.video.VideoFrame, long) pushFrame} and
      * {@link io.github.sendablemetatype.webrtc.media.audio.CustomAudioSource#pushAudio(byte[],
-     * int, int, int, int, long) pushAudio}. It is the monotonic clock WebRTC
+     * int, int, int, int, long) pushAudio}, and the one those sources stamp
+     * media pushed without a timestamp with. It is the monotonic clock WebRTC
      * itself runs on, which is what makes those timestamps comparable with
      * WebRTC's own notion of now.
      * <p>
@@ -91,7 +92,12 @@ public class SyncClock extends NativeObject {
      * Disposes of any native resources held by this clock.
      * This method should be called when the clock is no longer needed
      * to prevent memory leaks.
+     * <p>
+     * A custom audio or video source constructed with this clock shares it,
+     * so the clock may be disposed while such a source is still in use: the
+     * source keeps the native clock until it is disposed itself.
      */
+    @Override
     public native void dispose();
 
     /**

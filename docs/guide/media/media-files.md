@@ -18,7 +18,7 @@ Decoding happens entirely in native code. Frames never travel through Java: the 
 The module is part of the full variant of the build, and it builds FFmpeg and dav1d (the software decoder of AV1) from submodules pinned to release tags, so the submodules have to be present:
 
 ```shell
-git submodule update --init --depth 1 webrtc-java-media/third-party/ffmpeg webrtc-java-media/third-party/dav1d
+git submodule update --init --depth 1 webrtc-media/third-party/ffmpeg webrtc-media/third-party/dav1d
 ./gradlew assemble -Pwebrtc.variant=full
 ```
 
@@ -137,6 +137,7 @@ Duration is `0` for a source whose container does not say how long it runs, whic
 source.play();                  // start, or resume after a pause
 source.pause();                 // hold playback where it is
 source.seek(30_000_000);        // move to 30 seconds
+source.fastSeek(30_000_000);    // move to the keyframe at or before 30 seconds
 source.setLooping(true);        // start over instead of ending
 source.getPositionUs();         // where playback has got to
 source.getState();              // IDLE, PLAYING, PAUSED, ENDED or CLOSED
@@ -144,7 +145,11 @@ source.getState();              // IDLE, PLAYING, PAUSED, ENDED or CLOSED
 
 Looping keeps the timing across the seam, so a looping file works as a stand-in for a camera that never stops. A looping source never reports an end of stream.
 
-A seek lands on the keyframe at or before the position asked for, which is how far back the decoder has to go to produce a picture at all. How close that is to the position asked for depends on how often the media was encoded with keyframes.
+Positions count from the start of the source, which is its first video or audio frame, whichever comes first. The times a container gives its frames do not have to begin at zero: a file cut out of a longer recording or an MPEG-TS capture may start at any time, and `seek(2_000_000)` still means two seconds into it. Video and audio share that start, so a stream that begins after the other one keeps that distance.
+
+A seek starts playback at the position asked for. The decoder has to go back to the keyframe at or before it to produce a picture at all, so the frames from there up to the position are decoded and dropped, and the audio is cut at it. How long a seek takes therefore depends on how often the media was encoded with keyframes, not on how long the media is: MKV and MP4 have an index that takes the reader straight to that keyframe. MPEG-TS has none, and a search for the position by its timestamps can land past the keyframe before it. The player then searches again further back, a second before the position, then two, four and so on, so that the seek still starts at the position.
+
+`fastSeek` moves to that keyframe and plays from there, without decoding up to the position, so it takes no longer however far the keyframes are apart. That suits a slider being dragged, as browsers' `fastSeek()` does: fast seeks while it moves, and a `seek` once it is let go. In a container without an index, such as MPEG-TS, the keyframe can be the one after the position.
 
 ## Following Playback
 
@@ -173,10 +178,23 @@ source.setListener(new MediaPlayerListener() {
 ```
 
 ::: warning
-Every call arrives on the player's own thread, and that thread is the one decoding the media. A listener must return promptly, and must not wait on the player.
+Every call arrives on the player's own event thread, never on the thread that called `play()`, `pause()` or `close()`, and never on the one decoding the media. The calls come one at a time, in the order the player went through what they report, so a listener needs no locking of its own against itself. A command returns without waiting for its state change to be reported, so `getState()` can already read a later state than the call in progress reports. `close()` returns once the listener has been told of everything, `CLOSED` last.
 
-Closing the player, or the `MediaFileSource`, from a listener is fine: it takes effect at once, and the native player is released on another thread once the listener has returned.
+A listener must still return promptly: the calls behind it wait, and so does a `close()` from another thread. It must not wait on the player.
+
+Closing the player, or the `MediaFileSource`, from a listener is fine: it takes effect at once, and the native player is released on another thread once the listener has returned. The same holds for a sink of a track made from the player's sources, which the player calls on threads of its own as well.
 :::
+
+## Memory
+
+Decoding runs ahead of playback by up to sixty pictures, and at most by what `MediaPlayer.getMaxQueuedVideoBytes()` reports, which is 256 MiB. That keeps sixty pictures of 1080p, about twenty of 4K, and whatever the resolution, a player does not take more than that for pictures waiting to be delivered. Several players take that much each, on top of what the decoders use themselves.
+
+To see what an application really needs, ask the players that run:
+
+```java
+source.getQueuedVideoBytes();       // what the queued pictures take right now
+source.getPeakQueuedVideoBytes();   // the most they have taken so far
+```
 
 ## Feeding Your Own Media Sources
 
@@ -224,7 +242,7 @@ The pictures are the same ones software decoding gives; in the tests, every fram
 
 **HEVC is decoded in hardware only.** A player decodes it on the media engine or GPU whether or not the flag is set, and never in software: `isHardwareDecoding()` is always `true` for it. Where the machine has no hardware decoder for HEVC, creating the player fails with an `IOException`; where the hardware does not take a stream (a profile it cannot decode) or fails while playing, playback stops with an error. The fallback below does not apply to it.
 
-- **Platforms:** macOS through VideoToolbox, Windows through Direct3D 12 (Windows 10 version 2004 or later, with a driver that decodes video through it) and otherwise Direct3D 11, and Linux (x86-64 and ARM64) through NVDEC on NVIDIA GPUs (the driver provides `libcuda.so.1` and `libnvcuvid.so.1`) and through Vulkan Video on the GPUs of Intel and AMD (the Vulkan loader `libvulkan.so.1` and a driver with the video extensions of the codec: Mesa's ANV or RADV, recent enough for each codec, AV1 and VP9 needing the newest). These libraries are loaded when a player asks for hardware, so a machine without them is not affected. The flag is accepted everywhere; where the platform has no hardware decoder, or the FFmpeg build has none for it (32-bit ARM), the video is decoded in software, except HEVC, and `isHardwareDecoding()` says so.
+- **Platforms:** macOS through VideoToolbox, Windows through Direct3D 12 (Windows 10 version 2004 or later, with a driver that decodes video through it) and otherwise Direct3D 11, and Linux (x86-64 and ARM64) through NVDEC on NVIDIA GPUs (the driver provides `libcuda.so.1` and `libnvcuvid.so.1`) and on the GPUs of Intel and AMD through VA-API (`libva.so.2` and `libva-drm.so.2` with a driver: Intel's `iHD` from intel-media-driver, or Mesa's `radeonsi`) and otherwise Vulkan Video (the Vulkan loader `libvulkan.so.1` and a driver with the video extensions of the codec: Mesa's ANV or RADV, recent enough for each codec, AV1 and VP9 needing the newest, which some distributions ship switched off). VA-API comes first because a Vulkan device can be created where its driver does not decode, and the player picks a device by whether it can be created. These libraries are loaded when a player asks for hardware, so a machine without them is not affected. The flag is accepted everywhere; where the platform has no hardware decoder, or the FFmpeg build has none for it (32-bit ARM), the video is decoded in software, except HEVC, and `isHardwareDecoding()` says so.
 - **Codecs:** H.264, H.265/HEVC, VP9 and AV1, where the GPU decodes them: a GPU that is a few years old may lack AV1, and on a Mac only an M3 or later has it. VP8, MPEG-4 and MJPEG are decoded in software, and so is AV1 where there is no GPU decoder for it (it is decoded by dav1d, which is built into the FFmpeg libraries).
 - **Fallback** (every codec but HEVC): a stream the hardware does not take, such as a profile it cannot decode, is decoded in software without the player noticing more than `isHardwareDecoding()` turning `false`. If the hardware fails before its first picture, the packets it was sent are decoded again in software and none is lost; if it fails after one, decoding goes on in software from the next key frame. A damaged packet is not taken for a hardware failure after the first picture: as with software decoding, playback stops with an error, and the hardware keeps the stream.
 - **What it saves** is processor time, not the copy: a decoded picture is read back from the media engine into system memory, and converted to I420 as WebRTC wants it. On an Apple M2, a 1080p H.264 stream took 11.6 ms of processor time per frame in software and 1.4 ms in hardware, and a 4K stream 35.7 ms against 4.2 ms, about seven to eight times less. Per frame, software on all cores is faster on the clock, which does not matter at playback speed. Windows gains less: on an NVIDIA GeForce RTX 3080 through Direct3D 12, a 1080p H.264 stream took about 2.1 ms of processor time per frame against 3.6 ms in software, and a 4K stream 5.4 ms against 6.6 ms. Direct3D 11 reads the picture back more slowly and took more than software at 4K (12.4 ms), which is why Direct3D 12 comes first. These are figures for one machine each and for synthetic media, not a promise; try it on your own streams before relying on it.
@@ -247,6 +265,8 @@ import java.time.Duration;
 
 MediaFileSource source = new MediaFileSource("rtsp://camera.local/stream1", Duration.ofSeconds(5));
 ```
+
+`Duration.ZERO` waits as long as it takes, and is the only limit that does: a positive one waits at least a microsecond, and one too long for microseconds to count waits as long as they can count. A negative one is rejected.
 
 An unreachable server makes the constructor throw an `IOException` once that time is up. A stream that stops sending during playback is reported to the listener's `onError`, and the player is left `PAUSED`. Closing a player never waits for the time limit: it breaks off whatever the player is waiting for at once.
 
@@ -288,7 +308,7 @@ Some of the formats FFmpeg decodes, such as H.264, H.265/HEVC and AAC, may be co
 
 ## Complete Example
 
-See `MediaFileExample` in the `webrtc-examples` module, which opens a file, reports what it contains, creates tracks, adds them to a peer connection and follows playback to the end.
+See `MediaFileExample` in the `webrtc-examples` module, which opens a file, reports what it contains, sends its tracks from one [Client API](/guide/client-api) peer to another and follows playback to the end.
 
 ```shell
 ./gradlew :webrtc-examples:compileJava -Pwebrtc.variant=full

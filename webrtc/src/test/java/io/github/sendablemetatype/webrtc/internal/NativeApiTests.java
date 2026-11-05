@@ -21,10 +21,18 @@ import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import io.github.sendablemetatype.webrtc.RTCConfiguration;
+import io.github.sendablemetatype.webrtc.RTCPeerConnection;
+import io.github.sendablemetatype.webrtc.RTCRtpSender;
 import io.github.sendablemetatype.webrtc.TestBase;
 import io.github.sendablemetatype.webrtc.media.SyncClock;
+import io.github.sendablemetatype.webrtc.media.audio.AudioOptions;
+import io.github.sendablemetatype.webrtc.media.audio.AudioTrack;
+import io.github.sendablemetatype.webrtc.media.audio.AudioTrackSource;
 import io.github.sendablemetatype.webrtc.media.audio.CustomAudioSource;
 import io.github.sendablemetatype.webrtc.media.video.CustomVideoSource;
+
+import java.util.Collections;
 
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -82,6 +90,46 @@ class NativeApiTests extends TestBase {
 	@Test
 	void handleOfNull() {
 		assertThrows(NullPointerException.class, () -> NativeApi.handleOf(null));
+	}
+
+	@Test
+	void failedObserverAddAttachesNothing() {
+		AudioTrackSource source = factory.createAudioSource(new AudioOptions());
+		AudioTrack track = factory.createAudioTrack("audioTrack", source);
+		RTCPeerConnection connection = factory.createPeerConnection(new RTCConfiguration(), candidate -> { });
+
+		try {
+			RTCRtpSender sender = connection.addTrack(track, Collections.singletonList("stream"));
+			long frames = NativeApi.encodedFramesOf(sender);
+
+			try {
+				AllocationFault.failNextEncodedObserver();
+
+				// An observer attached now could never be removed.
+				assertEquals(0L, AllocationFault.addEncodedObserver(frames));
+				assertEquals(0, AllocationFault.encodedObservers(frames));
+
+				// The handle is still good for another try.
+				long observer = AllocationFault.addEncodedObserver(frames);
+
+				assertNotEquals(0L, observer);
+				assertEquals(1, AllocationFault.encodedObservers(frames));
+
+				AllocationFault.removeEncodedObserver(observer);
+
+				assertEquals(0, AllocationFault.encodedObservers(frames));
+			}
+			finally {
+				NativeApi.releaseEncodedFrames(frames);
+				sender.dispose();
+			}
+		}
+		finally {
+			AllocationFault.disarm();
+			connection.close();
+			track.dispose();
+			source.dispose();
+		}
 	}
 
 	@Test

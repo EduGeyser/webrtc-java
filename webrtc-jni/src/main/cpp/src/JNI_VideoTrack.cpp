@@ -15,6 +15,8 @@
  */
 
 #include "JNI_VideoTrack.h"
+#include "JavaBoundary.h"
+#include "NativeHandle.h"
 #include "api/VideoTrackSink.h"
 #include "JavaNullPointerException.h"
 #include "JavaUtils.h"
@@ -22,34 +24,42 @@
 #include "api/media_stream_interface.h"
 
 JNIEXPORT jlong JNICALL Java_io_github_sendablemetatype_webrtc_media_video_VideoTrack_addSinkInternal
-(JNIEnv * env, jobject caller, jobject jsink)
+(JNIEnv * env, jobject caller, jobject jsink, jboolean shared)
 {
-	if (jsink == nullptr) {
-		env->Throw(jni::JavaNullPointerException(env, "VideoTrackSink must not be null"));
+	try {
+		if (jsink == nullptr) {
+			env->Throw(jni::JavaNullPointerException(env, "VideoTrackSink must not be null"));
+			return 0;
+		}
+
+		jni::NativeLease<webrtc::VideoTrackInterface> track(env, caller);
+		CHECK_HANDLEV(track, 0);
+
+		auto sink = new jni::VideoTrackSink(env, jni::JavaGlobalRef<jobject>(env, jsink), shared == JNI_TRUE);
+
+		track->AddOrUpdateSink(sink, webrtc::VideoSinkWants());
+
+		return reinterpret_cast<jlong>(sink);
+	}
+	catch (...) {
+		ThrowCxxJavaException(env);
 		return 0;
 	}
-
-	webrtc::VideoTrackInterface * track = GetHandle<webrtc::VideoTrackInterface>(env, caller);
-	CHECK_HANDLEV(track, 0);
-
-	auto sink = new jni::VideoTrackSink(env, jni::JavaGlobalRef<jobject>(env, jsink));
-
-	track->AddOrUpdateSink(sink, webrtc::VideoSinkWants());
-
-	return reinterpret_cast<jlong>(sink);
 }
 
 JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_media_video_VideoTrack_removeSinkInternal
 (JNIEnv * env, jobject caller, jlong sinkHandle)
 {
-	webrtc::VideoTrackInterface * track = GetHandle<webrtc::VideoTrackInterface>(env, caller);
-	CHECK_HANDLE(track);
+	jni::CallFromJava(env, [&]() {
+		jni::NativeLease<webrtc::VideoTrackInterface> track(env, caller);
+		CHECK_HANDLE(track);
 
-	auto sink = reinterpret_cast<webrtc::VideoSinkInterface<webrtc::VideoFrame> *>(sinkHandle);
+		auto sink = reinterpret_cast<webrtc::VideoSinkInterface<webrtc::VideoFrame> *>(sinkHandle);
 	
-	if (sink != nullptr) {
-		track->RemoveSink(sink);
+		if (sink != nullptr) {
+			track->RemoveSink(sink);
 
-		delete sink;
-	}
+			delete sink;
+		}
+	});
 }

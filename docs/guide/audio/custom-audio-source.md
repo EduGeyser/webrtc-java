@@ -66,8 +66,8 @@ The key feature of `CustomAudioSource` is the ability to push audio data directl
 // Parameters for the audio data
 int bitsPerSample = 16;    // Must be 16; WebRTC reads the samples as 16-bit PCM
 int sampleRate = 48000;    // Common values: 8000, 16000, 44100, 48000
-int channels = 2;          // 1 for mono, 2 for stereo
-int frameCount = 480;      // For 10ms of audio at 48kHz
+int channels = 2;          // 1, 2, 4, 6 or 8
+int frameCount = 480;      // Always 10ms of audio: sampleRate / 100
 
 // Create a buffer for the audio data
 // Size = frameCount * channels * (bitsPerSample / 8)
@@ -81,11 +81,13 @@ byte[] audioData = new byte[frameCount * channels * bytesPerSample];
 audioSource.pushAudio(audioData, bitsPerSample, sampleRate, channels, frameCount);
 ```
 
-The call checks its arguments and throws `IllegalArgumentException` rather than letting a bad chunk reach WebRTC, where it would read past your array or abort the process:
+The call checks its arguments and throws `IllegalArgumentException` rather than letting a bad chunk reach WebRTC, where it would read past your array, abort the process, or be dropped by the encoder while the push appears to succeed:
 
 - Samples must be **16-bit** signed PCM in the platform byte order, with the channels interleaved.
 - The array must hold at least `frameCount * channels * 2` bytes. A longer array is fine; only that many bytes are read.
-- One call carries one chunk, and **10 ms** is the size WebRTC works with. A chunk may hold at most `CustomAudioSource.MAX_SAMPLES_PER_PUSH` samples counting every channel, so push in small chunks rather than handing over a whole file or a growing buffer.
+- One call carries one chunk of exactly **10 ms**, so `frameCount` must be `sampleRate / 100`. Split audio of any other length, such as 20 ms buffers, into 10 ms chunks first, or let the [client API](/guide/client-api) do it.
+- The sample rate must lie between 8000 and 192000 Hz, and the channel count must be 1, 2, 4, 6 or 8.
+- A chunk may hold at most `CustomAudioSource.MAX_SAMPLES_PER_PUSH` samples counting every channel, which rules out the highest rates with many channels: 96 kHz with 8 channels or 192 kHz with 4 is the limit.
 - `frameCount` counts frames, not samples and not bytes. A frame holds one sample per channel, so 10 ms at 48 kHz is 480 frames whether it is mono or stereo.
 
 ::: warning Push from one thread
@@ -104,7 +106,7 @@ audioSource.pushAudio(pcm, 16, sampleRate, channels, frameCount,
         baseUs + presentationUs);
 ```
 
-Use the same base for the audio and the video of one source, and the two stay in sync on the receiving side. See [Custom Video Source](/guide/video/custom-video-source) for the video half. Chunks must still be pushed in real time; the timestamp describes the audio, it does not schedule it.
+Use the same base for the audio and the video of one source, and the two stay in sync on the receiving side. See [Custom Video Source](/guide/video/custom-video-source) for the video half. Chunks must still be pushed in real time; the timestamp describes the audio, it does not schedule it. A chunk pushed without a timestamp is stamped with the same clock, so a source may mix the two calls.
 
 ## Audio Format Considerations
 
@@ -122,9 +124,10 @@ When pushing audio data, you need to consider the following parameters:
 ### Channels
 - **1 (Mono)**: Single channel audio
 - **2 (Stereo)**: Dual channel audio
+- **4, 6 or 8**: Multichannel audio, mixed down to what the encoder sends. No other counts are accepted.
 
 ### Frame Count
-The number of frames depends on the desired buffer size and sample rate. For a 10ms buffer:
+A chunk is always 10 ms long, so the number of frames follows from the sample rate:
 - At 8000 Hz: 80 frames
 - At 16000 Hz: 160 frames
 - At 44100 Hz: 441 frames
@@ -203,6 +206,19 @@ audioTrack.addSink(monitorSink);
 // When done, remove the sink
 audioTrack.removeSink(monitorSink);
 ```
+
+As with video tracks, sinks may be added and removed from any thread, and also from within `onData`, the sink's own included. Only `dispose()` must not be called from within a callback.
+
+Each call hands a sink a new array, which it may keep, for example in a queue for another thread. A sink that reads the audio only while it is called can take the same array in every call instead, so that no array is allocated for it a hundred times a second:
+
+```java
+import io.github.sendablemetatype.webrtc.media.audio.AudioDataAccess;
+
+// The array holds the audio only until onData returns; copy what you keep.
+audioTrack.addSink(monitorSink, AudioDataAccess.REUSED);
+```
+
+The array is replaced when the size of the chunks changes, so its length is always that of the audio.
 
 ## Cleanup
 

@@ -117,8 +117,9 @@ struct wj_i420_frame {
 
 	/**
 	 * Capture time in the clock of now_us(). Frames must be pushed in
-	 * increasing timestamp order. A value of zero means "stamp it with the
-	 * source's own clock", which is what the Java pushFrame() does.
+	 * increasing timestamp order. A value of zero means "stamp it with
+	 * now_us() at the moment of the push", which is what the Java
+	 * pushFrame() does.
 	 */
 	int64_t timestamp_us;
 
@@ -147,7 +148,8 @@ struct wj_audio_chunk {
 
 	/**
 	 * Capture time in the clock of now_us(), or zero to stamp the chunk with
-	 * the source's own clock, which is what the Java pushAudio() does.
+	 * now_us() at the moment of the push, which is what the Java pushAudio()
+	 * does.
 	 */
 	int64_t timestamp_us;
 };
@@ -282,7 +284,8 @@ struct webrtc_java_api {
 	 * @param opaque Passed to "fn" unchanged.
 	 *
 	 * @return The observer, for encoded_observer_remove(), or null if a
-	 *         handle or the function was null.
+	 *         handle or the function was null, or memory ran out. Nothing is
+	 *         attached then, and the handle stays valid.
 	 */
 	void * (*encoded_observer_add)(void * frames, wj_encoded_frame_fn fn, void * opaque);
 

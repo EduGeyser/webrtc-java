@@ -58,7 +58,7 @@ runs:
         else
           echo "WEBRTC_VARIANT=full" >> "$GITHUB_ENV"
           echo "WEBRTC_VARIANT_ARG=-Pwebrtc.variant=full" >> "$GITHUB_ENV"
-          echo "WEBRTC_TEST_TASKS=:webrtc:test :webrtc-java-media:test" >> "$GITHUB_ENV"
+          echo "WEBRTC_TEST_TASKS=:webrtc:test :webrtc-media:test" >> "$GITHUB_ENV"
         fi
       shell: bash
 

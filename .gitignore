@@ -12,6 +12,9 @@
 **/build/
 !.github/actions/build/
 
+# Linux sysroots downloaded by install-sysroot.py
+webrtc-jni/src/main/cpp/dependencies/webrtc/linux/*-sysroot/
+
 # Compiled Dynamic libraries
 *.so
 *.dylib

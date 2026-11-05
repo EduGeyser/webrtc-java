@@ -36,7 +36,9 @@ namespace jni
 	{
 		public:
 			WebRTCContext(JavaVM * vm);
-			~WebRTCContext() = default;
+			// Releases what initialize() set up and destroy() has not, also
+			// after an initialization that failed part way.
+			~WebRTCContext();
 
 			void initialize(JNIEnv * env) override;
 			void initializeClassLoader(JNIEnv* env, const char * loaderName) override;
@@ -53,8 +55,12 @@ namespace jni
 			void initializeAudioManager();
 			void initializeVideoManager();
 			void initializePowerManagement();
+#endif
 
 		private:
+			bool sslInitialized;
+
+#ifndef WEBRTC_DATA_CHANNELS_ONLY
 			std::mutex aMutex;
 			std::mutex vMutex;
 			std::unique_ptr<avdev::AudioDeviceManager> audioDevManager;

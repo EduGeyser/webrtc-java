@@ -16,21 +16,75 @@
 
 package io.github.sendablemetatype.webrtc.media.video.desktop;
 
+import io.github.sendablemetatype.webrtc.internal.NativeLoader;
+
 /**
  * Power management assertions to wake the display and prevent it from going to sleep on user idle.
+ * <p>
+ * Each instance is one independent request. Enabling an instance repeatedly counts once, so a single
+ * {@link #disableUserActivity()} ends its request. The system may idle to sleep again once the last
+ * enabled instance of this process is disabled. Keep the instance that enabled the request, since
+ * disabling another instance does not end it. All methods are thread-safe.
  *
  * @author Alex Andres
  */
 public class PowerManagement {
 
-	/**
-	 * Declares that the user is active on the system and prevents the sleep idle time-out.
-	 */
-	native public void enableUserActivity();
+	/** Guards the request state and serializes access to the process-wide native assertion. */
+	private static final Object LOCK = new Object();
+
+	/** The number of instances with an active request. */
+	private static int activeRequests;
+
+	/** Whether this instance has an active request. */
+	private boolean active;
+
+
+	static {
+		try {
+			NativeLoader.loadLibrary("webrtc-java");
+		}
+		catch (Exception e) {
+			throw new RuntimeException("Load library 'webrtc-java' failed", e);
+		}
+	}
 
 	/**
-	 * Declares that the user is no longer active on the system and allow the system to idle to sleep normally.
+	 * Declares that the user is active on the system and prevents the sleep idle time-out. Has no further
+	 * effect if this instance is already enabled.
 	 */
-	native public void disableUserActivity();
+	public void enableUserActivity() {
+		synchronized (LOCK) {
+			if (!active) {
+				active = true;
+				activeRequests++;
+			}
+
+			// No-op while the native assertion is held; otherwise retries one that could not be taken.
+			enableUserActivityInternal();
+		}
+	}
+
+	/**
+	 * Ends the request of this instance. The system may idle to sleep normally once no other instance has
+	 * an active request. Has no further effect if this instance is not enabled.
+	 */
+	public void disableUserActivity() {
+		synchronized (LOCK) {
+			if (active) {
+				active = false;
+				activeRequests--;
+			}
+
+			// No-op without a native assertion; otherwise also retries a release that failed.
+			if (activeRequests == 0) {
+				disableUserActivityInternal();
+			}
+		}
+	}
+
+	native void enableUserActivityInternal();
+
+	native void disableUserActivityInternal();
 
 }

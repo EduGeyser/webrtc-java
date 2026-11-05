@@ -63,6 +63,14 @@ extern "C" {
 	JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_RTCDtmfSender_unregisterObserver
 	(JNIEnv *, jobject);
 
+	/*
+	 * Class:     io_github_sendablemetatype_webrtc_RTCDtmfSender
+	 * Method:    dispose
+	 * Signature: ()V
+	 */
+	JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_RTCDtmfSender_dispose
+	(JNIEnv *, jobject);
+
 #ifdef __cplusplus
 }
 #endif

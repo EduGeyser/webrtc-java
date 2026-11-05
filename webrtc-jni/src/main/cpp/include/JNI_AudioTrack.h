@@ -26,10 +26,26 @@ extern "C" {
 	/*
 	 * Class:     io_github_sendablemetatype_webrtc_media_audio_AudioTrack
 	 * Method:    addSinkInternal
-	 * Signature: (Lio/github/sendablemetatype/webrtc/media/audio/AudioTrackSink;Z)J
+	 * Signature: (Lio/github/sendablemetatype/webrtc/media/audio/AudioTrackSink;ZZ)J
 	 */
 	JNIEXPORT jlong JNICALL Java_io_github_sendablemetatype_webrtc_media_audio_AudioTrack_addSinkInternal
-	(JNIEnv *, jobject, jobject, jboolean);
+	(JNIEnv *, jobject, jobject, jboolean, jboolean);
+
+	/*
+	 * Class:     io_github_sendablemetatype_webrtc_media_audio_AudioTrack
+	 * Method:    addVoiceActivityListenerInternal
+	 * Signature: (Lio/github/sendablemetatype/webrtc/media/audio/VoiceActivityListener;FI)J
+	 */
+	JNIEXPORT jlong JNICALL Java_io_github_sendablemetatype_webrtc_media_audio_AudioTrack_addVoiceActivityListenerInternal
+	(JNIEnv *, jobject, jobject, jfloat, jint);
+
+	/*
+	 * Class:     io_github_sendablemetatype_webrtc_media_audio_AudioTrack
+	 * Method:    removeVoiceActivityListenerInternal
+	 * Signature: (J)V
+	 */
+	JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_media_audio_AudioTrack_removeVoiceActivityListenerInternal
+	(JNIEnv *, jobject, jlong);
 
 	/*
 	 * Class:     io_github_sendablemetatype_webrtc_media_audio_AudioTrack

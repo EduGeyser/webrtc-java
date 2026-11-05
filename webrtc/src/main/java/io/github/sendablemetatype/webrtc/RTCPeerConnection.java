@@ -507,8 +507,29 @@ public class RTCPeerConnection extends NativeObject {
 	/**
 	 * Closes the peer connection, terminates all media and releases any used
 	 * resources.
+	 * <p>
+	 * When called from an observer callback of a connection created by the
+	 * same factory, the connection is closed once that callback has returned,
+	 * since WebRTC goes on with it afterwards. Until then, the {@link
+	 * PeerConnectionObserver} may still hear of the operation in progress.
+	 * <p>
+	 * It may be called from any thread, also while other threads still call
+	 * methods of this connection, and more than once: only the first call
+	 * closes the connection, later and concurrent ones return without doing
+	 * anything. Methods called after it throw an {@link
+	 * IllegalStateException}, except the state getters, which report a closed
+	 * connection. A method that another thread is running when the connection
+	 * is closed finds it closed from then on; the native connection is freed
+	 * once that method has returned. Until then, observers may still hear of
+	 * operations that WebRTC completed before the close; once it is freed,
+	 * those still unreported fail.
 	 */
 	public native void close();
+
+	@Override
+	protected IllegalStateException disposedException() {
+		return new IllegalStateException("RTCPeerConnection is closed");
+	}
 
 	/**
 	 * Two RTCPeerConnection instances are equal if they are bound to the
@@ -531,9 +552,7 @@ public class RTCPeerConnection extends NativeObject {
 
 	@Override
 	public int hashCode() {
-		long handle = getNativeHandle();
-
-		return handle == 0 ? System.identityHashCode(this) : Long.hashCode(handle);
+		return nativeHashCode();
 	}
 
 	private native RTCRtpSender addTrackInternal(MediaStreamTrack track,

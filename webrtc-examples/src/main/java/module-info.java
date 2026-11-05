@@ -4,9 +4,12 @@ module io.github.sendablemetatype.webrtc.examples {
     requires java.desktop;
     requires java.logging;
     requires java.net.http;
+    requires javafx.controls;
     requires org.eclipse.jetty.server;
     requires org.eclipse.jetty.websocket.server;
     requires io.github.sendablemetatype.webrtc;
+    requires io.github.sendablemetatype.webrtc.javafx;
+    requires io.github.sendablemetatype.webrtc.swing;
     requires io.github.sendablemetatype.webrtc.media;
 
     exports io.github.sendablemetatype.webrtc.examples.web.client;

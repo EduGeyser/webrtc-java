@@ -60,8 +60,16 @@ namespace jni
 {
 	WebRTCContext::WebRTCContext(JavaVM * vm) :
 		JavaContext(vm),
-		webrtcEnv(webrtc::CreateEnvironment())
+		webrtcEnv(webrtc::CreateEnvironment()),
+		sslInitialized(false)
 	{
+	}
+
+	WebRTCContext::~WebRTCContext()
+	{
+		if (sslInitialized) {
+			webrtc::CleanupSSL();
+		}
 	}
 
 	void WebRTCContext::initialize(JNIEnv * env)
@@ -69,7 +77,9 @@ namespace jni
 		if (!webrtc::InitializeSSL()) {
 			throw Exception("Initialize SSL failed");
 		}
-		
+
+		sslInitialized = true;
+
 		JavaEnums::add<webrtc::LoggingSeverity>(env, PKG_LOG"Logging$Severity");
 		JavaEnums::add<webrtc::MediaType>(env, PKG_MEDIA"MediaType");
 		JavaEnums::add<webrtc::DataChannelInterface::DataState>(env, PKG"RTCDataChannelState");
@@ -136,15 +146,22 @@ namespace jni
 
 		auto javaGet = GetStaticMethod(env, javaClass, "getClassLoader", "()Ljava/lang/ClassLoader;");
 
-		auto loaderRef = jni::JavaGlobalRef<jobject>(env, env->CallStaticObjectMethod(javaClass, javaGet));
+		jni::JavaLocalRef<jobject> loader(env, env->CallStaticObjectMethod(javaClass, javaGet));
+		ExceptionCheck(env);
+
+		auto loaderRef = jni::JavaGlobalRef<jobject>(env, loader.get());
 
 		InitClassLoader(env, loaderRef);
 	}
 
 	void WebRTCContext::destroy(JNIEnv * env)
 	{
-		if (!webrtc::CleanupSSL()) {
-			env->Throw(jni::JavaError(env, "Cleanup SSL failed"));
+		if (sslInitialized) {
+			sslInitialized = false;
+
+			if (!webrtc::CleanupSSL()) {
+				env->Throw(jni::JavaError(env, "Cleanup SSL failed"));
+			}
 		}
 
 #ifndef WEBRTC_DATA_CHANNELS_ONLY

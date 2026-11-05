@@ -114,66 +114,72 @@ public class NativeI420Buffer extends RefCountedObject implements I420Buffer {
 	 * Creates a copy of this I420 buffer. This method performs a deep copy of all data in the buffer.
 	 *
 	 * @return A new NativeI420Buffer instance with the same dimensions and data as this buffer.
+	 *
+	 * @throws RuntimeException if this buffer has been released.
 	 */
 	public NativeI420Buffer copy() {
-		return copy(width, height, dataY.slice(), strideY, dataU.slice(), strideU, dataV.slice(), strideV);
+		return copy(this);
 	}
 
 	/**
 	 * Allocates an empty I420Buffer suitable for an image of the given dimensions.
+	 *
+	 * @param width  The width of the image in pixels.
+	 * @param height The height of the image in pixels.
+	 *
+	 * @return A new buffer of the given dimensions.
+	 *
+	 * @throws IllegalArgumentException if a dimension is not positive or all three planes together
+	 *                                  are larger than {@link Integer#MAX_VALUE} bytes.
 	 */
-	public static native NativeI420Buffer allocate(int width, int height);
-
-	/**
-	 * Creates a copy of an I420 buffer with the given dimensions and data.
-	 */
-	private static native NativeI420Buffer copy(int width, int height, ByteBuffer dataY, int strideY, ByteBuffer dataU,
-												int strideU, ByteBuffer dataV, int strideV);
-
-	/**
-	 * Wraps existing ByteBuffers into NativeI420Buffer object without copying the
-	 * contents.
-	 */
-	private static I420Buffer wrap(int width, int height, ByteBuffer dataY, int strideY, ByteBuffer dataU,
-			int strideU, ByteBuffer dataV, int strideV) {
-		if (dataY == null || dataU == null || dataV == null) {
-			throw new IllegalArgumentException("Data buffers cannot be null");
-		}
-		if (!dataY.isDirect() || !dataU.isDirect() || !dataV.isDirect()) {
-			throw new IllegalArgumentException("Data buffers must be direct byte buffers");
+	public static NativeI420Buffer allocate(int width, int height) {
+		// WebRTC aborts the process on dimensions it cannot allocate, rather than failing the call.
+		if (width <= 0 || height <= 0) {
+			throw new IllegalArgumentException("Invalid buffer size " + width + "x" + height);
 		}
 
-		// Slice the buffers to prevent external modifications to the position / limit
-		// of the buffer.
-		// Note that this doesn't protect the contents of the buffers from modifications.
-		dataY = dataY.slice();
-		dataU = dataU.slice();
-		dataV = dataV.slice();
+		long chromaSize = ((width + 1L) / 2) * ((height + 1L) / 2);
 
-		final int chromaWidth = (width + 1) / 2;
-		final int chromaHeight = (height + 1) / 2;
-		
-		checkCapacity(dataY, width, height, strideY);
-		checkCapacity(dataU, chromaWidth, chromaHeight, strideU);
-		checkCapacity(dataV, chromaWidth, chromaHeight, strideV);
+		if ((long) width * height + 2 * chromaSize > Integer.MAX_VALUE) {
+			throw new IllegalArgumentException("Buffer size " + width + "x" + height + " is too large");
+		}
 
-		return new NativeI420Buffer(width, height, dataY, strideY, dataU, strideU, dataV, strideV);
+		return allocateBuffer(width, height);
 	}
-	
-	private static VideoFrameBuffer cropAndScale(final I420Buffer buffer, int cropX, int cropY,
+
+	private static native NativeI420Buffer allocateBuffer(int width, int height);
+
+	/**
+	 * Copies the pixels of any buffer, as {@link VideoFrameBuffer#toI420()} provides them, into a new
+	 * buffer.
+	 *
+	 * @throws RuntimeException if the buffer has no readable pixels, such as a released buffer or one
+	 *                          with heap byte buffers, or if the size, strides and planes of the I420
+	 *                          buffer do not fit together.
+	 */
+	static native NativeI420Buffer copy(VideoFrameBuffer buffer);
+
+	/**
+	 * Crops this buffer without copying. The cropped buffer shares the pixels of this one and holds a
+	 * reference to it, so it stays valid when this buffer is released.
+	 */
+	private native NativeI420Buffer crop(int cropX, int cropY, int cropWidth, int cropHeight);
+
+	private static VideoFrameBuffer cropAndScale(final NativeI420Buffer buffer, int cropX, int cropY,
 			int cropWidth, int cropHeight, int scaleWidth, int scaleHeight) {
+		if (cropX < 0 || cropY < 0 || cropWidth <= 0 || cropHeight <= 0
+				|| cropWidth > buffer.getWidth() - cropX || cropHeight > buffer.getHeight() - cropY) {
+			throw new IllegalArgumentException("Crop rectangle " + cropWidth + "x" + cropHeight + " at ("
+					+ cropX + ", " + cropY + ") does not fit the " + buffer.getWidth() + "x"
+					+ buffer.getHeight() + " buffer");
+		}
+		if (scaleWidth <= 0 || scaleHeight <= 0) {
+			throw new IllegalArgumentException("Invalid scale size " + scaleWidth + "x" + scaleHeight);
+		}
+
 		if (cropWidth == scaleWidth && cropHeight == scaleHeight) {
 			// No scaling.
-			ByteBuffer dataY = buffer.getDataY();
-			ByteBuffer dataU = buffer.getDataU();
-			ByteBuffer dataV = buffer.getDataV();
-
-			dataY.position(cropX + cropY * buffer.getStrideY());
-			dataU.position(cropX / 2 + cropY / 2 * buffer.getStrideU());
-			dataV.position(cropX / 2 + cropY / 2 * buffer.getStrideV());
-
-			return wrap(scaleWidth, scaleHeight, dataY.slice(), buffer.getStrideY(), dataU.slice(),
-					buffer.getStrideU(), dataV.slice(), buffer.getStrideV());
+			return buffer.crop(cropX, cropY, cropWidth, cropHeight);
 		}
 
 		I420Buffer newBuffer = allocate(scaleWidth, scaleHeight);
@@ -184,16 +190,6 @@ public class NativeI420Buffer extends RefCountedObject implements I420Buffer {
 				newBuffer.getDataV(), newBuffer.getStrideV(), scaleWidth, scaleHeight);
 
 		return newBuffer;
-	}
-
-	private static void checkCapacity(ByteBuffer data, int width, int height, int stride) {
-		// The last row does not necessarily need padding.
-		final int minCapacity = stride * (height - 1) + width;
-		
-		if (data.capacity() < minCapacity) {
-			throw new IllegalArgumentException("Buffer must be at least " + minCapacity +
-					" bytes, but was " + data.capacity());
-		}
 	}
 
 	private static native void cropAndScale(ByteBuffer srcY, int srcStrideY,

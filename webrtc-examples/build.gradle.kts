@@ -11,7 +11,7 @@ base {
 
 dependencies {
 	implementation(project(":webrtc"))
-	implementation(project(":webrtc-java-media"))
+	implementation(project(":webrtc-media"))
 	implementation(libs.jetty.server)
 	implementation(libs.jetty.websocket.server)
 	implementation(libs.jetty.util)
@@ -24,7 +24,7 @@ dependencies {
 	}
 	else {
 		runtimeOnly(project(path = ":webrtc-jni", configuration = "natives"))
-		runtimeOnly(project(path = ":webrtc-java-media", configuration = "natives"))
+		runtimeOnly(project(path = ":webrtc-media", configuration = "natives"))
 	}
 }
 

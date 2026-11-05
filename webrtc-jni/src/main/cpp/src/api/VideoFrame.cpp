@@ -17,13 +17,64 @@
 #include "api/VideoFrame.h"
 #include "JavaObject.h"
 #include "JavaUtils.h"
+#include "JavaRuntimeException.h"
+#include "JavaWrappedException.h"
 #include "JNI_WebRTC.h"
 
 #include "api/video/i420_buffer.h"
 #include "rtc_base/time_utils.h"
 
+#include <climits>
+#include <cstdint>
+
 namespace jni
 {
+	namespace
+	{
+		// A direct buffer over a plane, or throws: the allocation may fail, with or without an exception pending.
+		JavaLocalRef<jobject> NewPlane(JNIEnv * env, const char * name, const uint8_t * data, jlong size)
+		{
+			JavaLocalRef<jobject> plane(env, env->NewDirectByteBuffer(const_cast<uint8_t *>(data), size));
+
+			if (plane.get() == nullptr) {
+				ExceptionCheck(env);
+
+				throw JavaWrappedException(JavaLocalRef<jthrowable>(env,
+					JavaRuntimeException(env, "The %s plane could not be wrapped in a direct buffer", name)));
+			}
+
+			return plane;
+		}
+
+		// A read-only view of a plane, or throws.
+		JavaLocalRef<jobject> ReadOnlyPlane(JNIEnv * env, jmethodID asReadOnlyBuffer, const JavaLocalRef<jobject> & plane)
+		{
+			JavaLocalRef<jobject> view(env, env->CallObjectMethod(plane, asReadOnlyBuffer));
+			ExceptionCheck(env);
+
+			return view;
+		}
+
+		// Throws unless the plane holds every byte a copy reads: the last row ends at the width.
+		void CheckPlane(JNIEnv * env, const char * name, const JavaRef<jobject> & data, jint stride, jint width, jint height)
+		{
+			if (stride < width) {
+				throw JavaWrappedException(JavaLocalRef<jthrowable>(env,
+					JavaRuntimeException(env, "Stride %d of the %s plane is less than its width %d", stride, name, width)));
+			}
+
+			// Neither factor exceeds an int, so the product cannot overflow.
+			const int64_t required = static_cast<int64_t>(stride) * (height - 1) + width;
+			const jlong capacity = env->GetDirectBufferCapacity(data);
+
+			if (capacity < required) {
+				throw JavaWrappedException(JavaLocalRef<jthrowable>(env,
+					JavaRuntimeException(env, "The %s plane holds %lld bytes, but a %dx%d plane with stride %d needs %lld",
+						name, static_cast<long long>(capacity), width, height, stride, static_cast<long long>(required))));
+			}
+		}
+	}
+
 	namespace VideoFrame
 	{
 		webrtc::VideoFrame toNative(JNIEnv * env, const JavaRef<jobject> & javaFrame)
@@ -34,35 +85,13 @@ namespace jni
 			int rotation = obj.getInt(javaClass->rotation);
 			int64_t timestamp_ns = obj.getLong(javaClass->timestampNs);
 			JavaLocalRef<jobject> jBuffer = obj.getObject(javaClass->buffer);
-			
-			/*
-			// Get the I420Buffer properties
-			const auto i420Class = JavaClasses::get<JavaNativeI420BufferClass>(env);
-			JavaObject bufferObj(env, jBuffer);
-			
-			int width = bufferObj.getInt(i420Class->width);
-			int height = bufferObj.getInt(i420Class->height);
-			
-			JavaLocalRef<jobject> dataY = bufferObj.getObject(i420Class->dataY);
-			JavaLocalRef<jobject> dataU = bufferObj.getObject(i420Class->dataU);
-			JavaLocalRef<jobject> dataV = bufferObj.getObject(i420Class->dataV);
-			
-			int strideY = bufferObj.getInt(i420Class->strideY);
-			int strideU = bufferObj.getInt(i420Class->strideU);
-			int strideV = bufferObj.getInt(i420Class->strideV);
-			
-			// Get the direct buffer addresses
-			const uint8_t * y_data = static_cast<uint8_t*>(env->GetDirectBufferAddress(dataY.get()));
-			const uint8_t * u_data = static_cast<uint8_t*>(env->GetDirectBufferAddress(dataU.get()));
-			const uint8_t * v_data = static_cast<uint8_t*>(env->GetDirectBufferAddress(dataV.get()));
-			
-			// Create a native I420Buffer
-			webrtc::scoped_refptr<webrtc::I420Buffer> buffer = webrtc::I420Buffer::Copy(
-				width, height, y_data, strideY, u_data, strideU, v_data, strideV);
-			*/
 
-			webrtc::I420BufferInterface * i420Buffer = GetHandle<webrtc::I420BufferInterface>(env, jBuffer);
-			webrtc::scoped_refptr<webrtc::I420BufferInterface> buffer(i420Buffer);
+			webrtc::scoped_refptr<webrtc::VideoFrameBuffer> buffer = toNativeBuffer(env, jBuffer);
+
+			if (buffer == nullptr) {
+				throw JavaWrappedException(JavaLocalRef<jthrowable>(env,
+					JavaRuntimeException(env, "The buffer of the VideoFrame cannot be read")));
+			}
 
 			return webrtc::VideoFrame::Builder()
 				.set_video_frame_buffer(buffer)
@@ -102,16 +131,13 @@ namespace jni
 
 		webrtc::scoped_refptr<webrtc::VideoFrameBuffer> toNativeBuffer(JNIEnv * env, const JavaRef<jobject> & javaBuffer)
 		{
-			const auto nativeClass = JavaClasses::get<JavaNativeI420BufferClass>(env);
-
-			if (env->IsInstanceOf(javaBuffer, nativeClass->cls)) {
-				webrtc::I420BufferInterface * buffer = GetHandle<webrtc::I420BufferInterface>(env, javaBuffer);
-
-				return webrtc::scoped_refptr<webrtc::VideoFrameBuffer>(buffer);
+			if (javaBuffer.get() == nullptr) {
+				return nullptr;
 			}
 
 			const auto javaClass = JavaClasses::get<JavaI420BufferClass>(env);
 
+			// A NativeI420Buffer returns itself, and so may any other buffer that keeps its pixels in one.
 			JavaLocalRef<jobject> i420(env, env->CallObjectMethod(javaBuffer, javaClass->toI420));
 			ExceptionCheck(env);
 
@@ -119,17 +145,41 @@ namespace jni
 				return nullptr;
 			}
 
-			const jint width = env->CallIntMethod(i420, javaClass->getWidth);
-			const jint height = env->CallIntMethod(i420, javaClass->getHeight);
-			const jint strideY = env->CallIntMethod(i420, javaClass->getStrideY);
-			const jint strideU = env->CallIntMethod(i420, javaClass->getStrideU);
-			const jint strideV = env->CallIntMethod(i420, javaClass->getStrideV);
-			ExceptionCheck(env);
+			const auto nativeClass = JavaClasses::get<JavaNativeI420BufferClass>(env);
 
-			JavaLocalRef<jobject> dataY(env, env->CallObjectMethod(i420, javaClass->getDataY));
-			JavaLocalRef<jobject> dataU(env, env->CallObjectMethod(i420, javaClass->getDataU));
-			JavaLocalRef<jobject> dataV(env, env->CallObjectMethod(i420, javaClass->getDataV));
-			ExceptionCheck(env);
+			if (env->IsInstanceOf(i420, nativeClass->cls)) {
+				webrtc::I420BufferInterface * buffer = GetHandle<webrtc::I420BufferInterface>(env, i420);
+
+				// Released for good, so there is nothing to read.
+				if (buffer == nullptr) {
+					return nullptr;
+				}
+
+				return webrtc::scoped_refptr<webrtc::VideoFrameBuffer>(buffer);
+			}
+
+			// Each call is checked before the next one: a buffer's getter may
+			// throw, and no JNI call may follow with its exception pending.
+			auto callInt = [&](jmethodID method) {
+				const jint value = env->CallIntMethod(i420, method);
+				ExceptionCheck(env);
+				return value;
+			};
+			auto callObject = [&](jmethodID method) {
+				JavaLocalRef<jobject> value(env, env->CallObjectMethod(i420, method));
+				ExceptionCheck(env);
+				return value;
+			};
+
+			const jint width = callInt(javaClass->getWidth);
+			const jint height = callInt(javaClass->getHeight);
+			const jint strideY = callInt(javaClass->getStrideY);
+			const jint strideU = callInt(javaClass->getStrideU);
+			const jint strideV = callInt(javaClass->getStrideV);
+
+			JavaLocalRef<jobject> dataY = callObject(javaClass->getDataY);
+			JavaLocalRef<jobject> dataU = callObject(javaClass->getDataU);
+			JavaLocalRef<jobject> dataV = callObject(javaClass->getDataV);
 
 			if (dataY.get() == nullptr || dataU.get() == nullptr || dataV.get() == nullptr) {
 				return nullptr;
@@ -144,30 +194,61 @@ namespace jni
 				return nullptr;
 			}
 
+			const jint chromaWidth = static_cast<jint>((width + 1LL) / 2);
+			const jint chromaHeight = static_cast<jint>((height + 1LL) / 2);
+
+			// WebRTC aborts the process on a copy larger than it can address with an int.
+			if (static_cast<int64_t>(width) * height + 2 * static_cast<int64_t>(chromaWidth) * chromaHeight > INT_MAX) {
+				throw JavaWrappedException(JavaLocalRef<jthrowable>(env,
+					JavaRuntimeException(env, "Buffer size %dx%d is too large", width, height)));
+			}
+
+			CheckPlane(env, "Y", dataY, strideY, width, height);
+			CheckPlane(env, "U", dataU, strideU, chromaWidth, chromaHeight);
+			CheckPlane(env, "V", dataV, strideV, chromaWidth, chromaHeight);
+
 			return webrtc::I420Buffer::Copy(width, height, y, strideY, u, strideU, v, strideV);
 		}
 	}
 
 	namespace I420Buffer
 	{
-		JavaLocalRef<jobject> toJava(JNIEnv * env, const webrtc::scoped_refptr<webrtc::I420BufferInterface> & buffer)
+		JavaLocalRef<jobject> toJava(JNIEnv * env, const webrtc::scoped_refptr<webrtc::I420BufferInterface> & buffer,
+			bool readOnly)
 		{
 			const auto javaClass = JavaClasses::get<JavaNativeI420BufferClass>(env);
 
-			jobject yBuffer = env->NewDirectByteBuffer(const_cast<uint8_t *>(buffer->DataY()), static_cast<jlong>(buffer->StrideY()) * buffer->height());
-			jobject uBuffer = env->NewDirectByteBuffer(const_cast<uint8_t *>(buffer->DataU()), static_cast<jlong>(buffer->StrideU()) * buffer->ChromaHeight());
-			jobject vBuffer = env->NewDirectByteBuffer(const_cast<uint8_t *>(buffer->DataV()), static_cast<jlong>(buffer->StrideV()) * buffer->ChromaHeight());
+			// The last row ends at the width: a cropped buffer has no padding behind it that belongs to it.
+			auto planeSize = [](int stride, int width, int height) {
+				return static_cast<jlong>(stride) * (height - 1) + width;
+			};
 
-			jobject jBuffer = env->NewObject(javaClass->cls, javaClass->ctor, buffer->width(), buffer->height(),
-				yBuffer, buffer->StrideY(), uBuffer, buffer->StrideU(), vBuffer, buffer->StrideV());
+			JavaLocalRef<jobject> yBuffer = NewPlane(env, "Y", buffer->DataY(), planeSize(buffer->StrideY(), buffer->width(), buffer->height()));
+			JavaLocalRef<jobject> uBuffer = NewPlane(env, "U", buffer->DataU(), planeSize(buffer->StrideU(), buffer->ChromaWidth(), buffer->ChromaHeight()));
+			JavaLocalRef<jobject> vBuffer = NewPlane(env, "V", buffer->DataV(), planeSize(buffer->StrideV(), buffer->ChromaWidth(), buffer->ChromaHeight()));
 
-			SetHandle(env, jBuffer, buffer.get());
+			if (readOnly) {
+				yBuffer = ReadOnlyPlane(env, javaClass->asReadOnlyBuffer, yBuffer);
+				uBuffer = ReadOnlyPlane(env, javaClass->asReadOnlyBuffer, uBuffer);
+				vBuffer = ReadOnlyPlane(env, javaClass->asReadOnlyBuffer, vBuffer);
+			}
 
-			env->DeleteLocalRef(yBuffer);
-			env->DeleteLocalRef(uBuffer);
-			env->DeleteLocalRef(vBuffer);
+			JavaLocalRef<jobject> jBuffer(env, env->NewObject(javaClass->cls, javaClass->ctor, buffer->width(), buffer->height(),
+				yBuffer.get(), buffer->StrideY(), uBuffer.get(), buffer->StrideU(), vBuffer.get(), buffer->StrideV()));
 
-			return JavaLocalRef<jobject>(env, jBuffer);
+			if (jBuffer.get() == nullptr) {
+				ExceptionCheck(env);
+
+				throw JavaWrappedException(JavaLocalRef<jthrowable>(env,
+					JavaRuntimeException(env, "The I420 buffer could not be created")));
+			}
+
+			// Last, once nothing can fail: the caller hands the wrapper its
+			// reference only when it gets the wrapper back.
+			SetHandle(env, jBuffer.get(), buffer.get());
+			ExceptionCheck(env);
+
+			return jBuffer;
 		}
 	}
 
@@ -215,5 +296,9 @@ namespace jni
 		strideV = GetFieldID(env, cls, "strideV", "I");
 		width = GetFieldID(env, cls, "width", "I");
 		height = GetFieldID(env, cls, "height", "I");
+
+		jclass byteBufferClass = FindClass(env, "java/nio/ByteBuffer");
+
+		asReadOnlyBuffer = GetMethod(env, byteBufferClass, "asReadOnlyBuffer", "()" BYTE_BUFFER_SIG);
 	}
 }

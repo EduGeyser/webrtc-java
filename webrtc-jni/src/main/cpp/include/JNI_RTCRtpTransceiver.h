@@ -65,6 +65,14 @@ extern "C" {
 
 	/*
 	 * Class:     io_github_sendablemetatype_webrtc_RTCRtpTransceiver
+	 * Method:    stopImmediately
+	 * Signature: ()V
+	 */
+	JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_RTCRtpTransceiver_stopImmediately
+	(JNIEnv *, jobject);
+
+	/*
+	 * Class:     io_github_sendablemetatype_webrtc_RTCRtpTransceiver
 	 * Method:    stopped
 	 * Signature: ()Z
 	 */

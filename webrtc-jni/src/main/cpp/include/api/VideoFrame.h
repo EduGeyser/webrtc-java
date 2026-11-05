@@ -37,15 +37,22 @@ namespace jni
 		// is released. Returns null if the pixels cannot be converted.
 		JavaLocalRef<jobject> toJava(JNIEnv * env, const webrtc::VideoFrame & frame);
 
-		// Returns the native pixel buffer of a Java VideoFrameBuffer. A
-		// NativeI420Buffer is shared; any other buffer is converted to I420
-		// in Java and copied. Returns null if it has no readable pixels.
+		// Returns the native pixel buffer of a Java VideoFrameBuffer, which
+		// is converted to I420 in Java first. A NativeI420Buffer that comes
+		// out of that is shared; any other I420 buffer is copied. Returns
+		// null if it has no readable pixels, such as a released buffer or
+		// one with heap byte buffers, and throws a RuntimeException if its
+		// size, strides and planes do not fit together.
 		webrtc::scoped_refptr<webrtc::VideoFrameBuffer> toNativeBuffer(JNIEnv * env, const JavaRef<jobject> & javaBuffer);
 	}
 
 	namespace I420Buffer
 	{
-		JavaLocalRef<jobject> toJava(JNIEnv * env, const webrtc::scoped_refptr<webrtc::I420BufferInterface> & buffer);
+		// Wraps the pixels of the buffer in a NativeI420Buffer without
+		// copying them. With readOnly its planes are read-only byte buffers,
+		// for pixels that others share.
+		JavaLocalRef<jobject> toJava(JNIEnv * env, const webrtc::scoped_refptr<webrtc::I420BufferInterface> & buffer,
+			bool readOnly = false);
 	}
 
 	class JavaVideoFrameClass : public JavaClass
@@ -93,6 +100,7 @@ namespace jni
 			jfieldID strideV;
 			jfieldID width;
 			jfieldID height;
+			jmethodID asReadOnlyBuffer;
 	};
 }
 

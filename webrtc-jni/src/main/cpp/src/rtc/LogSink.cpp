@@ -15,7 +15,6 @@
  */
 
 #include "rtc/LogSink.h"
-#include "api/WebRTCUtils.h"
 #include "JavaEnums.h"
 #include "JavaString.h"
 #include "JavaUtils.h"
@@ -64,8 +63,24 @@ namespace jni
 			ThrowCxxJavaException(env);
 		}
 
-		// What the sink threw is reported, but not rethrown.
-		ReportPendingException(env);
+		// What the sink threw is printed, but not rethrown. It is not handed
+		// to the uncaught exception handler, as other callbacks do: one that
+		// logs would come back here, to the logging lock this thread holds.
+		// Nor is it printed with ExceptionDescribe, which writes the first
+		// part to native stderr and the stack trace to System.err.
+		JavaLocalRef<jthrowable> exception(env, env->ExceptionOccurred());
+
+		if (exception.get() != nullptr) {
+			env->ExceptionClear();
+
+			JavaLocalRef<jclass> throwableClass(env, env->GetObjectClass(exception.get()));
+			jmethodID printStackTrace = env->GetMethodID(throwableClass.get(), "printStackTrace", "()V");
+
+			if (printStackTrace != nullptr) {
+				env->CallVoidMethod(exception.get(), printStackTrace);
+			}
+			env->ExceptionClear();
+		}
 
 		if (pending != nullptr) {
 			env->Throw(pending);

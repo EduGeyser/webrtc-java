@@ -26,6 +26,8 @@ import io.github.sendablemetatype.webrtc.media.audio.AudioProcessing;
 import io.github.sendablemetatype.webrtc.media.audio.AudioTrackSource;
 import io.github.sendablemetatype.webrtc.media.audio.AudioTrack;
 import io.github.sendablemetatype.webrtc.media.audio.CustomAudioSource;
+import io.github.sendablemetatype.webrtc.media.audio.VoiceActivityConfig;
+import io.github.sendablemetatype.webrtc.media.audio.VoiceActivityListener;
 import io.github.sendablemetatype.webrtc.media.audio.codec.AudioDecoderFactory;
 import io.github.sendablemetatype.webrtc.media.audio.codec.AudioEncoderFactory;
 import io.github.sendablemetatype.webrtc.media.audio.codec.BuiltinAudioDecoderFactory;
@@ -39,6 +41,7 @@ import io.github.sendablemetatype.webrtc.media.video.codec.HardwareVideoEncoderF
 import io.github.sendablemetatype.webrtc.media.video.codec.VideoDecoderFactory;
 import io.github.sendablemetatype.webrtc.media.video.codec.VideoEncoderFactory;
 
+import java.util.IdentityHashMap;
 import java.util.Map;
 import java.util.Objects;
 
@@ -101,6 +104,15 @@ public class PeerConnectionFactory extends DisposableNativeObject {
 
 	@SuppressWarnings("unused")
 	private long audioModuleHandle;
+
+	@SuppressWarnings("unused")
+	private long captureTapHandle;
+
+	/**
+	 * The listeners added to the audio processing, which may outlive the
+	 * factory; guarded by itself.
+	 */
+	private final Map<VoiceActivityListener, Long> voiceActivityListeners = new IdentityHashMap<>();
 
 	/** Guards {@link #audioInputMode}. */
 	private final Object audioInputLock = new Object();
@@ -407,8 +419,95 @@ public class PeerConnectionFactory extends DisposableNativeObject {
 	 */
 	public native RTCRtpCapabilities getRtpSenderCapabilities(MediaType type);
 
+	/**
+	 * Adds a listener that hears when speech begins and ends in the
+	 * microphone audio after audio processing, with echo cancellation, noise
+	 * suppression and gain control applied as configured: the audio the
+	 * senders send, so that the remote peer's voice from the speakers does not
+	 * count as this side speaking. The audio is analyzed in native code, in
+	 * the {@link AudioProcessing} the factory was built with, or else in the
+	 * one the factory built itself, and only the changes reach the listener.
+	 * <p>
+	 * Audio arrives while the audio device module records, which WebRTC starts
+	 * once a peer connection sends a track of {@link #createAudioSource}. The
+	 * listener runs on WebRTC's capture thread. Audio pushed through a {@link
+	 * CustomAudioSource} does not pass audio processing: its speech comes from
+	 * {@link AudioTrack#addVoiceActivityListener}.
+	 *
+	 * @param config   when audio counts as speech.
+	 * @param listener the listener. Adding it again does nothing.
+	 */
+	public void addVoiceActivityListener(VoiceActivityConfig config, VoiceActivityListener listener) {
+		Objects.requireNonNull(config, "config");
+		Objects.requireNonNull(listener, "listener");
+
+		synchronized (voiceActivityListeners) {
+			if (voiceActivityListeners.containsKey(listener)) {
+				return;
+			}
+
+			// Preserve partial milliseconds before native code rounds to 10 ms chunks.
+			int hangoverMs = (int) config.getHangover().toMillis()
+					+ (config.getHangover().getNano() % 1_000_000 == 0 ? 0 : 1);
+
+			long nativeListener = addVoiceActivityListenerInternal(listener, (float) config.getThreshold(),
+					hangoverMs);
+
+			voiceActivityListeners.put(listener, nativeListener);
+		}
+	}
+
+	/**
+	 * Removes a listener added with {@link #addVoiceActivityListener}. Once
+	 * this returns, it is no longer called. If it was not added, this is a
+	 * no-op.
+	 *
+	 * @param listener the listener.
+	 */
+	public void removeVoiceActivityListener(VoiceActivityListener listener) {
+		Objects.requireNonNull(listener, "listener");
+
+		synchronized (voiceActivityListeners) {
+			Long nativeListener = voiceActivityListeners.remove(listener);
+
+			if (nativeListener != null) {
+				removeVoiceActivityListenerInternal(nativeListener);
+			}
+		}
+	}
+
+	/**
+	 * Releases the factory and stops its threads. Connections, tracks and the
+	 * other objects it created are to be closed and disposed before.
+	 * <p>
+	 * A connection closed with {@link RTCPeerConnection#close()} is freed on
+	 * the factory's threads, possibly after close() has returned: when it was
+	 * closed from a callback, or while another thread was still in one of its
+	 * methods. Until it is freed, the factory stays: disposing it meanwhile
+	 * returns at once, and the factory is released once the last such
+	 * connection is.
+	 */
 	@Override
-	public native void dispose();
+	public void dispose() {
+		// An AudioProcessing of the application lives on with its listeners.
+		synchronized (voiceActivityListeners) {
+			for (long nativeListener : voiceActivityListeners.values()) {
+				removeVoiceActivityListenerInternal(nativeListener);
+			}
+
+			voiceActivityListeners.clear();
+		}
+
+		disposeInternal();
+	}
+
+	private native void disposeInternal();
+
+	private native long addVoiceActivityListenerInternal(VoiceActivityListener listener, float threshold,
+			int hangoverMs);
+
+	private native void removeVoiceActivityListenerInternal(long listenerHandle);
+
 
 	/**
 	 * Creates the native factory. A null codec factory stands for the

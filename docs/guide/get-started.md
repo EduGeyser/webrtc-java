@@ -1,6 +1,6 @@
 # Get Started
 
-This guide will help you get started with webrtc-java quickly. We'll cover installation, basic setup, and simple examples to demonstrate core functionality.
+This guide will help you get started with webrtc-java quickly. We'll cover installation, a first call with the client API, and the same steps with the core API.
 
 ## Supported Platforms
 Maven Central artifacts contain native libraries that can be loaded on the following platforms:
@@ -86,7 +86,103 @@ implementation group: "io.github.sendablemetatype.webrtc", name: "webrtc-java", 
 implementation group: "io.github.sendablemetatype.webrtc", name: "webrtc-java", version: "{{ VERSION }}", classifier: "linux-aarch32"
 ```
 
-## Basic Setup
+### Where the Native Library Is Loaded From
+
+The native library is looked for in this order:
+
+1. In the directory named by the system property `io.github.sendablemetatype.webrtc.library.dir`, if the library is there. It is loaded in place, nothing is extracted. Use this when the library is installed with the application, for example by a jpackage installer or a distribution package.
+2. In the native JAR on the class path. The library is extracted into the directory named by `io.github.sendablemetatype.webrtc.extract.dir`, or into the temporary directory (`java.io.tmpdir`) if that is not set, and loaded from there. Set `io.github.sendablemetatype.webrtc.extract.dir` when the temporary directory does not allow running code, as when `/tmp` is mounted with `noexec`.
+3. Where `System.loadLibrary` looks: the libraries of the Java runtime, which is where a jlink image keeps those of its modules, then `java.library.path`.
+
+```shell
+java -Dwebrtc.java.library.dir=/opt/myapp/lib -jar myapp.jar
+java -Dwebrtc.java.extract.dir=/var/lib/myapp/natives -jar myapp.jar
+```
+
+A library loaded from a directory keeps the file name it has in the native JAR, for example `libwebrtc-java-linux-x86_64.so`. The media module's library is found the same way; its FFmpeg libraries go next to it under their names in its native JAR (`libavcodec.so.62` and so on). If the library is found nowhere, the `UnsatisfiedLinkError` lists every place that was tried.
+
+The Linux libraries are built against glibc. They do not load on a system with the musl C library, such as Alpine Linux; the error says so when it finds one.
+
+## Your First Call
+
+webrtc-java has two APIs. The [Client API](/guide/client-api) in `io.github.sendablemetatype.webrtc.client` negotiates by itself, keeps your code off WebRTC's threads, and closes everything it created with one call. The core API in `io.github.sendablemetatype.webrtc` mirrors WebRTC's own classes one to one, for full control. Start with the client API; [Using the Core API](#using-the-core-api) below shows the same steps with the core API.
+
+### Create the Runtime
+
+A `WebRtc` runtime owns everything the client API creates. Closing it, here at the end of the try-with-resources block, closes it all:
+
+```java
+import io.github.sendablemetatype.webrtc.client.*;
+
+try (WebRtc rtc = WebRtc.create()) {
+    // Peers, tracks and channels go here.
+}
+```
+
+`WebRtc.create()` captures the microphone and plays to the speakers. `WebRtc.builder().audio(AudioMode.HEADLESS).build()` needs no audio hardware at all, which suits servers and tests.
+
+### Connect to a Peer
+
+Two peers find each other through signaling: they exchange offers, answers and ICE candidates over a channel you provide, such as a WebSocket. The library has no transport of its own; you hand it a function that sends, and pass it what the other side sent:
+
+```java
+Peer peer = rtc.createPeer(PeerOptions.builder()
+        .iceServer("stun:stun.l.google.com:19302")
+        .polite(true)
+        .signaling(message -> socket.send(message.toJson()))
+        .build());
+
+socket.onText(text -> peer.signal(SignalMessage.fromJson(text)));
+```
+
+The peer negotiates by itself whenever its tracks or channels change. When both sides send an offer at the same moment, the polite one gives way, so set `polite(true)` on exactly one of the two peers. The JSON messages are the ones browsers use, so the other side can be a web page.
+
+### Send and Receive Media
+
+```java
+peer.addTrack(rtc.media().microphone());
+peer.addTrack(rtc.media().camera());
+
+peer.onTrack(track -> {
+    System.out.println("Receiving " + track.kind());
+
+    if (track.isVideo()) {
+        track.asVideo().onFrame(frame -> render(frame));
+    }
+});
+
+peer.onStateChange(state -> System.out.println("Call is " + state));
+```
+
+Handlers run on a thread of the peer's own, one at a time and in order. They may take their time and may call any method, so a slow handler never stalls WebRTC.
+
+### Exchange Messages
+
+```java
+DataChannel chat = peer.createChannel("chat");
+
+chat.onMessage(message -> System.out.println("Peer says: " + message.text()));
+chat.send("Hello");
+```
+
+Messages sent before the channel opens are sent once it does.
+
+### Hang Up
+
+`peer.close()` ends the call; closing the runtime ends every call and releases the camera, the microphone and the native resources. Operations return `CompletableFuture`s, which a thread such as `main` may wait for:
+
+```java
+peer.whenConnected().get(10, TimeUnit.SECONDS);
+// ...
+peer.close();
+```
+
+The [Client API](/guide/client-api) guide covers everything else: pushing your own audio and video, manual negotiation for WHIP and WHEP, statistics and errors. The [`ClientApiExample`](https://github.com/devopvoid/webrtc-java/blob/master/webrtc-examples/src/main/java/io/github/sendablemetatype/webrtc/examples/ClientApiExample.java) runs a whole call between two peers in one process, without any hardware.
+
+## Using the Core API
+
+The core API leaves negotiation, threads and the lifetime of native objects to you. The steps below make the same call with it.
+
 
 ### Initialize the WebRTC Library
 
@@ -105,6 +201,7 @@ To establish communication with another peer, you need to create a `RTCPeerConne
 
 ```java
 import io.github.sendablemetatype.webrtc.RTCConfiguration;
+import io.github.sendablemetatype.webrtc.RTCIceCandidate;
 import io.github.sendablemetatype.webrtc.RTCIceServer;
 import io.github.sendablemetatype.webrtc.RTCPeerConnection;
 import io.github.sendablemetatype.webrtc.PeerConnectionObserver;
@@ -117,11 +214,15 @@ config.iceServers.add(iceServer);
 
 // Create a peer connection with an observer to handle events
 RTCPeerConnection peerConnection = factory.createPeerConnection(config, new PeerConnectionObserver() {
-    // Implement required methods
+    @Override
+    public void onIceCandidate(RTCIceCandidate candidate) {
+        // Send the candidate to the remote peer, see below. The other
+        // methods are optional.
+    }
 });
 ```
 
-## Signaling
+### Signaling
 
 WebRTC requires a signaling mechanism to exchange connection information between peers. The library doesn't provide this, so you'll need to implement it using your preferred method (WebSockets, HTTP, etc.).
 
@@ -187,7 +288,7 @@ signalingChannel.onIceCandidate(candidateMessage -> {
 });
 ```
 
-### Letting the Peer Connection Create the Description
+#### Letting the Peer Connection Create the Description
 
 `setLocalDescription` can also be called with only an observer. It then creates the offer or the answer, whichever the signaling state calls for, and applies it in one step, so nothing can change in between. That makes it the simpler way to implement "perfect negotiation". Read the result with `getLocalDescription()` once the observer reports success:
 
@@ -205,7 +306,7 @@ peerConnection.setLocalDescription(new SetSessionDescriptionObserver() {
 });
 ```
 
-### Adding Candidates and Knowing the Outcome
+#### Adding Candidates and Knowing the Outcome
 
 `addIceCandidate(candidate)` reports nothing and fails silently when the remote description is not set yet. The form that takes an `AddIceCandidateObserver` is queued behind any pending offer/answer operation, as the standard requires, so a candidate can be added right after `setRemoteDescription()` without waiting for it, and the observer says whether it was accepted:
 
@@ -235,9 +336,9 @@ public void onSelectedCandidatePairChanged(RTCCandidatePairChangeEvent event) {
 }
 ```
 
-## Media Streams
+### Media Streams
 
-### Accessing Media Devices
+#### Accessing Media Devices
 
 To query media devices (cameras and microphones):
 
@@ -259,7 +360,7 @@ for (AudioDevice device : audioDevices) {
 }
 ```
 
-### Creating Media Tracks
+#### Creating Media Tracks
 
 To create audio and video tracks:
 
@@ -267,7 +368,8 @@ To create audio and video tracks:
 import io.github.sendablemetatype.webrtc.media.video.VideoTrack;
 import io.github.sendablemetatype.webrtc.media.audio.AudioTrack;
 import io.github.sendablemetatype.webrtc.media.video.VideoDeviceSource;
-import io.github.sendablemetatype.webrtc.media.audio.AudioDeviceSource;
+import io.github.sendablemetatype.webrtc.media.audio.AudioOptions;
+import io.github.sendablemetatype.webrtc.media.audio.AudioTrackSource;
 
 // Create a video source and track
 VideoDeviceSource videoSource = new VideoDeviceSource();
@@ -289,7 +391,7 @@ AudioTrack audioTrack = factory.createAudioTrack("audio0", audioSource);
 Audio devices can be specified via the `AudioDeviceModule`, see the guide on [Audio Devices][audio-devices] for more details.
 :::
 
-### Adding Tracks to Peer Connection
+#### Adding Tracks to Peer Connection
 
 ```java
 import java.util.ArrayList;
@@ -303,7 +405,7 @@ RTCRtpSender videoSender = peerConnection.addTrack(videoTrack, streamIds);
 RTCRtpSender audioSender = peerConnection.addTrack(audioTrack, streamIds);
 ```
 
-### Receiving Tracks
+#### Receiving Tracks
 
 A remote track arrives in `onTrack` with the transceiver that carries it. To learn when its media actually starts flowing, for example to show a video only once there is something to show, set an `RTCRtpReceiverObserver`; an `RTCRtpSenderObserver` does the same for the first packet a sender sends. Either is called right away when that has already happened:
 
@@ -325,7 +427,7 @@ public void onTrack(RTCRtpTransceiver transceiver) {
 
 An observer belongs to the `RTCRtpReceiver` or `RTCRtpSender` object it was set through, and is removed when that object is disposed. `getId()` identifies a sender or receiver, and `RTCRtpSender.getStreams()` returns the stream IDs its track was added with.
 
-## Cleanup
+### Cleanup
 
 Always properly dispose of resources when you're done:
 
@@ -349,10 +451,41 @@ peerConnection.close();
 factory.dispose();
 ```
 
+A track may be disposed, and a listener removed, from within one of its listeners: the listeners the notification has not reached yet are then not called, and what goes is freed once the notification is over. An observer registered on one thread while the object is disposed on another is freed once and never left registered. A factory disposed while a closed connection is still being freed is released once that connection is.
+
+`dispose()` and `close()` may be called from any thread and more than once: only the first call frees anything, later ones do nothing. Once an object is disposed, its methods throw an `IllegalStateException` (a closed connection still reports its state). A method that another thread is running at that moment keeps the native object until it returns, and what the dispose frees is freed then.
+
+Apart from the media sources, which only have `dispose()`, objects with a `dispose()` method also have a `close()` that does the same. A try-with-resources statement therefore releases them, also when an exception leaves the block:
+
+```java
+try (AudioConverter converter = new AudioConverter(48000, 1, 16000, 1)) {
+    converter.convert(input, output);
+}
+```
+
+`RTCDataChannel` is the exception: its `close()` closes the channel, which then still has to be disposed.
+
+#### Finding Objects That Were Never Disposed
+
+An object that becomes unreachable without being disposed or closed leaks its native object. To find such objects, start the JVM with `-Dwebrtc.java.leak.detection=true`: each one is then reported, with its class, once the garbage collector finds it unreachable. Add `-Dwebrtc.java.leak.trace=true` to have the report tell where the object was created, at the cost of a stack trace per object.
+
+```shell
+java -Dwebrtc.java.leak.detection=true -Dwebrtc.java.leak.trace=true -jar app.jar
+```
+
+The reports are warnings through `Logging`, which writes nothing unless the application asks for it:
+
+```java
+Logging.logToDebug(Logging.Severity.WARNING);
+```
+
+Only objects that own a native object and have a `dispose()` or `close()` method are watched: not views such as the track of `RTCRtpSender.getTrack()`, which own nothing, and not reference-counted objects such as video frame buffers. The detector only reports; it never frees anything itself, since a native object may still be in use on a WebRTC thread. While it is off, which is the default, nothing is watched.
+
 ## Next Steps
 
 Now that you have a basic understanding of webrtc-java, you can explore more advanced features:
 
+- [Client API][client-api] - Everything the client API does, and how its threads work
 - [Data Channels][data-channels] - Learn more about data channels
 - [RTC Stats][rtc-stats] - Monitor connection quality
 - [Desktop Capture][desktop-capture] - Share screens and windows
@@ -360,6 +493,7 @@ Now that you have a basic understanding of webrtc-java, you can explore more adv
 
 For a complete API reference, check the [JavaDoc][javadoc].
 
+[client-api]: /guide/client-api
 [audio-devices]: /guide/audio/audio-devices
 [data-channels]: /guide/data/data-channels
 [rtc-stats]: /guide/monitoring/rtc-stats

@@ -106,7 +106,7 @@ if(WEBRTC_DATA_CHANNELS_ONLY)
     # The peer connection, data channel and transport bindings stay; the
     # media bindings and the device code go.
     list(FILTER SOURCES EXCLUDE REGEX "/src/(media|platform|api/audio)/")
-    list(FILTER SOURCES EXCLUDE REGEX "/src/JNI_(Audio|BuiltinAudio|CustomAudio|CustomVideo|DefaultVideo|Desktop|HardwareVideo|Headless|Media|NativeApi|NativeI420|NativeVideo|Power|RTCDtmf|RTCEncoded|RTCRtp|Screen|StandaloneVoiceActivity|SyncClock|Video|VoiceActivity|Window)[A-Za-z0-9]*\\.cpp$")
+    list(FILTER SOURCES EXCLUDE REGEX "/src/JNI_(AllocationFault|Audio|BuiltinAudio|CustomAudio|CustomVideo|DefaultVideo|Desktop|HardwareVideo|Headless|Media|NativeApi|NativeI420|NativeVideo|Power|RTCDtmf|RTCEncoded|RTCRtp|Screen|StandaloneVoiceActivity|SyncClock|Video|VoiceActivity|Window)[A-Za-z0-9]*\\.cpp$")
     list(FILTER SOURCES EXCLUDE REGEX "/src/api/(Audio|EncodedFrame|ExtensionApi|HeadlessAudio|ProxyAudio|RTCDtmf|RTCEncoded|RTCResolutionRestriction|RTCRtcp|RTCRtp|Video)[A-Za-z0-9]*\\.cpp$")
 endif()
 
@@ -220,6 +220,15 @@ install(FILES
     "${CMAKE_CURRENT_SOURCE_DIR}/dependencies/webrtc/licenses/LICENSE.md"
     "${CMAKE_CURRENT_SOURCE_DIR}/dependencies/webrtc/licenses/PATENTS"
     DESTINATION "${CMAKE_INSTALL_PREFIX}/META-INF/licenses/webrtc"
+    COMPONENT Runtime
+)
+
+# The project's own license and notice go along as well, at the top of
+# META-INF as in the Java jars.
+install(FILES
+    "${CMAKE_CURRENT_SOURCE_DIR}/../../../../LICENSE"
+    "${CMAKE_CURRENT_SOURCE_DIR}/../../../../NOTICE"
+    DESTINATION "${CMAKE_INSTALL_PREFIX}/META-INF"
     COMPONENT Runtime
 )
 

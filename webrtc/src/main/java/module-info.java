@@ -3,9 +3,10 @@
 @SuppressWarnings("module")
 module io.github.sendablemetatype.webrtc {
 
-	requires java.desktop;
+	requires java.net.http;
 
 	exports io.github.sendablemetatype.webrtc;
+	exports io.github.sendablemetatype.webrtc.client;
 	exports io.github.sendablemetatype.webrtc.logging;
 	exports io.github.sendablemetatype.webrtc.media;
 	exports io.github.sendablemetatype.webrtc.media.audio;
@@ -18,5 +19,9 @@ module io.github.sendablemetatype.webrtc {
 	// based media module, needs NativeApi to reach the native side of a custom
 	// media source directly instead of carrying every frame through Java.
 	exports io.github.sendablemetatype.webrtc.internal to io.github.sendablemetatype.webrtc.media;
+
+	// Not API for applications either. The media module's recorder needs the
+	// encoded frames of client API senders and remote tracks.
+	exports io.github.sendablemetatype.webrtc.client.internal to io.github.sendablemetatype.webrtc.media;
 
 }

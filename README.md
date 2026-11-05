@@ -41,7 +41,7 @@ The Java packages are renamed from upstream's `dev.onvoid.webrtc` with `tools/re
 
 ## License
 
-Copyright (c) 2019 Alex Andres
+Copyright (c) 2019-2026 Alex Andres
 
 Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with the License. You may obtain a copy of the License at
 

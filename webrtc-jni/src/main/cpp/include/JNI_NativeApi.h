@@ -54,6 +54,14 @@ extern "C" {
 	JNIEXPORT jlong JNICALL Java_io_github_sendablemetatype_webrtc_internal_NativeApi_receiverFrames
 	(JNIEnv *, jclass, jlong);
 
+	/*
+	 * Class:     io_github_sendablemetatype_webrtc_internal_NativeApi
+	 * Method:    releaseFrames
+	 * Signature: (J)V
+	 */
+	JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_internal_NativeApi_releaseFrames
+	(JNIEnv *, jclass, jlong);
+
 #ifdef __cplusplus
 }
 #endif

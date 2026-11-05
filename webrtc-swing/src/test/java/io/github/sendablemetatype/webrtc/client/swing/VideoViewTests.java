@@ -1,0 +1,241 @@
+/*
+ * Copyright 2026 Alex Andres
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package io.github.sendablemetatype.webrtc.client.swing;
+
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import java.awt.Color;
+import java.awt.Graphics2D;
+import java.awt.image.BufferedImage;
+import java.nio.ByteBuffer;
+import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
+
+import io.github.sendablemetatype.webrtc.client.AudioMode;
+import io.github.sendablemetatype.webrtc.client.CustomVideo;
+import io.github.sendablemetatype.webrtc.client.Peer;
+import io.github.sendablemetatype.webrtc.client.PeerOptions;
+import io.github.sendablemetatype.webrtc.client.Signaling;
+import io.github.sendablemetatype.webrtc.client.SignalingPair;
+import io.github.sendablemetatype.webrtc.client.WebRtc;
+import io.github.sendablemetatype.webrtc.media.video.NativeI420Buffer;
+import io.github.sendablemetatype.webrtc.media.video.VideoFrame;
+
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.parallel.Execution;
+import org.junit.jupiter.api.parallel.ExecutionMode;
+
+@Execution(ExecutionMode.SAME_THREAD)
+class VideoViewTests {
+
+	private static final long TIMEOUT_SECONDS = 15;
+
+	private final List<Throwable> errors = new CopyOnWriteArrayList<>();
+
+	private WebRtc rtc;
+
+
+	@BeforeEach
+	void createRuntime() {
+		// Also loads the native library the frames need.
+		rtc = WebRtc.builder()
+				.audio(AudioMode.HEADLESS)
+				.errorHandler(errors::add)
+				.build();
+	}
+
+	@AfterEach
+	void closeRuntime() {
+		rtc.close();
+
+		assertTrue(errors.isEmpty(), () -> "Errors: " + errors);
+	}
+
+	@Test
+	void showsFrame() {
+		VideoView view = new VideoView();
+		assertNull(view.snapshot());
+
+		view.accept(frame(64, 48, 128, 128));
+
+		BufferedImage snapshot = view.snapshot();
+		assertNotNull(snapshot);
+		assertEquals(64, snapshot.getWidth());
+		assertEquals(48, snapshot.getHeight());
+		assertGray(new Color(snapshot.getRGB(32, 24)));
+
+		view.clear();
+		assertNull(view.snapshot());
+	}
+
+	@Test
+	void keepsAspectRatio() {
+		VideoView view = new VideoView();
+		view.setSize(200, 100);
+		view.accept(frame(64, 48, 128, 128));
+
+		// A 4:3 picture in a 2:1 view leaves bars on the sides.
+		BufferedImage painted = paint(view);
+		assertEquals(Color.BLACK, new Color(painted.getRGB(5, 50)));
+		assertGray(new Color(painted.getRGB(100, 50)));
+	}
+
+	@Test
+	void mirrors() {
+		VideoView view = new VideoView();
+		view.setSize(64, 48);
+		view.accept(frame(64, 48, 16, 235));
+
+		assertTrue(brightness(paint(view).getRGB(8, 24)) < 64);
+
+		view.setMirrored(true);
+
+		// The bright right half is now on the left.
+		assertTrue(brightness(paint(view).getRGB(8, 24)) > 192);
+	}
+
+	@Test
+	void anyRotationMultiple() {
+		// A rotation outside 0..270 is shown as its equal inside it.
+		assertArrayEquals(rotated(270), rotated(-90));
+		assertArrayEquals(rotated(90), rotated(450));
+
+		// Sideways, a 4:3 picture in a 4:3 view leaves bars on the sides.
+		VideoView view = new VideoView();
+		view.setSize(64, 48);
+		view.accept(frame(64, 48, 128, 128, -90));
+
+		BufferedImage painted = paint(view);
+		assertEquals(Color.BLACK, new Color(painted.getRGB(2, 24)));
+		assertGray(new Color(painted.getRGB(32, 24)));
+	}
+
+	@Test
+	void showsRemoteVideo() throws Exception {
+		Peer[] peers = pair();
+		CustomVideo video = rtc.media().customVideo("video");
+		VideoView view = new VideoView();
+
+		peers[1].onTrack(track -> track.asVideo().onFrame(view));
+		peers[0].addTrack(video);
+
+		ScheduledExecutorService feeder = Executors.newSingleThreadScheduledExecutor();
+
+		try {
+			feeder.scheduleAtFixedRate(() -> {
+				VideoFrame frame = frame(320, 240, 128, 128);
+				video.push(frame);
+				frame.release();
+			}, 0, 33, TimeUnit.MILLISECONDS);
+
+			long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(TIMEOUT_SECONDS);
+			while (view.snapshot() == null && System.nanoTime() < deadline) {
+				Thread.sleep(50);
+			}
+		}
+		finally {
+			feeder.shutdownNow();
+		}
+
+		BufferedImage snapshot = view.snapshot();
+		assertNotNull(snapshot, "No frame reached the view");
+		assertEquals(320, snapshot.getWidth());
+	}
+
+	private Peer[] pair() {
+		SignalingPair link = Signaling.loopback();
+
+		Peer caller = rtc.createPeer(PeerOptions.builder()
+				.name("caller")
+				.signaling(link.first())
+				.build());
+		Peer callee = rtc.createPeer(PeerOptions.builder()
+				.name("callee")
+				.signaling(link.second())
+				.polite(true)
+				.build());
+
+		return new Peer[] { caller, callee };
+	}
+
+	/** The pixels a 64x48 view paints of a 64x48 two-tone frame with the given rotation. */
+	private static int[] rotated(int rotation) {
+		VideoView view = new VideoView();
+		view.setSize(64, 48);
+		view.accept(frame(64, 48, 16, 235, rotation));
+
+		return paint(view).getRGB(0, 0, 64, 48, null, 0, 64);
+	}
+
+	private static VideoFrame frame(int width, int height, int left, int right) {
+		return frame(width, height, left, right, 0);
+	}
+
+	/**
+	 * A frame whose left half has luma {@code left} and right half {@code right}, with
+	 * neutral chroma.
+	 */
+	private static VideoFrame frame(int width, int height, int left, int right, int rotation) {
+		NativeI420Buffer buffer = NativeI420Buffer.allocate(width, height);
+		ByteBuffer y = buffer.getDataY();
+
+		for (int row = 0; row < height; row++) {
+			for (int column = 0; column < width; column++) {
+				y.put(row * buffer.getStrideY() + column, (byte) (column < width / 2 ? left : right));
+			}
+		}
+
+		fill(buffer.getDataU());
+		fill(buffer.getDataV());
+
+		return new VideoFrame(buffer, rotation, System.nanoTime());
+	}
+
+	private static void fill(ByteBuffer plane) {
+		for (int i = 0; i < plane.capacity(); i++) {
+			plane.put(i, (byte) 128);
+		}
+	}
+
+	private static BufferedImage paint(VideoView view) {
+		BufferedImage image = new BufferedImage(view.getWidth(), view.getHeight(), BufferedImage.TYPE_INT_RGB);
+		Graphics2D g = image.createGraphics();
+		view.paint(g);
+		g.dispose();
+
+		return image;
+	}
+
+	private static void assertGray(Color color) {
+		assertTrue(Math.abs(color.getRed() - color.getGreen()) < 8 && Math.abs(color.getGreen() - color.getBlue()) < 8
+				&& color.getGreen() > 100 && color.getGreen() < 160, () -> "Not mid gray: " + color);
+	}
+
+	private static int brightness(int rgb) {
+		return new Color(rgb).getGreen();
+	}
+
+}

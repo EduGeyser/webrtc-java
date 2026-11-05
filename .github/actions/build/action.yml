@@ -102,7 +102,7 @@ runs:
 
     - name: Check out the FFmpeg and dav1d submodules
       if: env.WEBRTC_VARIANT == 'full'
-      run: git submodule update --init --depth 1 webrtc-java-media/third-party/ffmpeg webrtc-java-media/third-party/dav1d
+      run: git submodule update --init --depth 1 webrtc-media/third-party/ffmpeg webrtc-media/third-party/dav1d
       shell: bash
 
     # FFmpeg and dav1d are built from the submodules with the compiler and
@@ -111,14 +111,14 @@ runs:
       id: ffmpeg-build
       if: env.WEBRTC_VARIANT == 'full'
       env:
-        BUILD_INPUTS: ${{ hashFiles('webrtc-java-media/build.gradle.kts', 'webrtc-java-media/src/main/cpp/dependencies/**', 'webrtc-jni/src/main/cpp/toolchain/**', 'webrtc-jni/src/main/cpp/dependencies/webrtc/linux/sysroot/**') }}
+        BUILD_INPUTS: ${{ hashFiles('webrtc-media/build.gradle.kts', 'webrtc-media/src/main/cpp/dependencies/**', 'webrtc-jni/src/main/cpp/toolchain/**', 'webrtc-jni/src/main/cpp/dependencies/webrtc/linux/sysroot/**') }}
       run: |
         fingerprint=$(
           {
             printf '%s\n' "$BUILD_INPUTS"
             sed -n '/^ffmpeg\./p' gradle.properties
-            git rev-parse HEAD:webrtc-java-media/third-party/ffmpeg
-            git rev-parse HEAD:webrtc-java-media/third-party/dav1d
+            git rev-parse HEAD:webrtc-media/third-party/ffmpeg
+            git rev-parse HEAD:webrtc-media/third-party/dav1d
           } | sha256sum | cut -d ' ' -f1
         )
         echo "value=$fingerprint" >> "$GITHUB_OUTPUT"
@@ -179,7 +179,7 @@ runs:
     # Configuring the media build compiles FFmpeg.
     - name: Build FFmpeg
       if: env.WEBRTC_VARIANT == 'full'
-      run: ./gradlew :webrtc-java-media:cmakeGenerate $WEBRTC_PLATFORM $WEBRTC_VARIANT_ARG $WEBRTC_VERSION_ARG
+      run: ./gradlew :webrtc-media:cmakeGenerate $WEBRTC_PLATFORM $WEBRTC_VARIANT_ARG $WEBRTC_VERSION_ARG
       shell: bash
 
     - name: Save FFmpeg cache
@@ -213,9 +213,9 @@ runs:
         name: natives-media-${{ inputs.platform-name }}
         # The classifier jar only: the main jar is the same on every platform.
         path: |
-          webrtc-java-media/build/libs/webrtc-java-media-*-windows-*.jar
-          webrtc-java-media/build/libs/webrtc-java-media-*-linux-*.jar
-          webrtc-java-media/build/libs/webrtc-java-media-*-macos-*.jar
+          webrtc-media/build/libs/webrtc-java-media-*-windows-*.jar
+          webrtc-media/build/libs/webrtc-java-media-*-linux-*.jar
+          webrtc-media/build/libs/webrtc-java-media-*-macos-*.jar
         if-no-files-found: error
         retention-days: ${{ inputs.retention-days }}
         overwrite: true

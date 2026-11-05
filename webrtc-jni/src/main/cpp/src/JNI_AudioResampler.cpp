@@ -15,6 +15,8 @@
  */
 
 #include "JNI_AudioResampler.h"
+#include "JavaBoundary.h"
+#include "NativeHandle.h"
 #include "Exception.h"
 #include "JavaObject.h"
 #include "JavaRef.h"
@@ -22,60 +24,96 @@
 
 #include "common_audio/resampler/include/push_resampler.h"
 
+#include <memory>
+
 JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_media_audio_AudioResampler_dispose
 (JNIEnv * env, jobject caller)
 {
-	webrtc::PushResampler<int16_t> * resampler = GetHandle<webrtc::PushResampler<int16_t>>(env, caller);
-	CHECK_HANDLE(resampler);
+	jni::CallFromJava(env, [&]() {
+		webrtc::PushResampler<int16_t> * resampler = jni::TakeHandle<webrtc::PushResampler<int16_t>>(env, caller);
 
-	delete resampler;
+		if (resampler == nullptr) {
+			return;
+		}
 
-	SetHandle<std::nullptr_t>(env, caller, nullptr);
+		jni::ReleaseHandle(env, resampler, [resampler](bool) {
+			delete resampler;
+		});
+	});
 }
 
-JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_media_audio_AudioResampler_initialize
+JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_media_audio_AudioResampler_initialize__
 (JNIEnv * env, jobject caller)
 {
-	webrtc::PushResampler<int16_t> * resampler = new webrtc::PushResampler<int16_t>();
+	try {
+		webrtc::PushResampler<int16_t> * resampler = new webrtc::PushResampler<int16_t>();
 
-	SetHandle(env, caller, resampler);
+		SetHandle(env, caller, resampler);
+	}
+	catch (...) {
+		ThrowCxxJavaException(env);
+	}
 }
 
-JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_media_audio_AudioResampler_initialize
+JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_media_audio_AudioResampler_initialize__III
 (JNIEnv* env, jobject caller, jint srcSamplesPerChannel, jint dstSamplesPerChannel, jint channels)
 {
-	webrtc::PushResampler<int16_t> * resampler = new webrtc::PushResampler<int16_t>(srcSamplesPerChannel, dstSamplesPerChannel, channels);
+	try {
+		webrtc::PushResampler<int16_t> * resampler = new webrtc::PushResampler<int16_t>(srcSamplesPerChannel, dstSamplesPerChannel, channels);
 
-	SetHandle(env, caller, resampler);
+		SetHandle(env, caller, resampler);
+	}
+	catch (...) {
+		ThrowCxxJavaException(env);
+	}
 }
 
 JNIEXPORT jint JNICALL Java_io_github_sendablemetatype_webrtc_media_audio_AudioResampler_resampleInternal
 (JNIEnv * env, jobject caller, jbyteArray samplesIn, jint srcSamplesPerChannel, jbyteArray samplesOut, jint dstSamplesPerChannel, jint channels)
 {
-	webrtc::PushResampler<int16_t> * resampler = GetHandle<webrtc::PushResampler<int16_t>>(env, caller);
-	CHECK_HANDLEV(resampler, -1);
+	try {
+		jni::NativeLease<webrtc::PushResampler<int16_t>> resampler(env, caller);
+		CHECK_HANDLEV(resampler, -1);
 
-	jboolean isDstCopy = JNI_FALSE;
+		// Java checks these too, but the views below must never reach past an array.
+		const jlong srcBytes = static_cast<jlong>(srcSamplesPerChannel) * channels * sizeof(int16_t);
+		const jlong dstBytes = static_cast<jlong>(dstSamplesPerChannel) * channels * sizeof(int16_t);
 
-	jbyte * srcPtr = env->GetByteArrayElements(samplesIn, nullptr);
-	jbyte * dstPtr = env->GetByteArrayElements(samplesOut, &isDstCopy);
+		if (srcSamplesPerChannel <= 0 || dstSamplesPerChannel <= 0 || channels <= 0 ||
+			env->GetArrayLength(samplesIn) < srcBytes || env->GetArrayLength(samplesOut) < dstBytes) {
+			ThrowJavaException(env, "java/lang/IllegalArgumentException", "Sample arrays too short for the requested samples");
+			return -1;
+		}
 
-	int16_t * src16Ptr = reinterpret_cast<int16_t *>(srcPtr);
-	int16_t * dst16Ptr = reinterpret_cast<int16_t*>(dstPtr);
+		auto releaseSrc = [env, samplesIn](jbyte * bytes) {
+			env->ReleaseByteArrayElements(samplesIn, bytes, JNI_ABORT);
+		};
+		std::unique_ptr<jbyte, decltype(releaseSrc)> srcPtr(env->GetByteArrayElements(samplesIn, nullptr), releaseSrc);
+		if (!srcPtr) {
+			return -1;
+		}
 
-	webrtc::InterleavedView<const int16_t> src(src16Ptr, srcSamplesPerChannel, channels);
-	webrtc::InterleavedView<int16_t> dst(dst16Ptr, dstSamplesPerChannel, channels);
+		// Mode 0 writes the samples back when the VM handed out a copy.
+		auto releaseDst = [env, samplesOut](jbyte * bytes) {
+			env->ReleaseByteArrayElements(samplesOut, bytes, 0);
+		};
+		std::unique_ptr<jbyte, decltype(releaseDst)> dstPtr(env->GetByteArrayElements(samplesOut, nullptr), releaseDst);
+		if (!dstPtr) {
+			return -1;
+		}
 
-	resampler->Resample(src, dst);
+		int16_t * src16Ptr = reinterpret_cast<int16_t *>(srcPtr.get());
+		int16_t * dst16Ptr = reinterpret_cast<int16_t*>(dstPtr.get());
 
-	if (isDstCopy == JNI_TRUE) {
-		jsize dstLength = env->GetArrayLength(samplesOut);
+		webrtc::InterleavedView<const int16_t> src(src16Ptr, srcSamplesPerChannel, channels);
+		webrtc::InterleavedView<int16_t> dst(dst16Ptr, dstSamplesPerChannel, channels);
 
-		env->SetByteArrayRegion(samplesOut, 0, dstLength, dstPtr);
+		resampler->Resample(src, dst);
+
+		return static_cast<jint>(dstSamplesPerChannel);
 	}
-
-	env->ReleaseByteArrayElements(samplesIn, srcPtr, JNI_ABORT);
-	env->ReleaseByteArrayElements(samplesOut, dstPtr, JNI_ABORT);
-
-	return static_cast<jint>(dstSamplesPerChannel);
+	catch (...) {
+		ThrowCxxJavaException(env);
+		return 0;
+	}
 }

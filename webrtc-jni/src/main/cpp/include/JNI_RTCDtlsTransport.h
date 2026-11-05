@@ -47,6 +47,14 @@ JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_RTCDtlsTransport_r
 JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_RTCDtlsTransport_unregisterObserver
   (JNIEnv *, jobject);
 
+/*
+ * Class:     io_github_sendablemetatype_webrtc_RTCDtlsTransport
+ * Method:    dispose
+ * Signature: ()V
+ */
+JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_RTCDtlsTransport_dispose
+  (JNIEnv *, jobject);
+
 #ifdef __cplusplus
 }
 #endif

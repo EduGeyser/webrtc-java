@@ -15,6 +15,7 @@
  */
 
 #include "media/DeviceChangeListener.h"
+#include "api/WebRTCUtils.h"
 #include "media/audio/AudioDevice.h"
 #include "media/video/VideoDevice.h"
 #include "api/WebRTCUtils.h"

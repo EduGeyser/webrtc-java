@@ -9,19 +9,27 @@ extern "C" {
 #endif
 	/*
 	 * Class:     io_github_sendablemetatype_webrtc_media_video_NativeI420Buffer
-	 * Method:    allocate
+	 * Method:    allocateBuffer
 	 * Signature: (II)Lio/github/sendablemetatype/webrtc/media/video/NativeI420Buffer;
 	 */
-	JNIEXPORT jobject JNICALL Java_io_github_sendablemetatype_webrtc_media_video_NativeI420Buffer_allocate
+	JNIEXPORT jobject JNICALL Java_io_github_sendablemetatype_webrtc_media_video_NativeI420Buffer_allocateBuffer
 	(JNIEnv *, jclass, jint, jint);
 
 	/*
 	 * Class:     io_github_sendablemetatype_webrtc_media_video_NativeI420Buffer
 	 * Method:    copy
-	 * Signature: (IILjava/nio/ByteBuffer;ILjava/nio/ByteBuffer;ILjava/nio/ByteBuffer;I)Lio/github/sendablemetatype/webrtc/media/video/NativeI420Buffer;
+	 * Signature: (Lio/github/sendablemetatype/webrtc/media/video/VideoFrameBuffer;)Lio/github/sendablemetatype/webrtc/media/video/NativeI420Buffer;
 	 */
 	JNIEXPORT jobject JNICALL Java_io_github_sendablemetatype_webrtc_media_video_NativeI420Buffer_copy
-	(JNIEnv*, jclass, jint, jint, jobject, jint, jobject, jint, jobject, jint);
+	(JNIEnv *, jclass, jobject);
+
+	/*
+	 * Class:     io_github_sendablemetatype_webrtc_media_video_NativeI420Buffer
+	 * Method:    crop
+	 * Signature: (IIII)Lio/github/sendablemetatype/webrtc/media/video/NativeI420Buffer;
+	 */
+	JNIEXPORT jobject JNICALL Java_io_github_sendablemetatype_webrtc_media_video_NativeI420Buffer_crop
+	(JNIEnv *, jobject, jint, jint, jint, jint);
 
 	/*
 	 * Class:     io_github_sendablemetatype_webrtc_media_video_NativeI420Buffer
