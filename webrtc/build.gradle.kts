@@ -147,11 +147,14 @@ tasks.test {
 			"io.github.sendablemetatype.webrtc.media.video",
 		)
 
+		// The module does not read java.desktop, but a desktop capture test
+		// opens an AWT window of its own to capture.
 		listOf(
 			"--module-path", moduleJar.get().asFile.absolutePath,
-			"--add-modules", moduleName,
+			"--add-modules", "$moduleName,java.desktop",
 			"--patch-module", "$moduleName=$patch",
 			"--add-reads", "$moduleName=ALL-UNNAMED",
+			"--add-reads", "$moduleName=java.desktop",
 			"--enable-native-access=$moduleName",
 		) + opens.flatMap { listOf("--add-opens", "$moduleName/$it=ALL-UNNAMED") }
 	})
