@@ -59,7 +59,7 @@ The data channels variant links nothing beyond glibc and `libgcc_s`.
 
 ### macOS
 
-- Xcode with the macOS 15 SDK or newer, selected with `xcode-select`. CI uses Xcode 26.6. The library targets macOS 11 and later.
+- Xcode with the macOS 15 SDK or newer, selected with `xcode-select`. CI uses Xcode 27.1. The library targets macOS 11 and later.
 - CMake and the Python `setuptools` from [Homebrew](https://brew.sh), and for the full variant the tools that build FFmpeg and dav1d:
 
 ```shell

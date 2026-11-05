@@ -103,6 +103,11 @@ jobs:
             classifier: macos-aarch64
             java-distribution: liberica
             java-architecture: ''
+          - name: macos_arm64
+            runs-on: xcode-27
+            classifier: macos-aarch64
+            java-distribution: liberica
+            java-architecture: ''
     runs-on: ${{ matrix.platform.runs-on }}
     # A hung test run releases the runner instead of holding it for six hours.
     timeout-minutes: 30

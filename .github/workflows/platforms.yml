@@ -109,11 +109,12 @@ jobs:
       matrix:
         platform:
           # The Intel library is cross compiled on the arm64 runner and tested
-          # on an Intel runner below.
+          # on an Intel runner below. GitHub names its newest macOS images
+          # after their Xcode; xcode-27 runs macOS 27 and is arm64 only.
           - name: macos_x86-64
-            runs-on: macos-26
+            runs-on: xcode-27
           - name: macos_arm64
-            runs-on: macos-26
+            runs-on: xcode-27
         java: [27]
     runs-on: ${{ matrix.platform.runs-on }}
     steps:
