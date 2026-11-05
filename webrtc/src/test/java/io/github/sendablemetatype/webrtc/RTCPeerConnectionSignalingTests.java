@@ -180,6 +180,35 @@ class RTCPeerConnectionSignalingTests extends TestBase {
 	}
 
 	@Test
+	void transportMetricsCoverIceAndSctp() throws Exception {
+		assertNull(caller.connection.getTransportMetrics(), "Metrics without a data channel transport");
+
+		caller.connection.createDataChannel("data", new RTCDataChannelInit());
+
+		negotiate();
+		exchangeCandidates();
+
+		assertTrue(callee.dataChannelReceived.await(10, TimeUnit.SECONDS), "No data channel");
+
+		// The association and the round trip measurement settle shortly after.
+		long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(10);
+		RTCTransportMetrics metrics = caller.connection.getTransportMetrics();
+
+		while ((metrics == null || metrics.sctp() == null || metrics.iceRoundTripTime() == null)
+				&& System.nanoTime() < deadline) {
+			Thread.sleep(50);
+			metrics = caller.connection.getTransportMetrics();
+		}
+
+		assertNotNull(metrics, "No metrics");
+		assertNotNull(metrics.iceRoundTripTime(), "No ICE round trip time");
+		assertNotNull(metrics.sctp(), "No SCTP metrics");
+		assertTrue(metrics.sctp().packetsSent() > 0, metrics.toString());
+		assertTrue(metrics.sctp().packetsReceived() > 0, metrics.toString());
+		assertTrue(metrics.sctp().congestionWindowBytes() > 0, metrics.toString());
+	}
+
+	@Test
 	void legacyPairCallbackStillFires() throws Exception {
 		CountDownLatch legacy = new CountDownLatch(1);
 		AtomicReference<String> type = new AtomicReference<>();
