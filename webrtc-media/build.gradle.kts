@@ -249,10 +249,11 @@ tasks.test {
 
 	jvmArgumentProviders.add(CommandLineArgumentProvider {
 		val patch = testOutput.get().filter { it.exists() }.asPath
-		val opens = listOf(
-			"io.github.sendablemetatype.webrtc.media.player",
-			"io.github.sendablemetatype.webrtc.media.recorder",
-		)
+		// Every package with test classes, which JUnit creates reflectively.
+		val opens = testOutput.get().classesDirs.filter { it.isDirectory }.flatMap { dir ->
+			dir.walk().filter { it.extension == "class" }
+				.map { it.parentFile.relativeTo(dir).invariantSeparatorsPath.replace('/', '.') }.toList()
+		}.distinct()
 
 		listOf(
 			"--module-path", listOf(moduleJar.get().asFile, coreModuleJar.get().asFile).joinToString(File.pathSeparator),

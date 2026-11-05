@@ -140,15 +140,13 @@ tasks.test {
 
 	jvmArgumentProviders.add(CommandLineArgumentProvider {
 		val patch = testOutput.get().filter { it.exists() }.asPath
-		val opens = listOf(
-			"io.github.sendablemetatype.webrtc",
-			// Not exported, but the tests cover NativeApi and NativeLoader.
-			"io.github.sendablemetatype.webrtc.internal",
-			"io.github.sendablemetatype.webrtc.logging",
-			"io.github.sendablemetatype.webrtc.media",
-			"io.github.sendablemetatype.webrtc.media.audio",
-			"io.github.sendablemetatype.webrtc.media.video",
-		)
+		// JUnit creates the test classes reflectively, so every package that
+		// holds one is opened, internal ones included. Taken from the compiled
+		// tests, so that a new test package needs no entry here.
+		val opens = testOutput.get().classesDirs.filter { it.isDirectory }.flatMap { dir ->
+			dir.walk().filter { it.extension == "class" }
+				.map { it.parentFile.relativeTo(dir).invariantSeparatorsPath.replace('/', '.') }.toList()
+		}.distinct()
 
 		// The module does not read java.desktop, but a desktop capture test
 		// opens an AWT window of its own to capture.

@@ -103,15 +103,19 @@ tasks.test {
 
 	jvmArgumentProviders.add(CommandLineArgumentProvider {
 		val patch = testOutput.get().filter { it.exists() }.asPath
+		// Every package with test classes, which JUnit creates reflectively.
+		val opens = testOutput.get().classesDirs.filter { it.isDirectory }.flatMap { dir ->
+			dir.walk().filter { it.extension == "class" }
+				.map { it.parentFile.relativeTo(dir).invariantSeparatorsPath.replace('/', '.') }.toList()
+		}.distinct()
 
 		listOf(
 			"--module-path", listOf(moduleJar.get().asFile, coreModuleJar.get().asFile).joinToString(File.pathSeparator),
 			"--add-modules", moduleName,
 			"--patch-module", "$moduleName=$patch",
 			"--add-reads", "$moduleName=ALL-UNNAMED",
-			"--add-opens", "$moduleName/io.github.sendablemetatype.webrtc.client.swing=ALL-UNNAMED",
 			"--enable-native-access=$coreModuleName",
-		)
+		) + opens.flatMap { listOf("--add-opens", "$moduleName/$it=ALL-UNNAMED") }
 	})
 }
 
