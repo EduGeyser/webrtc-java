@@ -13,9 +13,9 @@ runs:
       run: |
         $installer = "$env:RUNNER_TEMP\winsdksetup.exe"
         $log = "$env:RUNNER_TEMP\winsdksetup.log"
-        Invoke-WebRequest -Uri "https://download.microsoft.com/download/06fc99ac-527e-451e-a536-8866695a2e7e/KIT_BUNDLE_WINDOWSSDK_MEDIACREATION/winsdksetup.exe" -OutFile $installer
+        Invoke-WebRequest -Uri "https://download.microsoft.com/download/e6cfffdc-0d3e-4c6c-96d7-d491da459a07/KIT_BUNDLE_WINDOWSSDK_MEDIACREATION/winsdksetup.exe" -OutFile $installer
         $hash = (Get-FileHash $installer -Algorithm SHA256).Hash
-        if ($hash -ne "02988EA51EAB2A2DB53E19735E51C97A6D221ADA74B9174FA0868870B9403BA0") {
+        if ($hash -ne "E8E264ACA8BC34ABDF592352BF09F986A85CDB96DB0EFBA405CA9E149181FE61") {
           throw "Unexpected winsdksetup.exe (SHA-256 $hash)"
         }
         $features = "OptionId.DesktopCPPx86 OptionId.DesktopCPPx64 OptionId.DesktopCPParm64 OptionId.WindowsDesktopDebuggers"
