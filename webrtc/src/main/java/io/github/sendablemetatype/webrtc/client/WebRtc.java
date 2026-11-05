@@ -46,6 +46,7 @@ import java.util.function.LongSupplier;
 import java.util.function.Supplier;
 
 import io.github.sendablemetatype.webrtc.PeerConnectionFactory;
+import io.github.sendablemetatype.webrtc.internal.NativeVariant;
 import io.github.sendablemetatype.webrtc.internal.Timeouts;
 import io.github.sendablemetatype.webrtc.media.audio.AudioDeviceModule;
 import io.github.sendablemetatype.webrtc.media.audio.AudioDeviceModuleBase;
@@ -131,7 +132,12 @@ public final class WebRtc implements AutoCloseable {
 	/** The chunks of the audio subscriptions. */
 	final Workload audioWork;
 
+	// Null with the data channels variant of the native library.
 	private final AudioDeviceModuleBase audioModule;
+
+	// False with the data channels variant of the native library, which has no
+	// audio and video: its runtime makes peers and data channels only.
+	final boolean hasMedia = NativeVariant.hasMedia();
 
 	/** Created when the runtime was built with an audio processing config. */
 	final AudioProcessing audioProcessing;
@@ -209,7 +215,12 @@ public final class WebRtc implements AutoCloseable {
 		PeerConnectionFactory created = null;
 
 		try {
-			module = audioMode == AudioMode.HEADLESS
+			if (!hasMedia && (builder.audioProcessingConfig != null || builder.hardwareVideoCodecs)) {
+				throw noMedia();
+			}
+
+			module = !hasMedia ? null
+					: audioMode == AudioMode.HEADLESS
 					? new HeadlessAudioDeviceModule()
 					: new AudioDeviceModule();
 
@@ -237,7 +248,7 @@ public final class WebRtc implements AutoCloseable {
 
 			created = factoryBuilder.build();
 
-			if (audioMode == AudioMode.HEADLESS) {
+			if (module != null && audioMode == AudioMode.HEADLESS) {
 				// Playout drives the receive side of every connection of the
 				// factory, so it runs even when nothing is received yet.
 				module.initPlayout();
@@ -296,6 +307,10 @@ public final class WebRtc implements AutoCloseable {
 	public Peer createPeer(PeerOptions options) {
 		requireNonNull(options, "options");
 		checkOpen();
+
+		if (!options.receive.isEmpty() || options.sendTransform != null || options.receiveTransform != null) {
+			requireMedia();
+		}
 
 		int number = peerCount.incrementAndGet();
 		String name = options.name != null ? options.name : "peer-" + number;
@@ -445,6 +460,22 @@ public final class WebRtc implements AutoCloseable {
 		peers.remove(peer);
 	}
 
+	/**
+	 * @throws ConfigurationException if the native library is the data
+	 *                                channels variant, which has no audio
+	 *                                and video.
+	 */
+	void requireMedia() {
+		if (!hasMedia) {
+			throw noMedia();
+		}
+	}
+
+	static ConfigurationException noMedia() {
+		return new ConfigurationException("Audio and video need the full variant of the native library; "
+				+ "the data channels variant supports peers and data channels only");
+	}
+
 	void checkOpen() {
 		if (closing.get()) {
 			throw new PeerClosedException("The runtime is closed");
@@ -507,16 +538,18 @@ public final class WebRtc implements AutoCloseable {
 
 			media.dispose();
 
-			try {
-				if (audioMode == AudioMode.HEADLESS) {
-					audioModule.stopPlayout();
+			if (audioModule != null) {
+				try {
+					if (audioMode == AudioMode.HEADLESS) {
+						audioModule.stopPlayout();
+					}
 				}
-			}
-			catch (Throwable e) {
-				// The module is disposed next anyway.
-			}
+				catch (Throwable e) {
+					// The module is disposed next anyway.
+				}
 
-			audioModule.dispose();
+				audioModule.dispose();
+			}
 			factory.dispose();
 
 			if (audioProcessing != null) {

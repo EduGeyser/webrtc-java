@@ -90,6 +90,7 @@ final class LocalMediaImpl implements LocalMedia {
 	@Override
 	public synchronized Devices devices() {
 		rtc.checkOpen();
+		rtc.requireMedia();
 
 		if (devices == null) {
 			devices = new DevicesImpl(this, audioModule);
@@ -298,6 +299,10 @@ final class LocalMediaImpl implements LocalMedia {
 		if (rtc.isClosing()) {
 			creation.close();
 			throw new PeerClosedException("The runtime is closed");
+		}
+		if (!rtc.hasMedia) {
+			creation.close();
+			throw WebRtc.noMedia();
 		}
 
 		return creation;

@@ -126,7 +126,7 @@ Applications that only exchange data can build a native library without the audi
 ./gradlew build -Pwebrtc.variant=data-channels
 ```
 
-The Java API stays the same. The audio and video classes throw an `UnsatisfiedLinkError` when they are used with this library, and `PeerConnectionFactory` ignores an audio device module. libwebrtc is built without codecs, audio processing, audio devices, cameras and desktop capture, into its own directory (`/<user home>/webrtc/build-data-channels` by default), and the resulting library is a fraction of the size of the full one.
+The Java API stays the same. The audio and video classes throw an `UnsatisfiedLinkError` when they are used with this library, and `PeerConnectionFactory` ignores an audio device module. The [client API](/guide/client-api) creates its runtime, peers and data channels with this library too; its audio and video calls throw a `ConfigurationException` instead. libwebrtc is built without codecs, audio processing, audio devices, cameras and desktop capture, into its own directory (`/<user home>/webrtc/build-data-channels` by default), and the resulting library is a fraction of the size of the full one.
 
 This fork selects this variant in `gradle.properties`, and its published native libraries are this variant. Pass `-Pwebrtc.variant=full` to build the full library. The build workflow builds the variant from `gradle.properties`, or the one chosen when it is dispatched.
 
