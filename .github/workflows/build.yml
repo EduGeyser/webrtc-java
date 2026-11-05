@@ -26,15 +26,16 @@ on:
   workflow_dispatch:
     inputs:
       variant:
-        description: "The variant of the native library: full, or data-channels for a library without audio and video support."
+        description: "The variants of the native library to build and test: both, full, or data-channels for a library without audio and video support."
         required: false
         type: choice
         options:
+          - both
           - full
           - data-channels
-        default: data-channels
+        default: both
       upload-webrtc-install:
-        description: "Upload the compiled Linux x86-64 WebRTC install tree."
+        description: "Upload the compiled Linux x86-64 WebRTC install tree of each variant built."
         required: false
         type: boolean
         default: false
@@ -49,10 +50,18 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
+  # Both variants in one run, each on runners of its own, so that a run takes
+  # about as long as the slower variant alone. Pushes and pull requests build
+  # both, which also keeps the caches of both variants on main, where every
+  # branch can restore them.
   platforms:
+    strategy:
+      fail-fast: false
+      matrix:
+        variant: ${{ fromJSON(inputs.variant && inputs.variant != 'both' && format('["{0}"]', inputs.variant) || '["data-channels", "full"]') }}
     uses: ./.github/workflows/platforms.yml
     with:
-      variant: ${{ inputs.variant }}
+      variant: ${{ matrix.variant }}
       upload-webrtc-install: ${{ github.event_name == 'workflow_dispatch' && inputs.upload-webrtc-install }}
       # Only the tests of this same run read them.
       retention-days: 1

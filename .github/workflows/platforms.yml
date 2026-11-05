@@ -1,10 +1,10 @@
 name: Platforms
 
 # Builds the native libraries of all seven platforms and tests them on a
-# runner of each platform. The Build workflow runs it for every push and PR,
-# Publish release for the tag it publishes, and Prepare release for a dry run,
-# so the platforms are defined here only. Every job builds the commit that
-# triggered the caller.
+# runner of each platform, for one variant. The Build workflow runs it once
+# per variant for every push and PR, Publish release for the tag it publishes,
+# and Prepare release for a dry run, so the platforms are defined here only.
+# Every job builds the commit that triggered the caller.
 
 on:
   workflow_call:

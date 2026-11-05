@@ -197,11 +197,13 @@ runs:
       shell: bash
 
     # The jars of all platforms go to the test workflow and to the publishing
-    # job of a release, which attaches every platform to one deployment.
+    # job of a release, which attaches every platform to one deployment. The
+    # name has the variant, since a Build run builds both and the second
+    # upload would otherwise replace the first. The media jar is full only.
     - name: Upload native library jar
       uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
       with:
-        name: natives-${{ inputs.platform-name }}
+        name: natives-${{ env.WEBRTC_VARIANT }}-${{ inputs.platform-name }}
         path: webrtc-jni/build/libs/webrtc-java-*.jar
         if-no-files-found: error
         retention-days: ${{ inputs.retention-days }}
