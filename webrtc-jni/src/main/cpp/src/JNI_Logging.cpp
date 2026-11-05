@@ -79,12 +79,14 @@ JNIEXPORT jlong JNICALL Java_io_github_sendablemetatype_webrtc_logging_Logging_a
 JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_logging_Logging_removeLogSinkNative
 (JNIEnv * env, jclass caller, jlong handle)
 {
-	auto sink = reinterpret_cast<webrtc::LogSink *>(static_cast<uintptr_t>(handle));
-	if (sink != nullptr) {
-		// Removal takes WebRTC's log lock and waits for callbacks before deletion.
-		webrtc::LogMessage::RemoveLogToStream(sink);
-		delete sink;
-	}
+	jni::CallFromJava(env, [&]() {
+		auto sink = reinterpret_cast<webrtc::LogSink *>(static_cast<uintptr_t>(handle));
+		if (sink != nullptr) {
+			// Removal takes WebRTC's log lock and waits for callbacks before deletion.
+			webrtc::LogMessage::RemoveLogToStream(sink);
+			delete sink;
+		}
+	});
 }
 
 JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_logging_Logging_log
