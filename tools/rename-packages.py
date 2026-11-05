@@ -27,7 +27,9 @@ REPLACEMENTS = [
     (OLD_PACKAGE, NEW_PACKAGE),
 ]
 
-MODULE_PATTERN = re.compile(r"(?<![\w.])" + re.escape(OLD_MODULE) + r"(?![\w-])")
+# The module name also prefixes the system properties, which the docs set with
+# -D, so a name right after -D is renamed too.
+MODULE_PATTERN = re.compile(r"(?:(?<=-D)|(?<![\w.]))" + re.escape(OLD_MODULE) + r"(?![\w-])")
 
 SKIPPED_DIRS = {".git", ".gradle", "build", "node_modules"}
 SKIPPED_FILES = {"CHANGELOG.md", "README.md", os.path.basename(__file__)}
