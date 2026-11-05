@@ -108,6 +108,11 @@ class IceUdpEndpointTests extends TestBase {
 		first.server.send("back");
 
 		assertEquals("back", first.client.nextMessage());
+
+		IceUdpEndpoint.Stats stats = endpoint.getStats();
+
+		assertTrue(stats.datagramsReceived() > 0 && stats.datagramsSent() > 0, stats.toString());
+		assertTrue(stats.sessions() >= 2 && stats.routes() >= 2, stats.toString());
 	}
 
 	@Test
@@ -186,6 +191,7 @@ class IceUdpEndpointTests extends TestBase {
 		offerToEndpoint(hosts, forgedUfrag, randomIceChars(32));
 
 		assertNull(requests.poll(3, TimeUnit.SECONDS), "A check with a wrong password was passed on");
+		assertTrue(endpoint.getStats().unauthenticated() > 0, endpoint.getStats().toString());
 
 		String ufrag = "TST1" + randomIceChars(12);
 		Client client = offerToEndpoint(hosts, ufrag, derivedPassword(key, context, ufrag));
