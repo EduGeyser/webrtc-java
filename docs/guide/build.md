@@ -1,24 +1,98 @@
 # Build Notes
 
-To build the native code, be sure to install the prerequisite software (follow the links):
-
 **Note**: You don't have to install the Depot Tools, the build script will do that for you.
 
-| OS        | Build Instructions                                                |
-| --------- | ----------------------------------------------------------------- |
-| Linux     | [Ubuntu][build-linux-ubuntu], [other distros][build-linux-other]  |
-| macOS     | Xcode with the macOS 15 SDK or newer                              |
-| Windows   | [Visual Studio][build-windows]                                    |
+## Prerequisites
 
-The Java code compiles for Java 25, so the build needs JDK 25 or newer. The CI builds with JDK 27.
+### All platforms
 
-Assuming you have all the prerequisites installed for your OS, run:
+| Tool              | Notes                                                                                             |
+| ----------------- | ------------------------------------------------------------------------------------------------- |
+| JDK 25 or newer   | The libraries are compiled for Java 25. CI builds with JDK 27. Gradle comes with the wrapper.     |
+| Git               | Clones `depot_tools`, the WebRTC sources and the submodules.                                      |
+| CMake 3.20 or newer | Must be on the `PATH`. The Gradle build does not download it.                                   |
+| Python 3          | Runs `depot_tools` and the Linux sysroot script. On macOS it also needs `setuptools`.             |
+| Meson and Ninja   | Full variant only: they build dav1d, the AV1 software decoder linked into FFmpeg.                 |
+| Disk space        | About 10 GB for the WebRTC checkout, kept in `~/webrtc` by default.            |
+
+The full variant builds FFmpeg and dav1d from Git submodules, which a plain clone leaves empty. Fetch them before the first full build:
+
+```shell
+git submodule update --init --depth 1 webrtc-media/third-party/ffmpeg webrtc-media/third-party/dav1d
+```
+
+### Linux
+
+Linux builds run on an x86-64 host and cross-compile for ARM. CI installs these build tools (Debian/Ubuntu package names):
+
+```shell
+sudo apt-get install binutils cmake git libc++-dev libc++abi-dev locales lsb-release ninja-build pipewire pipewire-pulse pkg-config python3 python3-setuptools rsync unzip wget xz-utils
+```
+
+The full variant also needs `libva-dev meson nasm`. `libva-dev` provides the VA-API headers FFmpeg is built against, for every target architecture, cross builds included.
+
+The JNI library compiles against the libc++ headers of the WebRTC build. Those headers only support the Clang that the pinned WebRTC commit uses, so the toolchain files look for that Clang in `/opt/clang` first. Its package is named after `CLANG_REVISION` and `CLANG_SUB_REVISION` in `clang/scripts/update.py` of the Chromium tools revision that WebRTC's `DEPS` pins, as `clang-<revision>-<sub revision>.tar.xz`. The *Install the clang of the WebRTC branch* step of `.github/actions/prepare-linux/action.yml` looks it up; install it the same way:
+
+```shell
+wget https://commondatastorage.googleapis.com/chromium-browser-clang/Linux_x64/$CLANG_PACKAGE
+sudo mkdir -p /opt/clang
+sudo tar -xf $CLANG_PACKAGE -C /opt/clang
+```
+
+Headers and libraries (X11, D-Bus, GIO, GBM, libdrm) come from a Debian sysroot in `/opt/sysroot` rather than from the host, so no `-dev` packages are needed for them. Install the sysroot for each target architecture you build for (`amd64`, `arm64` or `armhf`):
+
+```shell
+python3 webrtc-jni/src/main/cpp/dependencies/webrtc/linux/sysroot/install-sysroot.py --arch=amd64
+sudo mkdir -p /opt/sysroot
+sudo mv webrtc-jni/src/main/cpp/dependencies/webrtc/linux/debian* /opt/sysroot/
+```
+
+To cross-compile for ARM, CI also installs `gcc-aarch64-linux-gnu g++-aarch64-linux-gnu` (`-Pwebrtc.platform=linux-aarch64`) or `gcc-arm-linux-gnueabihf g++-arm-linux-gnueabihf` (`-Pwebrtc.platform=linux-aarch32`).
+
+Running the tests of the full variant requires the runtime libraries its native library links against. A desktop system already has them. On a headless one, install them with:
+
+```shell
+sudo apt-get install libx11-6 libxext6 libxfixes3 libxdamage1 libxtst6 libxrandr2 libxcomposite1 libglib2.0-0 libgbm1 libdrm2
+```
+
+The data channels variant links nothing beyond glibc and `libgcc_s`.
+
+### macOS
+
+- Xcode with the macOS 15 SDK or newer, selected with `xcode-select`. CI uses Xcode 26.6. The library targets macOS 11 and later.
+- CMake and the Python `setuptools` from [Homebrew](https://brew.sh), and for the full variant the tools that build FFmpeg and dav1d:
+
+```shell
+brew install cmake python-setuptools
+brew install meson nasm ninja pkgconf
+```
+
+`nasm` assembles FFmpeg's x86 code, so the full variant's Intel build (`-Pwebrtc.platform=macos-x86_64`) needs it, also when you cross-compile from Apple Silicon.
+
+### Windows
+
+- **Visual Studio** with the *Desktop development with C++* workload. The build uses this local installation, not Google's internal toolchain. Add the *MSVC ARM64 build tools* to build for `windows-aarch64`.
+- **Windows SDK 10.0.28000.0**, the version the pinned WebRTC commit expects (`SDK_VERSION` in `build/vs_toolchain.py`). Install it with the *Debugging Tools for Windows* feature, because the toolchain setup needs `dbghelp.dll`. To build with another installed SDK, pass `-Pwebrtc.windows.sdk.version`.
+- **Ninja**, which CI installs with `choco install ninja`.
+- For the full variant, **MSYS2** installed in `C:\msys64` (set `MSYS2_ROOT` for another location), because FFmpeg's configure scripts and makefiles need a POSIX shell with `make` and `nasm`, which Git for Windows' bash lacks, and **Meson** on the `PATH`:
+
+  ```shell
+  winget install MSYS2.MSYS2
+  C:\msys64\usr\bin\bash -lc "pacman -S --needed make nasm diffutils pkgconf"
+  pip install meson
+  ```
+
+CI runs Gradle from Git Bash.
+
+## Building
+
+With the prerequisites installed, run:
 
 ```shell
 ./gradlew build
 ```
 
-On the first run, the WebRTC source tree will be loaded into the `/<user home>/webrtc` directory. This will take a while and require about 10 GB of disk space. The checkout carries no history; pass `-Pwebrtc.checkout.history=true` to fetch it, for example to bisect libwebrtc from this checkout.
+On the first run, the WebRTC source tree is loaded into the `/<user home>/webrtc` directory, and in the full variant FFmpeg and dav1d are built into `/<user home>/ffmpeg`. This takes a long time. Later builds reuse both as long as their configuration is unchanged. The checkout carries no history; pass `-Pwebrtc.checkout.history=true` to fetch it, for example to bisect libwebrtc from this checkout. To build without running the tests, use `./gradlew assemble`, as CI does.
 
 To use the build from another project on the same machine, publish it to the local Maven repository:
 
@@ -105,7 +179,3 @@ A **dryRun** of Prepare release builds and tests the dispatched commit with the 
 The Java jars are reproducible: Gradle writes their entries in a fixed order with fixed times, and the manifest's `Build-Date` is the time of the commit rather than of the build, so the same commit builds into the same Java jars. The native library jars are not covered, since CMake and the compilers do not build byte for byte the same libraries.
 
 If preparation pushed the tag but did not start the publication, start Publish release by hand on that tag. Before you retry a failed publication, check whether Maven Central already accepted the version, because a published release cannot be replaced. A release tag that a maintainer pushes also starts Publish release.
-
-[build-linux-ubuntu]: https://chromium.googlesource.com/chromium/src/+/master/docs/linux/build_instructions.md#system-requirements
-[build-linux-other]: https://chromium.googlesource.com/chromium/src/+/master/docs/linux/build_instructions.md#Notes-for-other-distros
-[build-windows]: https://chromium.googlesource.com/chromium/src/+/master/docs/windows_build_instructions.md#visual-studio
