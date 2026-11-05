@@ -56,7 +56,7 @@ abstract class ClientTestBase {
 	void createRuntime(TestInfo test) throws IOException {
 		// A native crash ends the test JVM before any report names the test
 		// that ran; the last line of this file does.
-		Path log = Paths.get("target", "surefire-reports", "client-tests.log");
+		Path log = Paths.get("build", "test-results", "client-tests.log");
 		Files.createDirectories(log.getParent());
 		Files.write(log, Collections.singletonList(LocalTime.now() + " " + getClass().getSimpleName()
 				+ "." + test.getTestMethod().map(Method::getName).orElse("?")),

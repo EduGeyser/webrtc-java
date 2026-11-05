@@ -58,7 +58,7 @@ final class TestTls {
 	}
 
 	private static TestTls create() throws Exception {
-		Path dir = Files.createDirectories(Paths.get("target", "test-tls"));
+		Path dir = Files.createDirectories(Paths.get("build", "test-tls"));
 		Path file = dir.resolve("endpoint.p12");
 		Path log = dir.resolve("keytool.log");
 		Files.deleteIfExists(file);
