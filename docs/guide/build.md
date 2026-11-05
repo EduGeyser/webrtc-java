@@ -100,6 +100,8 @@ Publication requires a `vX.Y.Z-sm.N` tag whose commit is on `main` and whose ver
 
 A **dryRun** of Prepare release builds and tests the dispatched commit with the release version, then signs and assembles the deployment bundle and uploads it as `deployment-bundle-dry-run`. It pushes no commits or tags, starts no publication, and uses placeholder Central credentials. A dry run can also check a branch other than `main`.
 
+The Java jars are reproducible: Gradle writes their entries in a fixed order with fixed times, and the manifest's `Build-Date` is the time of the commit rather than of the build, so the same commit builds into the same Java jars. The native library jars are not covered, since CMake and the compilers do not build byte for byte the same libraries.
+
 If preparation pushed the tag but did not start the publication, start Publish release by hand on that tag. Before you retry a failed publication, check whether Maven Central already accepted the version, because a published release cannot be replaced. A release tag that a maintainer pushes also starts Publish release.
 
 [build-linux-ubuntu]: https://chromium.googlesource.com/chromium/src/+/master/docs/linux/build_instructions.md#system-requirements

@@ -1,6 +1,4 @@
 import java.time.Instant
-import java.time.ZoneOffset
-import java.time.format.DateTimeFormatter
 
 plugins {
 	`maven-publish`
@@ -68,7 +66,15 @@ extra["dataChannelsOnly"] = variant == "data-channels"
 // in place of the ones webrtc-jni builds: the tests run against the jar of the
 // build platform, and the publication attaches the jars of every platform.
 extra["nativesDir"] = providers.gradleProperty("natives.dir").map { file(it) }.orNull
-extra["buildDate"] = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm").withZone(ZoneOffset.UTC).format(Instant.now())
+// The manifests' Build-Date is the time of the commit, not of the build, so
+// that the same commit builds into the same Java jars; Gradle already writes
+// their entries in a fixed order with fixed times. Outside a Git checkout it
+// is the time of the build.
+val commitTime = providers.exec {
+	commandLine("git", "log", "-1", "--format=%ct")
+	isIgnoreExitValue = true
+}.standardOutput.asText.map { it.trim() }.get()
+extra["buildDate"] = (commitTime.toLongOrNull()?.let(Instant::ofEpochSecond) ?: Instant.now()).toString()
 
 allprojects {
 	pluginManager.withPlugin("signing") {
