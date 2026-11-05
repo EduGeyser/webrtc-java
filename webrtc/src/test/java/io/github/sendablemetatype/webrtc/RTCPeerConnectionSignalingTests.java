@@ -158,9 +158,18 @@ class RTCPeerConnectionSignalingTests extends TestBase {
 	void peerReflexiveRemoteKeepsItsAddress() throws Exception {
 		caller.connection.createDataChannel("data", new RTCDataChannelInit());
 
-		negotiate();
+		setLocal(caller);
+		setRemote(callee, caller.connection.getLocalDescription());
+		setLocal(callee);
+
 		// The callee learns the caller's candidates, but not the other way round,
-		// so the caller only knows the callee from its connectivity checks.
+		// so the caller only knows the callee from its connectivity checks. The
+		// callee's description carries the candidates it gathered so far, so they
+		// go too.
+		RTCSessionDescription answer = callee.connection.getLocalDescription();
+		setRemote(caller, new RTCSessionDescription(answer.sdpType,
+				answer.sdp.replaceAll("(?m)^a=(candidate:|end-of-candidates).*\\R", "")));
+
 		caller.sendCandidatesTo(callee);
 
 		assertTrue(caller.pairChanged.await(10, TimeUnit.SECONDS), "No pair change event");
