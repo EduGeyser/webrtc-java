@@ -76,6 +76,20 @@ val commitTime = providers.exec {
 }.standardOutput.asText.map { it.trim() }.get()
 extra["buildDate"] = (commitTime.toLongOrNull()?.let(Instant::ofEpochSecond) ?: Instant.now()).toString()
 
+// The project's license and notice go into every Java jar, where they reach
+// those who get the library from Maven Central rather than from this
+// repository. The native library jars get them from their CMake installs.
+subprojects {
+	tasks.withType<Jar>().configureEach {
+		if (name != "nativeJar") {
+			metaInf {
+				from(rootProject.layout.projectDirectory.file("LICENSE"))
+				from(rootProject.layout.projectDirectory.file("NOTICE"))
+			}
+		}
+	}
+}
+
 allprojects {
 	pluginManager.withPlugin("signing") {
 		// Releases are signed with the key from the environment; without a key
