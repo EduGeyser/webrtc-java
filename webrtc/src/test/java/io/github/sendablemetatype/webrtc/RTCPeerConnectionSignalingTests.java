@@ -155,6 +155,31 @@ class RTCPeerConnectionSignalingTests extends TestBase {
 	}
 
 	@Test
+	void peerReflexiveRemoteKeepsItsAddress() throws Exception {
+		caller.connection.createDataChannel("data", new RTCDataChannelInit());
+
+		negotiate();
+		// The callee learns the caller's candidates, but not the other way round,
+		// so the caller only knows the callee from its connectivity checks.
+		caller.sendCandidatesTo(callee);
+
+		assertTrue(caller.pairChanged.await(10, TimeUnit.SECONDS), "No pair change event");
+
+		RTCCandidatePairChangeEvent event = caller.pairChange.get();
+
+		assertEquals("prflx", event.remoteType);
+		assertNotNull(event.remoteAddress, "The peer reflexive address was hidden");
+		assertFalse(event.getRemote().sdp.contains("redacted-ip.invalid"), event.getRemote().sdp);
+
+		String announced = callee.awaitCandidates().stream()
+				.map(candidate -> candidate.sdp.split(" ")[4])
+				.filter(event.remoteAddress::equals)
+				.findAny()
+				.orElse(null);
+		assertNotNull(announced, "The reported address is none of the callee's own: " + event.remoteAddress);
+	}
+
+	@Test
 	void legacyPairCallbackStillFires() throws Exception {
 		CountDownLatch legacy = new CountDownLatch(1);
 		AtomicReference<String> type = new AtomicReference<>();
