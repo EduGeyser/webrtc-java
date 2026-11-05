@@ -144,3 +144,43 @@ jobs:
     with:
       variant: ${{ inputs.variant }}
       version: ${{ inputs.version }}
+
+  # The tests once more under -Xcheck:jni, once per OS: the JNI glue is shared,
+  # but the device modules, capturers and hardware codecs that call back into
+  # Java are not, so each OS has JNI code of its own. One architecture each is
+  # enough, since that code is the same across them. It fails on any JNI error
+  # or warning, see the test-natives action. Disabled for now, as upstream's.
+  jni-check:
+    name: jni-check (${{ matrix.platform.name }})
+    if: false
+    needs: [build-windows, build-linux, build-macos]
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        platform:
+          - name: linux_x86-64
+            runs-on: ubuntu-26.04
+            classifier: linux-x86_64
+          - name: macos_arm64
+            runs-on: macos-26
+            classifier: macos-aarch64
+          - name: windows_x86_64
+            runs-on: windows-2025
+            classifier: windows-x86_64
+    runs-on: ${{ matrix.platform.runs-on }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+
+      - name: Test natives under -Xcheck:jni
+        uses: ./.github/actions/test-natives
+        with:
+          platform-name: ${{ matrix.platform.name }}
+          classifier: ${{ matrix.platform.classifier }}
+          variant: ${{ inputs.variant }}
+          version: ${{ inputs.version }}
+          runner-image: ${{ matrix.platform.runs-on }}
+          jni-check: 'true'

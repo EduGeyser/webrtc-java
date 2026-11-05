@@ -40,6 +40,11 @@ inputs:
     required: false
     default: ''
 
+  jni-check:
+    description: 'Run the tests under -Xcheck:jni instead, and fail on any JNI error or warning it reports.'
+    required: false
+    default: 'false'
+
 runs:
   using: "composite"
   steps:
@@ -139,9 +144,34 @@ runs:
     # Gradle's native integration has no binaries for the 32-bit arm JDK, hence
     # the switches.
     - name: Test
+      if: inputs.jni-check != 'true'
       env:
         VERSION: ${{ inputs.version }}
       run: ./gradlew $WEBRTC_TEST_TASKS --continue -Pnatives.dir=natives -Pwebrtc.platform=${{ inputs.classifier }} $WEBRTC_VARIANT_ARG ${VERSION:+-Pversion=$VERSION} --no-daemon -Dorg.gradle.native=false -Dorg.gradle.vfs.watch=false
+      shell: bash
+
+    # The same tests under -Xcheck:jni, which checks every JNI call of the
+    # natives: a fatal error ends the test JVM, and a call made without
+    # checking for the exception the previous one may have thrown is a
+    # warning. The JVM writes them to native stdout, which Gradle passes on to
+    # its own output, so the log goes to a file: one warning comes with a whole
+    # stack, and many of them would make an unreadable job log. The report counts
+    # them, sums them up by where they come from and fails on any, so that a
+    # missing check cannot creep back in.
+    - name: Test under -Xcheck:jni
+      if: inputs.jni-check == 'true'
+      env:
+        VERSION: ${{ inputs.version }}
+      run: |
+        status=0
+        ./gradlew $WEBRTC_TEST_TASKS --continue -Pjni-check -Pnatives.dir=natives -Pwebrtc.platform=${{ inputs.classifier }} $WEBRTC_VARIANT_ARG ${VERSION:+-Pversion=$VERSION} --no-daemon -Dorg.gradle.native=false -Dorg.gradle.vfs.watch=false > jni-check.log 2>&1 || status=$?
+
+        # What Gradle reported about the tests, which went to the file as well.
+        grep -E 'tests completed|FAILED|BUILD (SUCCESSFUL|FAILED)' jni-check.log | tail -n 200 || true
+
+        bash "$GITHUB_ACTION_PATH/jni-check-report.sh" jni-check.log 0 || status=1
+
+        exit $status
       shell: bash
 
     # What failed, for runners that cannot be reproduced locally, including
@@ -150,10 +180,13 @@ runs:
       if: failure()
       uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
       with:
-        name: test-reports-${{ inputs.platform-name }}-${{ inputs.runner-image }}
+        name: test-reports-${{ inputs.platform-name }}-${{ inputs.runner-image }}${{ inputs.jni-check == 'true' && '-jni-check' || '' }}
+        # Under -Xcheck:jni, the first of its diagnostics with their stacks,
+        # rather than the whole log.
         path: |
           */build/reports/tests/
           */build/test-results/
           */hs_err_pid*.log
+          jni-check-excerpt.txt
         if-no-files-found: ignore
         retention-days: 7

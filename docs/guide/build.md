@@ -75,11 +75,13 @@ Pass that directory as `-Pwebrtc.install.dir=<absolute-path>` when building the 
 
 ## Checking JNI References
 
-The tests can run under `-Xcheck:jni`, which validates the local and global references of every JNI call and aborts the JVM on a violation. It is opt-in because it also warns about every native call that does not check for a pending exception, which is most of them:
+The tests can run under `-Xcheck:jni`, which validates the local and global references of every JNI call, aborts the JVM on a violation, and warns about a JNI call made while the previous one's exception was left unchecked. It is opt-in, since every JNI call gets slower:
 
 ```shell
 ./gradlew :webrtc:test :webrtc-media:test -Pjni-check
 ```
+
+With `-Pnatives.dir`, the tests run against native library jars downloaded from a CI run instead of a local build. The platforms workflow has a `jni-check` job that runs these tests once per OS and fails on any JNI error or warning, using `.github/actions/test-natives/jni-check-report.sh`. It is switched off for now, as upstream's is.
 
 ## WebRTC patches and cached builds
 
