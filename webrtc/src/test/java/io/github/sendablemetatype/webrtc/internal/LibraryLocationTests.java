@@ -56,8 +56,11 @@ class LibraryLocationTests {
 
 	private static final long TIMEOUT_SECONDS = 60;
 
-	/** Something that needs the library, and nothing else, to work. */
-	private static final String USE = "AudioResampler";
+	/**
+	 * Something that needs the library, and nothing else, to work, in both
+	 * variants of the library.
+	 */
+	private static final String USE = "NativeVariant";
 
 	/** Shared by all tests, so that the library is taken out only once. */
 	@TempDir

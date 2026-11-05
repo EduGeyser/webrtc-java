@@ -71,6 +71,11 @@ public final class StandaloneUse {
 			case "VideoCapture":
 				new VideoCapture().dispose();
 				break;
+			case "NativeVariant":
+				// Not in CLASSES, which lists classes for applications: an internal
+				// native call that works in both variants, for LibraryLocationTests.
+				NativeVariant.hasMedia();
+				break;
 			default:
 				throw new IllegalArgumentException("Unknown class " + args[0]);
 		}
