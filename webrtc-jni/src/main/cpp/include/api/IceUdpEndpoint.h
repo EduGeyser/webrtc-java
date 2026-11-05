@@ -122,6 +122,32 @@ namespace jni
 				std::optional<int64_t> lastSuccessAgeMs;
 			};
 
+			struct Stats
+			{
+				uint64_t datagramsReceived = 0;
+				uint64_t bytesReceived = 0;
+				uint64_t datagramsSent = 0;
+				uint64_t bytesSent = 0;
+				// Datagrams no route, transaction or session took.
+				uint64_t unroutable = 0;
+				// Binding requests that authenticated for no session and were not held.
+				uint64_t unauthenticated = 0;
+				// Checks not held, as too many were or they were too large.
+				uint64_t pendingDropped = 0;
+				uint64_t announced = 0;
+				uint64_t replayed = 0;
+				uint64_t expired = 0;
+				uint64_t rejected = 0;
+				// Datagrams the relay rules dropped on the way in.
+				uint64_t relayDropped = 0;
+				// Datagrams not sent, as no relay routes their destination.
+				uint64_t relayFiltered = 0;
+				// Current.
+				uint64_t routes = 0;
+				uint64_t sessions = 0;
+				uint64_t pending = 0;
+			};
+
 			// Starts the endpoint thread. An empty address list allows every local address.
 			static std::shared_ptr<IceUdpEndpoint> Create(uint16_t port, std::vector<webrtc::IPAddress> addresses);
 
@@ -199,6 +225,8 @@ namespace jni
 			uint64_t OpenStunMonitor(const webrtc::IPAddress & local, const webrtc::SocketAddress & server);
 			std::optional<StunReading> ReadStunMonitor(uint64_t monitor);
 			void CloseStunMonitor(uint64_t monitor);
+
+			Stats GetStats();
 
 		private:
 			IceUdpEndpoint(uint16_t port, std::vector<webrtc::IPAddress> addresses);
@@ -349,6 +377,8 @@ namespace jni
 			std::unique_ptr<ProxyRelays> proxy_;
 			std::map<uint64_t, StunMonitor> monitors_;
 			std::map<std::string, uint64_t> monitorTransactions_;
+			// The counters; the current values are filled in on reading.
+			Stats stats_;
 	};
 }
 

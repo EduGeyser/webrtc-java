@@ -281,6 +281,35 @@ JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_IceUdpEndpoint_clo
 	(*endpoint)->CloseStunMonitor(static_cast<uint64_t>(monitor));
 }
 
+JNIEXPORT jobject JNICALL Java_io_github_sendablemetatype_webrtc_IceUdpEndpoint_getStats
+(JNIEnv * env, jobject caller)
+{
+	EndpointHandle * endpoint = GetHandle<EndpointHandle>(env, caller);
+	CHECK_HANDLEV(endpoint, nullptr);
+
+	jni::IceUdpEndpoint::Stats stats = (*endpoint)->GetStats();
+
+	jclass cls = env->GetObjectClass(caller);
+	jmethodID factory = env->GetStaticMethodID(cls, "stats", "(JJJJJJJJJJJJJJJJ)L" PKG "IceUdpEndpoint$Stats;");
+	jobject result = nullptr;
+
+	if (factory != nullptr) {
+		result = env->CallStaticObjectMethod(cls, factory,
+			static_cast<jlong>(stats.datagramsReceived), static_cast<jlong>(stats.bytesReceived),
+			static_cast<jlong>(stats.datagramsSent), static_cast<jlong>(stats.bytesSent),
+			static_cast<jlong>(stats.unroutable), static_cast<jlong>(stats.unauthenticated),
+			static_cast<jlong>(stats.pendingDropped), static_cast<jlong>(stats.announced),
+			static_cast<jlong>(stats.replayed), static_cast<jlong>(stats.expired),
+			static_cast<jlong>(stats.rejected), static_cast<jlong>(stats.relayDropped),
+			static_cast<jlong>(stats.relayFiltered), static_cast<jlong>(stats.routes),
+			static_cast<jlong>(stats.sessions), static_cast<jlong>(stats.pending));
+	}
+
+	env->DeleteLocalRef(cls);
+
+	return result;
+}
+
 JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_IceUdpEndpoint_dispose
 (JNIEnv * env, jobject caller)
 {

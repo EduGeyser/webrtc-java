@@ -338,6 +338,7 @@ namespace jni
 				std::optional<webrtc::SocketAddress> routed = proxy_->RouteOutbound(remote, data);
 
 				if (!routed) {
+					stats_.relayFiltered++;
 					return;
 				}
 				target = *routed;
@@ -358,12 +359,18 @@ namespace jni
 			}
 
 			it->second->SendTo(data.data(), data.size(), target, webrtc::AsyncSocketPacketOptions());
+
+			stats_.datagramsSent++;
+			stats_.bytesSent += data.size();
 		});
 	}
 
 	void IceUdpEndpoint::Receive(const webrtc::SocketAddress & local, std::span<const uint8_t> data,
 		const webrtc::SocketAddress & from, std::optional<webrtc::Timestamp> arrival)
 	{
+		stats_.datagramsReceived++;
+		stats_.bytesReceived += data.size();
+
 		if (!proxy_) {
 			Route(local, data, from, arrival, std::nullopt);
 			return;
@@ -374,6 +381,7 @@ namespace jni
 
 		switch (proxy_->OnReceive(data, client, relay, webrtc::TimeMillis())) {
 			case ProxyRelays::Receive::kDrop:
+				stats_.relayDropped++;
 				return;
 			case ProxyRelays::Receive::kPass:
 				Route(local, data, client, arrival, std::nullopt);
@@ -418,10 +426,13 @@ namespace jni
 
 		auto route = routes_.find(key);
 
-		if (route != routes_.end()) {
-			route->second.lastReceiveMs = now;
-			Deliver(route->second.socket, data, from, arrival);
+		if (route == routes_.end()) {
+			stats_.unroutable++;
+			return;
 		}
+
+		route->second.lastReceiveMs = now;
+		Deliver(route->second.socket, data, from, arrival);
 	}
 
 	void IceUdpEndpoint::RouteBindingRequest(const RouteKey & key, std::span<const uint8_t> data,
@@ -429,22 +440,16 @@ namespace jni
 	{
 		webrtc::StunMessage message;
 		webrtc::ByteBufferReader reader(data);
-
-		if (!message.Read(&reader)) {
-			return;
-		}
-
-		const webrtc::StunByteStringAttribute * username = message.GetByteString(webrtc::STUN_ATTR_USERNAME);
-
-		if (username == nullptr) {
-			return;
-		}
+		const webrtc::StunByteStringAttribute * username = message.Read(&reader)
+			? message.GetByteString(webrtc::STUN_ATTR_USERNAME)
+			: nullptr;
 
 		// USERNAME is "<local ufrag>:<remote ufrag>".
-		absl::string_view name = username->string_view();
+		absl::string_view name = username != nullptr ? username->string_view() : absl::string_view();
 		size_t colon = name.find(':');
 
 		if (colon == absl::string_view::npos || colon == 0) {
+			stats_.unauthenticated++;
 			return;
 		}
 
@@ -496,15 +501,19 @@ namespace jni
 			if ((!relay || proxy_->Commit(*relay, key.second, nowMs)) && Claim(*socket, key, nowMs)) {
 				Deliver(*socket, data, key.second, arrival);
 			}
+			else {
+				stats_.unroutable++;
+			}
 			return;
 		}
 
-		if (!handler_ || (relay && !proxy_->Admits(*relay, key.second, nowMs))) {
+		if (handler_ && (!relay || proxy_->Admits(*relay, key.second, nowMs))
+				&& (derivedKeys_.empty() || VerifyDerived(integrity, ufrag))) {
+			Hold(key, name, ufrag, data, arrival, nowMs, true, relay);
 			return;
 		}
-		if (derivedKeys_.empty() || VerifyDerived(integrity, ufrag)) {
-			Hold(key, name, ufrag, data, arrival, nowMs, true, relay);
-		}
+
+		stats_.unauthenticated++;
 	}
 
 	bool IceUdpEndpoint::ClientAlive(const webrtc::SocketAddress & client) const
@@ -835,7 +844,9 @@ namespace jni
 	void IceUdpEndpoint::Reject(uint64_t request)
 	{
 		thread_->PostTask([this, request] {
-			TakePending(request);
+			if (TakePending(request)) {
+				stats_.rejected++;
+			}
 		});
 	}
 
@@ -875,6 +886,7 @@ namespace jni
 		const std::optional<webrtc::SocketAddress> & relay)
 	{
 		if (data.size() > kMaxHeldPacketSize) {
+			stats_.pendingDropped++;
 			return;
 		}
 
@@ -894,6 +906,7 @@ namespace jni
 		}
 
 		if (pending_.size() >= maxPending_) {
+			stats_.pendingDropped++;
 			return;
 		}
 
@@ -913,6 +926,8 @@ namespace jni
 			absl::string_view remoteUfrag = username.substr(ufrag.size() + 1);
 			// A copy, since the handler may replace itself while it runs.
 			PendingRequestHandler handler = handler_;
+
+			stats_.announced++;
 
 			handler(PendingRequestInfo { id, key.first, key.second, std::string(ufrag), std::string(remoteUfrag) });
 		}
@@ -962,6 +977,7 @@ namespace jni
 			}
 			if (Claim(*socket, RouteKey(local, taken->remote), nowMs)) {
 				Deliver(*socket, taken->packet, taken->remote, taken->arrival);
+				stats_.replayed++;
 			}
 		}
 	}
@@ -1004,6 +1020,7 @@ namespace jni
 
 			if (expired) {
 				TakePending(id);
+				stats_.expired++;
 			}
 		}
 
@@ -1055,6 +1072,17 @@ namespace jni
 			}
 
 			return StunReading { m.server, m.local, m.mapped, m.state, m.successes, m.failures, m.revision, age };
+		});
+	}
+
+	IceUdpEndpoint::Stats IceUdpEndpoint::GetStats()
+	{
+		return thread_->BlockingCall([this] {
+			Stats stats = stats_;
+			stats.routes = routes_.size();
+			stats.sessions = sessions_.size();
+			stats.pending = pending_.size();
+			return stats;
 		});
 	}
 

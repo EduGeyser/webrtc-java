@@ -309,6 +309,14 @@ public class IceUdpEndpoint extends DisposableNativeObject {
 	}
 
 	/**
+	 * Returns the endpoint's counters since it was created, and its current
+	 * routes, sessions and held checks.
+	 *
+	 * @return The statistics.
+	 */
+	public native Stats getStats();
+
+	/**
 	 * Closes the endpoint's sockets and releases it. Connections that still use
 	 * the endpoint stop sending and receiving.
 	 */
@@ -357,6 +365,19 @@ public class IceUdpEndpoint extends DisposableNativeObject {
 	private native StunReading readStunMonitor(long id);
 
 	private native void closeStunMonitor(long id);
+
+	/*
+	 * Called from native code.
+	 */
+	@SuppressWarnings("unused")
+	private static Stats stats(long datagramsReceived, long bytesReceived, long datagramsSent, long bytesSent,
+			long unroutable, long unauthenticated, long pendingDropped, long announced, long replayed,
+			long expired, long rejected, long relayDropped, long relayFiltered, long routes, long sessions,
+			long pending) {
+		return new Stats(datagramsReceived, bytesReceived, datagramsSent, bytesSent, unroutable,
+				unauthenticated, pendingDropped, announced, replayed, expired, rejected, relayDropped,
+				relayFiltered, routes, sessions, pending);
+	}
 
 	/*
 	 * Called from native code.
@@ -500,6 +521,41 @@ public class IceUdpEndpoint extends DisposableNativeObject {
 			/** The server answered with an error, or not in time. */
 			FAILED
 		}
+	}
+
+
+
+	/**
+	 * The counters of an endpoint, and its current state.
+	 *
+	 * @param datagramsReceived The datagrams the endpoint's sockets received or
+	 *                          that were injected.
+	 * @param bytesReceived     Their bytes.
+	 * @param datagramsSent     The datagrams the endpoint sent.
+	 * @param bytesSent         Their bytes.
+	 * @param unroutable        Datagrams no connection took: from an address
+	 *                          with no route, or for a route another connection
+	 *                          still uses.
+	 * @param unauthenticated   Connectivity checks that authenticated for no
+	 *                          connection and were not held.
+	 * @param pendingDropped    Checks not held, as the most allowed were held or
+	 *                          they were too large.
+	 * @param announced         Held checks passed to the request handler.
+	 * @param replayed          Held checks a connection took.
+	 * @param expired           Held checks that timed out.
+	 * @param rejected          Held checks rejected.
+	 * @param relayDropped      Datagrams the relay rules dropped on the way in.
+	 * @param relayFiltered     Datagrams not sent, as no relay routes their
+	 *                          destination.
+	 * @param routes            The current routes from remote addresses to
+	 *                          connections.
+	 * @param sessions          The current ICE sessions of connections.
+	 * @param pending           The checks held now.
+	 */
+	public record Stats(long datagramsReceived, long bytesReceived, long datagramsSent, long bytesSent,
+			long unroutable, long unauthenticated, long pendingDropped, long announced, long replayed, long expired,
+			long rejected, long relayDropped, long relayFiltered, long routes, long sessions, long pending) {
+
 	}
 
 

@@ -111,6 +111,14 @@ JNIEXPORT jobject JNICALL Java_io_github_sendablemetatype_webrtc_IceUdpEndpoint_
 JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_IceUdpEndpoint_closeStunMonitor
   (JNIEnv *, jobject, jlong);
 
+/*
+ * Class:     io_github_sendablemetatype_webrtc_IceUdpEndpoint
+ * Method:    getStats
+ * Signature: ()Lio/github/sendablemetatype/webrtc/IceUdpEndpoint$Stats;
+ */
+JNIEXPORT jobject JNICALL Java_io_github_sendablemetatype_webrtc_IceUdpEndpoint_getStats
+  (JNIEnv *, jobject);
+
 #ifdef __cplusplus
 }
 #endif
