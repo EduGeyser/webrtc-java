@@ -761,31 +761,39 @@ final class PeerImpl implements Peer {
 	}
 
 	private void finishTeardown(List<RemoteTrackImpl> ended, PeerClosedException error) {
-		closedInternal.complete(null);
+		// Queued before closedInternal completes, as a local track queues its
+		// ended handlers: once it completes, a closing runtime stops the event
+		// executor, which would drop this task, and with it the CLOSED event.
+		// It completes whatever happens, so that the runtime never waits for
+		// it in vain.
+		try {
+			events.execute(() -> {
+				// Behind the messages queued for sending, so that the transport
+				// hears of none once it was let go of.
+				signaling.detach();
 
-		events.execute(() -> {
-			// Behind the messages queued for sending, so that the transport
-			// hears of none once it was let go of.
-			signaling.detach();
+				tracks.fireEnded(ended);
+				channels.clearDelivered();
 
-			tracks.fireEnded(ended);
-			channels.clearDelivered();
+				deliverState(PeerState.CLOSED);
 
-			deliverState(PeerState.CLOSED);
+				connected.completeExceptionally(error);
+				closedFuture.complete(null);
 
-			connected.completeExceptionally(error);
-			closedFuture.complete(null);
+				tracks.clearHandlers();
+				channels.clearHandlers();
+				stateHandlers.clear();
+				errorHandlers.clear();
+			}, () -> {
+				signaling.detach();
 
-			tracks.clearHandlers();
-			channels.clearHandlers();
-			stateHandlers.clear();
-			errorHandlers.clear();
-		}, () -> {
-			signaling.detach();
-
-			connected.completeExceptionally(error);
-			closedFuture.complete(null);
-		});
+				connected.completeExceptionally(error);
+				closedFuture.complete(null);
+			});
+		}
+		finally {
+			closedInternal.complete(null);
+		}
 	}
 
 	// On the event executor.
