@@ -18,6 +18,7 @@
 #include "NativeHandle.h"
 #include "api/AddIceCandidateObserver.h"
 #include "api/CreateSessionDescriptionObserver.h"
+#include "api/PeerConnectionObserver.h"
 #include "api/SetSessionDescriptionObserver.h"
 #include "api/RTCAnswerOptions.h"
 #include "api/RTCConfiguration.h"
@@ -27,6 +28,7 @@
 #include "api/RTCRtpTransceiverInit.h"
 #include "api/RTCSessionDescription.h"
 #include "api/RTCStatsCollectorCallback.h"
+#include "api/RTCTransportMetrics.h"
 #include "api/WebRTCUtils.h"
 #include "JavaArray.h"
 #include "JavaEnums.h"
@@ -835,6 +837,26 @@ JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_RTCPeerConnection_
 }
 
 #endif
+
+JNIEXPORT jobject JNICALL Java_io_github_sendablemetatype_webrtc_RTCPeerConnection_getTransportMetrics
+(JNIEnv * env, jobject caller)
+{
+	jni::PeerConnectionObserver * observer = GetHandle<jni::PeerConnectionObserver>(env, caller, "observerHandle");
+
+	if (observer == nullptr) {
+		return nullptr;
+	}
+
+	try {
+		std::optional<jni::TransportMetrics> metrics = observer->transportMetrics();
+
+		return metrics ? jni::RTCTransportMetrics::toJava(env, *metrics).release() : nullptr;
+	}
+	catch (...) {
+		ThrowCxxJavaException(env);
+		return nullptr;
+	}
+}
 
 JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_RTCPeerConnection_restartIce
 (JNIEnv * env, jobject caller)

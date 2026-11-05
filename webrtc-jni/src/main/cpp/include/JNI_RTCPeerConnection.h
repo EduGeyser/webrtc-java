@@ -295,6 +295,14 @@ extern "C" {
 	JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_RTCPeerConnection_close
 	(JNIEnv *, jobject);
 
+/*
+ * Class:     io_github_sendablemetatype_webrtc_RTCPeerConnection
+ * Method:    getTransportMetrics
+ * Signature: ()Lio/github/sendablemetatype/webrtc/RTCTransportMetrics;
+ */
+JNIEXPORT jobject JNICALL Java_io_github_sendablemetatype_webrtc_RTCPeerConnection_getTransportMetrics
+  (JNIEnv *, jobject);
+
 #ifdef __cplusplus
 }
 #endif

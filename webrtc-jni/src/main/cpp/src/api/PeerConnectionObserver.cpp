@@ -15,6 +15,7 @@
  */
 
 #include "api/PeerConnectionObserver.h"
+#include "api/MetricsSctpTransport.h"
 #include "api/RTCCandidatePairChangeEvent.h"
 #include "api/RTCIceCandidate.h"
 #include "api/RTCPeerConnectionIceErrorEvent.h"
@@ -34,6 +35,7 @@
 #include "api/sctp_transport_interface.h"
 #include "p2p/base/connection.h"
 #include "p2p/base/p2p_transport_channel.h"
+#include "pc/sctp_transport.h"
 
 namespace jni
 {
@@ -351,6 +353,53 @@ namespace jni
 			pair.remote = connection->remote_candidate();
 
 			return pair;
+		});
+	}
+
+	std::optional<TransportMetrics> PeerConnectionObserver::transportMetrics()
+	{
+		webrtc::PeerConnectionInterface * pc = peerConnection.load();
+		webrtc::Thread * thread = networkThread.load();
+
+		if (pc == nullptr || thread == nullptr) {
+			return std::nullopt;
+		}
+
+		return thread->BlockingCall([pc]() -> std::optional<TransportMetrics> {
+			webrtc::scoped_refptr<webrtc::SctpTransportInterface> sctp = pc->GetSctpTransport();
+
+			if (sctp == nullptr) {
+				return std::nullopt;
+			}
+
+			TransportMetrics metrics;
+
+			// The peer connection hands out its own SctpTransport, which holds the
+			// transport our factory created.
+			auto transport = dynamic_cast<webrtc::SctpTransport *>(sctp.get());
+			auto internal = transport ? dynamic_cast<MetricsSctpTransport *>(transport->internal()) : nullptr;
+
+			if (internal != nullptr) {
+				metrics.sctp = internal->GetMetrics();
+			}
+
+			webrtc::scoped_refptr<webrtc::DtlsTransportInterface> dtls = sctp->dtls_transport();
+			webrtc::scoped_refptr<webrtc::IceTransportInterface> ice = dtls ? dtls->ice_transport() : nullptr;
+			auto channel = ice ? dynamic_cast<const webrtc::P2PTransportChannel *>(ice->internal()) : nullptr;
+			const webrtc::Connection * selected = channel ? channel->selected_connection() : nullptr;
+
+			if (selected != nullptr) {
+				// Its stats are not const; the channel's own list gives the same connection
+				// without a cast.
+				for (webrtc::Connection * connection : channel->connections()) {
+					if (connection == selected) {
+						metrics.iceRoundTripTimeMs = connection->stats().current_round_trip_time_ms;
+						break;
+					}
+				}
+			}
+
+			return metrics;
 		});
 	}
 

@@ -505,6 +505,17 @@ public class RTCPeerConnection extends NativeObject {
 	public native void restartIce();
 
 	/**
+	 * Returns the metrics of the transport that carries the data channels: the
+	 * selected candidate pair's round trip time and the SCTP association's
+	 * metrics. Cheaper than {@link #getStats(RTCStatsCollectorCallback)}, which
+	 * builds a whole report, and the SCTP metrics are in no report.
+	 *
+	 * @return The metrics, or {@code null} before the connection has a data
+	 *         channel transport, and after it is closed.
+	 */
+	public native RTCTransportMetrics getTransportMetrics();
+
+	/**
 	 * Closes the peer connection, terminates all media and releases any used
 	 * resources.
 	 * <p>

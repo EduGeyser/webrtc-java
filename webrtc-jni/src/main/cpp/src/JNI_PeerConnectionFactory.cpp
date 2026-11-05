@@ -19,6 +19,7 @@
 #include "api/CreateSessionDescriptionObserver.h"
 #include "api/EndpointPortAllocator.h"
 #include "api/FieldTrialsView.h"
+#include "api/MetricsSctpTransport.h"
 #include "api/PeerConnectionObserver.h"
 #include "api/PortAllocatorConfig.h"
 #include "api/RTCConfiguration.h"
@@ -263,6 +264,9 @@ JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_PeerConnectionFact
 
 		webrtc::EnableMedia(dependencies);
 #endif
+
+		// libwebrtc's SCTP transport, with its association metrics in reach.
+		dependencies.sctp_factory = std::make_unique<jni::MetricsSctpTransportFactory>(networkThread.get());
 
 		auto factory = webrtc::CreateModularPeerConnectionFactory(std::move(dependencies));
 

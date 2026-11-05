@@ -20,6 +20,7 @@
 #include "JavaClass.h"
 #include "JavaRef.h"
 
+#include "api/RTCTransportMetrics.h"
 #include "api/peer_connection_interface.h"
 #include "rtc_base/thread.h"
 
@@ -59,8 +60,13 @@ namespace jni
 			// connection is not referenced: it only calls this observer while it is alive.
 			void setPeerConnection(webrtc::PeerConnectionInterface * peerConnection, webrtc::Thread * networkThread);
 
+			// Of the transport that carries the data channels; nothing before it exists.
+			// Blocks on the network thread.
+			std::optional<TransportMetrics> transportMetrics();
+
 		private:
 			std::optional<webrtc::CandidatePair> selectedCandidatePair(const std::string & transportName);
+
 			class JavaPeerConnectionObserverClass : public JavaClass
 			{
 				public:
