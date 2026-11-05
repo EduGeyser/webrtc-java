@@ -30,7 +30,7 @@ class VariantTests extends ClientTestBase {
 		assertThrows(ConfigurationException.class, () -> rtc.media().customVideo("video"));
 		assertThrows(ConfigurationException.class, () -> rtc.media().customAudio("audio"));
 		assertThrows(ConfigurationException.class,
-				() -> rtc.createPeer(PeerOptions.builder().receive(MediaKind.VIDEO).build()));
+				() -> rtc.createPeer(PeerOptions.builder().negotiation(Negotiation.MANUAL).receive(MediaKind.VIDEO).build()));
 		assertThrows(ConfigurationException.class,
 				() -> WebRtc.builder().hardwareVideoCodecs(true).build());
 	}
