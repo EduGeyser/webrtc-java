@@ -15,7 +15,9 @@
  */
 
 #include "api/PortAllocatorConfig.h"
+#include "rtc/InetAddress.h"
 #include "JavaClasses.h"
+#include "JavaList.h"
 #include "JavaObject.h"
 #include "JavaUtils.h"
 #include "JNI_WebRTC.h"
@@ -43,6 +45,22 @@ namespace jni
 			return jpac;
 		}
 
+		std::vector<webrtc::IPAddress> allowedAddresses(JNIEnv * env, const JavaRef<jobject> & config)
+		{
+			if (config.get() == nullptr) {
+				return {};
+			}
+
+			const auto javaClass = JavaClasses::get<JavaPortAllocatorConfigClass>(env);
+			JavaLocalRef<jobject> list = JavaObject(env, config).getObject(javaClass->allowedAddresses);
+
+			if (list.get() == nullptr) {
+				return {};
+			}
+
+			return JavaList::toVector(env, list, &InetAddress::toNative);
+		}
+
 		JavaPortAllocatorConfigClass::JavaPortAllocatorConfigClass(JNIEnv * env)
 		{
 			cls = FindClass(env, PKG"PortAllocatorConfig");
@@ -50,6 +68,7 @@ namespace jni
 			minPort = GetFieldID(env, cls, "minPort", "I");
 			maxPort = GetFieldID(env, cls, "maxPort", "I");
 			flags = GetFieldID(env, cls, "flags", "I");
+			allowedAddresses = GetFieldID(env, cls, "allowedAddresses", LIST_SIG);
 		}
 	}
 }

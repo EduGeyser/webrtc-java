@@ -21,8 +21,10 @@
 #include "JavaRef.h"
 
 #include "api/peer_connection_interface.h"
+#include "rtc_base/ip_address.h"
 
 #include <jni.h>
+#include <vector>
 
 namespace jni
 {
@@ -38,9 +40,14 @@ namespace jni
 				jfieldID minPort;
 				jfieldID maxPort;
 				jfieldID flags;
+				jfieldID allowedAddresses;
 		};
 
 		JavaLocalRef<jobject> toJava(JNIEnv * env, const webrtc::PeerConnectionInterface::PortAllocatorConfig & cfg);
+
+		// The allowed local addresses of a Java PortAllocatorConfig, which libwebrtc's
+		// configuration has no field for. Empty allows every address.
+		std::vector<webrtc::IPAddress> allowedAddresses(JNIEnv * env, const JavaRef<jobject> & config);
 	}
 }
 

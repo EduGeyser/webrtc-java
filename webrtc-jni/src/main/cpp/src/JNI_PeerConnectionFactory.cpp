@@ -17,18 +17,23 @@
 #include "JNI_PeerConnectionFactory.h"
 #include "NativeHandle.h"
 #include "api/CreateSessionDescriptionObserver.h"
+#include "api/EndpointPortAllocator.h"
 #include "api/FieldTrialsView.h"
 #include "api/PeerConnectionObserver.h"
+#include "api/PortAllocatorConfig.h"
 #include "api/RTCConfiguration.h"
+#include "JavaClasses.h"
 #include "JavaEnums.h"
 #include "JavaError.h"
 #include "JavaFactories.h"
 #include "JavaHashMap.h"
 #include "JavaNullPointerException.h"
+#include "JavaObject.h"
 #include "JavaRuntimeException.h"
 #include "JavaRef.h"
 #include "JavaString.h"
 #include "JavaUtils.h"
+#include "JavaWrappedException.h"
 #include "WebRTCContext.h"
 
 #include "api/create_modular_peer_connection_factory.h"
@@ -60,6 +65,56 @@
 
 #include <map>
 #include <thread>
+#include <memory>
+#include <vector>
+
+namespace
+{
+	// A connection gets a port allocator of its own when it gathers on an
+	// IceUdpEndpoint or only on some local addresses. Otherwise it returns null and
+	// the factory creates its default allocator.
+	std::unique_ptr<webrtc::PortAllocator> CreatePortAllocator(JNIEnv * env, jobject factory,
+		const jni::JavaRef<jobject> & config, const webrtc::PeerConnectionInterface::RTCConfiguration & configuration)
+	{
+		const auto javaClass = jni::JavaClasses::get<jni::RTCConfiguration::JavaRTCConfigurationClass>(env);
+		jni::JavaObject obj(env, config);
+
+		std::vector<webrtc::IPAddress> allowed = jni::PortAllocatorConfig::allowedAddresses(env,
+			obj.getObject(javaClass->portAllocatorConfig));
+		jni::JavaLocalRef<jobject> jEndpoint = obj.getObject(javaClass->iceEndpoint);
+		std::shared_ptr<jni::IceUdpEndpoint> endpoint;
+
+		if (jEndpoint.get() != nullptr) {
+			auto handle = GetHandle<std::shared_ptr<jni::IceUdpEndpoint>>(env, jEndpoint.get());
+
+			if (handle == nullptr) {
+				throw jni::JavaWrappedException(jni::JavaLocalRef<jthrowable>(env,
+					jni::JavaRuntimeException(env, "IceUdpEndpoint is disposed")));
+			}
+
+			endpoint = *handle;
+		}
+
+		if (endpoint == nullptr && allowed.empty()) {
+			return nullptr;
+		}
+
+		jni::NetworkContext * context = GetHandle<jni::NetworkContext>(env, factory, "networkContextHandle");
+
+		if (context == nullptr) {
+			throw jni::Exception("PeerConnectionFactory has no network context");
+		}
+
+		auto allocator = std::make_unique<jni::EndpointPortAllocator>(*context, std::move(endpoint), std::move(allowed),
+			configuration.turn_customizer);
+
+		// What the factory does for its default allocator.
+		allocator->SetPortRange(configuration.port_allocator_config.min_port, configuration.port_allocator_config.max_port);
+		allocator->set_flags(configuration.port_allocator_config.flags);
+
+		return allocator;
+	}
+}
 
 JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_PeerConnectionFactory_initialize
 (JNIEnv * env, jobject caller, jobject jFieldTrials, jobject audioModule, jobject audioProcessing,
@@ -87,6 +142,9 @@ JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_PeerConnectionFact
 				fieldTrialsMap.emplace(std::move(key), std::move(value));
 			}
 		}
+
+		// Connections with a port allocator of their own see the same field trials.
+		std::map<std::string, std::string> networkFieldTrials = fieldTrialsMap;
 
 		std::unique_ptr<webrtc::FieldTrialsView> fieldTrials = fieldTrialsMap.empty()
 			? nullptr
@@ -209,7 +267,10 @@ JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_PeerConnectionFact
 		auto factory = webrtc::CreateModularPeerConnectionFactory(std::move(dependencies));
 
 		if (factory != nullptr) {
+			auto networkContext = std::make_unique<jni::NetworkContext>(networkThread.get(), std::move(networkFieldTrials));
+
 			SetHandle(env, caller, factory.release());
+			SetHandle(env, caller, "networkContextHandle", networkContext.release());
 			SetHandle(env, caller, "networkThreadHandle", networkThread.release());
 			SetHandle(env, caller, "signalingThreadHandle", signalingThread.release());
 #ifndef WEBRTC_DATA_CHANNELS_ONLY
@@ -235,6 +296,7 @@ JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_PeerConnectionFact
 		return;
 	}
 
+	jni::NetworkContext * networkContext = GetHandle<jni::NetworkContext>(env, caller, "networkContextHandle");
 	webrtc::Thread * networkThread = GetHandle<webrtc::Thread>(env, caller, "networkThreadHandle");
 	webrtc::Thread * signalingThread = GetHandle<webrtc::Thread>(env, caller, "signalingThreadHandle");
 #ifndef WEBRTC_DATA_CHANNELS_ONLY
@@ -244,6 +306,7 @@ JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_PeerConnectionFact
 
 	// The calls that use them hold the factory's handle, so they are freed
 	// with it.
+	SetHandle<std::nullptr_t>(env, caller, "networkContextHandle", nullptr);
 	SetHandle<std::nullptr_t>(env, caller, "networkThreadHandle", nullptr);
 	SetHandle<std::nullptr_t>(env, caller, "signalingThreadHandle", nullptr);
 #ifndef WEBRTC_DATA_CHANNELS_ONLY
@@ -252,14 +315,19 @@ JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_PeerConnectionFact
 #endif
 
 #ifdef WEBRTC_DATA_CHANNELS_ONLY
-	auto release = [factory, networkThread, signalingThread](bool deferred) {
+	auto release = [factory, networkContext, networkThread, signalingThread](bool deferred) {
 #else
-	auto release = [factory, networkThread, signalingThread, audioModule, tap](bool deferred) {
+	auto release = [factory, networkContext, networkThread, signalingThread, audioModule, tap](bool deferred) {
 #endif
 		if (factory->Release() != webrtc::RefCountReleaseStatus::kDroppedLastRef) {
 			jni::NativeHandle::ReportNotDeleted(deferred);
 		}
 
+		if (networkContext) {
+			// Its network manager and socket factory go on the network thread, which
+			// has to be running for that.
+			delete networkContext;
+		}
 		if (networkThread) {
 			networkThread->Stop();
 			delete networkThread;
@@ -508,10 +576,13 @@ JNIEXPORT jobject JNICALL Java_io_github_sendablemetatype_webrtc_PeerConnectionF
 	jni::NativeLease<webrtc::PeerConnectionFactoryInterface> factory(env, caller);
 	CHECK_HANDLEV(factory, nullptr);
 
+	jni::JavaLocalRef<jobject> config(env, jConfig);
 	webrtc::PeerConnectionInterface::RTCConfiguration configuration;
+	std::unique_ptr<webrtc::PortAllocator> allocator;
 
 	try {
-		configuration = jni::RTCConfiguration::toNative(env, jni::JavaLocalRef<jobject>(env, jConfig));
+		configuration = jni::RTCConfiguration::toNative(env, config);
+		allocator = CreatePortAllocator(env, caller, config, configuration);
 	}
 	catch (...) {
 		ThrowCxxJavaException(env);
@@ -520,6 +591,7 @@ JNIEXPORT jobject JNICALL Java_io_github_sendablemetatype_webrtc_PeerConnectionF
 
 	jni::PeerConnectionObserver * observer = new jni::PeerConnectionObserver(env, jni::JavaGlobalRef<jobject>(env, jobserver));
 	webrtc::PeerConnectionDependencies dependencies(observer);
+	dependencies.allocator = std::move(allocator);
 
 	auto result = factory->CreatePeerConnectionOrError(configuration, std::move(dependencies));
 

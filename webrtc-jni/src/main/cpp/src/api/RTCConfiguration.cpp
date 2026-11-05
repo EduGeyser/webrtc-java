@@ -401,6 +401,7 @@ namespace jni
 			networkPreference = GetFieldID(env, cls, "networkPreference", "L" PKG "RTCAdapterType;");
 			turnLoggingId = GetFieldID(env, cls, "turnLoggingId", STRING_SIG);
 			cryptoOptions = GetFieldID(env, cls, "cryptoOptions", "L" PKG "RTCCryptoOptions;");
+			iceEndpoint = GetFieldID(env, cls, "iceEndpoint", "L" PKG "IceUdpEndpoint;");
 		}
 	}
 }

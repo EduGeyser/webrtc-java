@@ -16,6 +16,10 @@
 
 package io.github.sendablemetatype.webrtc;
 
+import java.net.InetAddress;
+import java.util.ArrayList;
+import java.util.List;
+
 /**
  * Port allocator configuration for ICE candidate gathering.
  * <p>
@@ -64,6 +68,13 @@ public class PortAllocatorConfig {
      */
     public int flags = 0;
 
+    /**
+     * The local addresses candidates may be gathered on. Networks whose
+     * address is not listed get no candidates, so a multi-homed host can keep
+     * its connections on one address. Empty, the default, allows every
+     * address. Read when the connection is created.
+     */
+    public List<InetAddress> allowedAddresses = new ArrayList<>();
 
     /**
      * Creates an instance with default values.

@@ -102,6 +102,13 @@ public class PeerConnectionFactory extends DisposableNativeObject {
 	@SuppressWarnings("unused")
 	private long signalingThreadHandle;
 
+	/*
+	 * What peer connections need to build their own port allocator: the
+	 * network manager and socket factory of the network thread.
+	 */
+	@SuppressWarnings("unused")
+	private long networkContextHandle;
+
 	@SuppressWarnings("unused")
 	private long audioModuleHandle;
 

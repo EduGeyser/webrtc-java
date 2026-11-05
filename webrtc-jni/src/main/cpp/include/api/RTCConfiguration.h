@@ -79,6 +79,7 @@ namespace jni
 				jfieldID networkPreference;
 				jfieldID turnLoggingId;
 				jfieldID cryptoOptions;
+				jfieldID iceEndpoint;
 		};
 
 		JavaLocalRef<jobject> toJava(JNIEnv * env, const webrtc::PeerConnectionInterface::RTCConfiguration & config);

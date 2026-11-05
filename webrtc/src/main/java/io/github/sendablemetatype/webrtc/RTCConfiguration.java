@@ -70,6 +70,13 @@ public class RTCConfiguration {
 	public PortAllocatorConfig portAllocatorConfig;
 
 	/**
+	 * The shared UDP endpoint the connection gathers its UDP host candidates on,
+	 * instead of opening ports of its own. TURN relays and TCP keep their own
+	 * sockets. Read when the connection is created; {@code null} for none.
+	 */
+	public IceUdpEndpoint iceEndpoint;
+
+	/**
 	 * The maximum number of packets that can be stored in the NetEq audio
 	 * jitter buffer. Can be reduced to lower tolerated audio latency.
 	 */
