@@ -77,13 +77,14 @@ runs:
     # its x86 code, which the Intel macOS build needs too. On Windows the shell
     # has to be MSYS2's: Git for Windows' bash carries neither make nor nasm.
     # Meson and Ninja build dav1d, the software decoder of AV1, and FFmpeg's
-    # configure finds it with pkg-config.
+    # configure finds it with pkg-config. libva-dev has the VA-API headers
+    # FFmpeg is built against on Linux, for every target architecture.
     - name: Install the FFmpeg build tools
       if: env.WEBRTC_VARIANT == 'full'
       run: |
         case "$RUNNER_OS" in
           Linux)
-            sudo apt-get install -y -q meson nasm
+            sudo apt-get install -y -q libva-dev meson nasm
             ;;
           macOS)
             HOMEBREW_NO_AUTO_UPDATE=1 HOMEBREW_NO_INSTALL_CLEANUP=1 brew install meson nasm ninja pkgconf
