@@ -241,6 +241,29 @@ class IceUdpEndpointTests extends TestBase {
 	}
 
 	@Test
+	void stunMonitorLearnsThePortsMapping() throws Exception {
+		InetAddress loopback = InetAddress.getByName("127.0.0.1");
+
+		try (TestStunServer server = new TestStunServer(loopback);
+				IceUdpEndpoint.StunMonitor monitor = endpoint.monitorStun(server.address())) {
+			long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(10);
+			IceUdpEndpoint.StunReading reading = monitor.read();
+
+			while (reading.state() != IceUdpEndpoint.StunReading.State.SUCCEEDED && System.nanoTime() < deadline) {
+				Thread.sleep(50);
+				reading = monitor.read();
+			}
+
+			assertEquals(IceUdpEndpoint.StunReading.State.SUCCEEDED, reading.state());
+			assertEquals(new InetSocketAddress(loopback, endpoint.getPort()), reading.local());
+			// No NAT in between, so the server sees the endpoint's own address.
+			assertEquals(reading.local(), reading.mapped());
+			assertEquals(1, reading.mappingRevision());
+			assertTrue(reading.lastSuccessAge().isPresent());
+		}
+	}
+
+	@Test
 	void allowedAddressesLimitGathering() throws Exception {
 		RTCConfiguration config = new RTCConfiguration();
 		// TEST-NET-1, which no host has.
@@ -503,6 +526,67 @@ class IceUdpEndpointTests extends TestBase {
 			buffer.put(data, 0, length);
 
 			return buffer.array();
+		}
+	}
+
+
+
+	/*
+	 * Answers STUN binding requests over IPv4 with the requester's address.
+	 */
+	private static final class TestStunServer implements AutoCloseable {
+
+		private final DatagramSocket socket;
+
+
+		TestStunServer(InetAddress bind) throws IOException {
+			socket = new DatagramSocket(new InetSocketAddress(bind, 0));
+
+			Thread.ofPlatform().daemon().start(this::serve);
+		}
+
+		InetSocketAddress address() {
+			return (InetSocketAddress) socket.getLocalSocketAddress();
+		}
+
+		@Override
+		public void close() {
+			socket.close();
+		}
+
+		private void serve() {
+			byte[] buffer = new byte[2048];
+
+			while (!socket.isClosed()) {
+				DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
+
+				try {
+					socket.receive(packet);
+
+					ByteBuffer request = ByteBuffer.wrap(packet.getData(), 0, packet.getLength());
+
+					if (packet.getLength() < 20 || request.getShort(0) != 0x0001 || request.getInt(4) != 0x2112A442) {
+						continue;
+					}
+
+					InetSocketAddress source = (InetSocketAddress) packet.getSocketAddress();
+					byte[] address = source.getAddress().getAddress();
+					ByteBuffer response = ByteBuffer.allocate(32);
+
+					// Binding success response with one XOR-MAPPED-ADDRESS attribute.
+					response.putShort((short) 0x0101).putShort((short) 12).putInt(0x2112A442);
+					response.put(packet.getData(), 8, 12);
+					response.putShort((short) 0x0020).putShort((short) 8);
+					response.put((byte) 0).put((byte) 0x01);
+					response.putShort((short) (source.getPort() ^ 0x2112));
+					response.putInt(ByteBuffer.wrap(address).getInt() ^ 0x2112A442);
+
+					socket.send(new DatagramPacket(response.array(), response.capacity(), source));
+				}
+				catch (IOException e) {
+					return;
+				}
+			}
 		}
 	}
 
