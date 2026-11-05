@@ -160,6 +160,9 @@ namespace jni
 
 			bool Allows(const webrtc::IPAddress & address) const;
 
+			// Empty allows every local address.
+			const std::vector<webrtc::IPAddress> & addresses() const { return addresses_; }
+
 			// Closes the sockets and drops all routes. Peers keep running but neither send
 			// nor receive through the endpoint any more.
 			void Close();

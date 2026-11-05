@@ -73,7 +73,9 @@ public class IceUdpEndpoint extends DisposableNativeObject {
 	 * @param port      The UDP port every socket of the endpoint binds, 1 to
 	 *                  65535.
 	 * @param addresses The local addresses to bind, or none to bind every
-	 *                  address a connection gathers on.
+	 *                  address a connection gathers on. Connections on the
+	 *                  endpoint gather on these addresses only, as with
+	 *                  {@link PortAllocatorConfig#allowedAddresses}.
 	 */
 	public IceUdpEndpoint(int port, InetAddress... addresses) {
 		if (port < 1 || port > 65535) {

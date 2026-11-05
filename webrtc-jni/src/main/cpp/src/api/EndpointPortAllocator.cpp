@@ -24,11 +24,30 @@
 
 #include <algorithm>
 #include <cerrno>
+#include <optional>
+#include <vector>
 
 namespace jni
 {
 	namespace
 	{
+		// The local addresses a connection may gather on: its own list, narrowed to
+		// what its endpoint allows. Nothing for every address.
+		std::optional<std::vector<webrtc::IPAddress>> AllowedAddresses(const std::shared_ptr<IceUdpEndpoint> & endpoint,
+			std::vector<webrtc::IPAddress> allowed)
+		{
+			if (endpoint == nullptr || endpoint->addresses().empty()) {
+				return allowed.empty() ? std::nullopt : std::make_optional(std::move(allowed));
+			}
+			if (allowed.empty()) {
+				return endpoint->addresses();
+			}
+
+			std::erase_if(allowed, [&endpoint](const webrtc::IPAddress & address) { return !endpoint->Allows(address); });
+
+			return allowed;
+		}
+
 		webrtc::Environment CreateEnvironment(std::map<std::string, std::string> fieldTrials)
 		{
 			if (fieldTrials.empty()) {
@@ -54,6 +73,82 @@ namespace jni
 			networkManager_.reset();
 			socketFactory_.reset();
 		});
+	}
+
+	AllowedNetworkManager::AllowedNetworkManager(webrtc::NetworkManager & base, std::vector<webrtc::IPAddress> allowed) :
+		base_(base),
+		allowed_(std::move(allowed))
+	{
+	}
+
+	AllowedNetworkManager::~AllowedNetworkManager()
+	{
+		if (subscribed_) {
+			base_.UnsubscribeNetworksChanged(this);
+			base_.UnsubscribeError(this);
+		}
+	}
+
+	void AllowedNetworkManager::StartUpdating()
+	{
+		// Here rather than in the constructor, as the base manager's callbacks belong
+		// to the network thread. Before starting, since starting may notify at once.
+		if (!subscribed_) {
+			base_.SubscribeNetworksChanged(this, [this] { NotifyNetworksChanged(); });
+			base_.SubscribeError(this, [this] { NotifyError(); });
+			subscribed_ = true;
+		}
+
+		base_.StartUpdating();
+	}
+
+	void AllowedNetworkManager::StopUpdating()
+	{
+		base_.StopUpdating();
+	}
+
+	std::vector<const webrtc::Network *> AllowedNetworkManager::GetNetworks() const
+	{
+		return Filter(base_.GetNetworks());
+	}
+
+	webrtc::NetworkManager::EnumerationPermission AllowedNetworkManager::enumeration_permission() const
+	{
+		return base_.enumeration_permission();
+	}
+
+	std::vector<const webrtc::Network *> AllowedNetworkManager::GetAnyAddressNetworks()
+	{
+		return Filter(base_.GetAnyAddressNetworks());
+	}
+
+	bool AllowedNetworkManager::GetDefaultLocalAddress(int family, webrtc::IPAddress * address) const
+	{
+		return base_.GetDefaultLocalAddress(family, address) && Allows(*address);
+	}
+
+	webrtc::MdnsResponderInterface * AllowedNetworkManager::GetMdnsResponder() const
+	{
+		return base_.GetMdnsResponder();
+	}
+
+	void AllowedNetworkManager::set_vpn_list(const std::vector<webrtc::NetworkMask> & vpn)
+	{
+		base_.set_vpn_list(vpn);
+	}
+
+	bool AllowedNetworkManager::Allows(const webrtc::IPAddress & address) const
+	{
+		return std::find(allowed_.begin(), allowed_.end(), address) != allowed_.end();
+	}
+
+	std::vector<const webrtc::Network *> AllowedNetworkManager::Filter(std::vector<const webrtc::Network *> networks) const
+	{
+		std::erase_if(networks, [this](const webrtc::Network * network) {
+			return !Allows(webrtc::IPAddress(network->GetBestIP()));
+		});
+
+		return networks;
 	}
 
 	VirtualSocket::VirtualSocket(const webrtc::Environment & env, std::shared_ptr<IceUdpEndpoint> endpoint, uint64_t peer,
@@ -229,6 +324,11 @@ namespace jni
 		std::vector<webrtc::IPAddress> allowed) :
 		endpoint_(std::move(endpoint)),
 		peer_(endpoint_ ? endpoint_->AddPeer() : 0),
+		networks_([&] {
+			std::optional<std::vector<webrtc::IPAddress>> addresses = AllowedAddresses(endpoint_, allowed);
+
+			return addresses ? std::make_unique<AllowedNetworkManager>(*context.networkManager(), std::move(*addresses)) : nullptr;
+		}()),
 		socketFactory_(std::make_unique<EndpointSocketFactory>(*context.socketFactory(), endpoint_, peer_, std::move(allowed))),
 		relayFactory_(endpoint_ ? std::make_unique<OwnSocketTurnPortFactory>(*context.socketFactory()) : nullptr)
 	{
@@ -237,8 +337,9 @@ namespace jni
 	EndpointPortAllocator::EndpointPortAllocator(NetworkContext & context, std::shared_ptr<IceUdpEndpoint> endpoint,
 		std::vector<webrtc::IPAddress> allowed, webrtc::TurnCustomizer * turnCustomizer) :
 		EndpointAllocatorParts(context, std::move(endpoint), std::move(allowed)),
-		webrtc::BasicPortAllocator(context.env(), context.networkManager(), socketFactory_.get(), turnCustomizer,
-			relayFactory_.get())
+		webrtc::BasicPortAllocator(context.env(),
+			networks_ ? static_cast<webrtc::NetworkManager *>(networks_.get()) : context.networkManager(),
+			socketFactory_.get(), turnCustomizer, relayFactory_.get())
 	{
 	}
 

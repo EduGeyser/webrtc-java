@@ -56,6 +56,34 @@ namespace jni
 			std::unique_ptr<webrtc::BasicPacketSocketFactory> socketFactory_;
 	};
 
+	// Shows an allocator only the networks whose preferred address is allowed. Every
+	// port of a network gathers on that address, TCP active candidates included, and
+	// those open no socket while gathering, so refusing sockets alone lets them through.
+	// Created on any thread; used and destroyed on the network thread.
+	class AllowedNetworkManager : public webrtc::NetworkManager
+	{
+		public:
+			AllowedNetworkManager(webrtc::NetworkManager & base, std::vector<webrtc::IPAddress> allowed);
+			~AllowedNetworkManager() override;
+
+			void StartUpdating() override;
+			void StopUpdating() override;
+			std::vector<const webrtc::Network *> GetNetworks() const override;
+			EnumerationPermission enumeration_permission() const override;
+			std::vector<const webrtc::Network *> GetAnyAddressNetworks() override;
+			bool GetDefaultLocalAddress(int family, webrtc::IPAddress * address) const override;
+			webrtc::MdnsResponderInterface * GetMdnsResponder() const override;
+			void set_vpn_list(const std::vector<webrtc::NetworkMask> & vpn) override;
+
+		private:
+			bool Allows(const webrtc::IPAddress & address) const;
+			std::vector<const webrtc::Network *> Filter(std::vector<const webrtc::Network *> networks) const;
+
+			webrtc::NetworkManager & base_;
+			const std::vector<webrtc::IPAddress> allowed_;
+			bool subscribed_ = false;
+	};
+
 	// A peer's UDP socket on an IceUdpEndpoint, owned by one ICE session. Created, used
 	// and destroyed on the peer's network thread.
 	class VirtualSocket : public webrtc::AsyncPacketSocket, public EndpointReceiver
@@ -147,6 +175,8 @@ namespace jni
 
 		const std::shared_ptr<IceUdpEndpoint> endpoint_;
 		const uint64_t peer_;
+		// Only when some addresses are allowed, by the connection or its endpoint.
+		const std::unique_ptr<AllowedNetworkManager> networks_;
 		const std::unique_ptr<EndpointSocketFactory> socketFactory_;
 		const std::unique_ptr<OwnSocketTurnPortFactory> relayFactory_;
 	};
