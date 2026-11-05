@@ -1,5 +1,5 @@
 [versions]
-jackson = "3.2.3"
+jackson = "3.2.4"
 javafx = "27.0.1"
 jetty = "12.1.14"
 junit = "6.1.3"
