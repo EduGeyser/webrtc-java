@@ -22,6 +22,7 @@
 #include "rtc_base/async_udp_socket.h"
 #include "rtc_base/base64.h"
 #include "rtc_base/byte_buffer.h"
+#include "rtc_base/crypto_random.h"
 #include "rtc_base/logging.h"
 #include "rtc_base/message_digest.h"
 #include "rtc_base/time_utils.h"
@@ -47,6 +48,11 @@ namespace jni
 		// Binding requests are a few hundred bytes; larger ones are not held.
 		constexpr size_t kMaxHeldPacketSize = 2048;
 		constexpr size_t kDerivedPasswordBytes = 24;
+		// As libjuice keeps a STUN binding alive: refreshed every 15 seconds, sent up to
+		// five times, 500 ms apart at first and doubling, within the refresh.
+		constexpr int64_t kMonitorPeriodMs = 15000;
+		constexpr int64_t kMonitorRetransmitMs = 500;
+		constexpr int kMonitorSends = 5;
 
 		bool IsStun(std::span<const uint8_t> data)
 		{
@@ -103,6 +109,8 @@ namespace jni
 			handler_ = nullptr;
 			ClearDerivedPasswords();
 			proxy_.reset();
+			monitors_.clear();
+			monitorTransactions_.clear();
 		});
 		thread_->Stop();
 	}
@@ -126,6 +134,8 @@ namespace jni
 			handler_ = nullptr;
 			ClearDerivedPasswords();
 			proxy_.reset();
+			monitors_.clear();
+			monitorTransactions_.clear();
 
 			for (auto & [id, entry] : sockets_) {
 				entry.routes.clear();
@@ -243,32 +253,37 @@ namespace jni
 			return std::nullopt;
 		}
 
-		return thread_->BlockingCall([this, &address]() -> std::optional<webrtc::SocketAddress> {
-			if (closed_) {
-				return std::nullopt;
-			}
-
-			webrtc::SocketAddress local(address, port_);
-
-			if (osSockets_.find(local) != osSockets_.end()) {
-				return local;
-			}
-
-			std::unique_ptr<webrtc::AsyncUDPSocket> socket = webrtc::AsyncUDPSocket::Create(env_, local, *thread_->socketserver());
-
-			if (!socket) {
-				RTC_LOG(LS_WARNING) << "ICE UDP endpoint cannot bind " << local.ToString();
-				return std::nullopt;
-			}
-
-			socket->RegisterReceivedPacketCallback([this, local](webrtc::AsyncPacketSocket *, const webrtc::ReceivedIpPacket & packet) {
-				Receive(local, packet.payload(), packet.source_address(), packet.arrival_time());
-			});
-
-			osSockets_.emplace(local, std::move(socket));
-
-			return local;
+		return thread_->BlockingCall([this, &address] {
+			return OpenSocketHere(address);
 		});
+	}
+
+	std::optional<webrtc::SocketAddress> IceUdpEndpoint::OpenSocketHere(const webrtc::IPAddress & address)
+	{
+		if (closed_) {
+			return std::nullopt;
+		}
+
+		webrtc::SocketAddress local(address, port_);
+
+		if (osSockets_.find(local) != osSockets_.end()) {
+			return local;
+		}
+
+		std::unique_ptr<webrtc::AsyncUDPSocket> socket = webrtc::AsyncUDPSocket::Create(env_, local, *thread_->socketserver());
+
+		if (!socket) {
+			RTC_LOG(LS_WARNING) << "ICE UDP endpoint cannot bind " << local.ToString();
+			return std::nullopt;
+		}
+
+		socket->RegisterReceivedPacketCallback([this, local](webrtc::AsyncPacketSocket *, const webrtc::ReceivedIpPacket & packet) {
+			Receive(local, packet.payload(), packet.source_address(), packet.arrival_time());
+		});
+
+		osSockets_.emplace(local, std::move(socket));
+
+		return local;
 	}
 
 	uint64_t IceUdpEndpoint::AddVirtualSocket(uint64_t peer, uint64_t session, const webrtc::SocketAddress & local,
@@ -380,6 +395,10 @@ namespace jni
 			int type = StunType(data);
 
 			if (webrtc::IsStunSuccessResponseType(type) || webrtc::IsStunErrorResponseType(type)) {
+				if (OnMonitorResponse(data, from, now)) {
+					return;
+				}
+
 				// A response belongs to the socket that sent the request. During an ICE
 				// restart that is not the socket the route names.
 				ExpireTransactions(now);
@@ -992,6 +1011,164 @@ namespace jni
 			sweepScheduled_ = true;
 			thread_->PostDelayedTask([this] { SweepPending(); }, webrtc::TimeDelta::Seconds(1));
 		}
+	}
+
+	uint64_t IceUdpEndpoint::OpenStunMonitor(const webrtc::IPAddress & local, const webrtc::SocketAddress & server)
+	{
+		if (!Allows(local)) {
+			return 0;
+		}
+
+		return thread_->BlockingCall([this, &local, &server]() -> uint64_t {
+			std::optional<webrtc::SocketAddress> socket = OpenSocketHere(local);
+
+			if (!socket) {
+				return 0;
+			}
+
+			uint64_t id = nextId_++;
+			StunMonitor monitor;
+			monitor.local = *socket;
+			monitor.server = server;
+
+			monitors_.emplace(id, std::move(monitor));
+			StartMonitorTransaction(id);
+
+			return id;
+		});
+	}
+
+	std::optional<IceUdpEndpoint::StunReading> IceUdpEndpoint::ReadStunMonitor(uint64_t monitor)
+	{
+		return thread_->BlockingCall([this, monitor]() -> std::optional<StunReading> {
+			auto it = monitors_.find(monitor);
+
+			if (it == monitors_.end()) {
+				return std::nullopt;
+			}
+
+			const StunMonitor & m = it->second;
+			std::optional<int64_t> age;
+
+			if (m.lastSuccessMs) {
+				age = webrtc::TimeMillis() - *m.lastSuccessMs;
+			}
+
+			return StunReading { m.server, m.local, m.mapped, m.state, m.successes, m.failures, m.revision, age };
+		});
+	}
+
+	void IceUdpEndpoint::CloseStunMonitor(uint64_t monitor)
+	{
+		thread_->PostTask([this, monitor] {
+			auto it = monitors_.find(monitor);
+
+			if (it != monitors_.end()) {
+				monitorTransactions_.erase(it->second.transaction);
+				monitors_.erase(it);
+			}
+		});
+	}
+
+	void IceUdpEndpoint::StartMonitorTransaction(uint64_t monitor)
+	{
+		auto it = monitors_.find(monitor);
+
+		if (it == monitors_.end() || closed_) {
+			return;
+		}
+
+		StunMonitor & m = it->second;
+
+		// A transaction has until the next refresh to be answered.
+		if (!m.answered) {
+			m.failures++;
+			m.state = StunReading::State::kFailed;
+		}
+
+		monitorTransactions_.erase(m.transaction);
+		m.transaction = webrtc::CreateRandomString(webrtc::kStunTransactionIdLength);
+		m.answered = false;
+		monitorTransactions_.emplace(m.transaction, monitor);
+
+		SendMonitorRequest(monitor, m.transaction, 0);
+
+		thread_->PostDelayedTask([this, monitor] { StartMonitorTransaction(monitor); },
+			webrtc::TimeDelta::Millis(kMonitorPeriodMs));
+	}
+
+	void IceUdpEndpoint::SendMonitorRequest(uint64_t monitor, const std::string & transaction, int attempt)
+	{
+		auto it = monitors_.find(monitor);
+
+		if (it == monitors_.end() || closed_ || it->second.transaction != transaction || it->second.answered) {
+			return;
+		}
+
+		auto socket = osSockets_.find(it->second.local);
+
+		if (socket == osSockets_.end()) {
+			return;
+		}
+
+		// No credentials, so that relays and the server take it for the lookup it is.
+		webrtc::StunMessage request(webrtc::STUN_BINDING_REQUEST, transaction);
+		webrtc::ByteBufferWriter buffer;
+		request.Write(&buffer);
+
+		socket->second->SendTo(buffer.Data(), buffer.Length(), it->second.server, webrtc::AsyncSocketPacketOptions());
+
+		if (attempt + 1 < kMonitorSends) {
+			thread_->PostDelayedTask([this, monitor, transaction, attempt] {
+				SendMonitorRequest(monitor, transaction, attempt + 1);
+			}, webrtc::TimeDelta::Millis(kMonitorRetransmitMs << attempt));
+		}
+	}
+
+	bool IceUdpEndpoint::OnMonitorResponse(std::span<const uint8_t> data, const webrtc::SocketAddress & from, int64_t nowMs)
+	{
+		auto transaction = monitorTransactions_.find(TransactionId(data));
+
+		if (transaction == monitorTransactions_.end()) {
+			return false;
+		}
+
+		StunMonitor & m = monitors_.at(transaction->second);
+		webrtc::StunMessage response;
+		webrtc::ByteBufferReader reader(data);
+
+		if (from != m.server || m.answered || !response.Read(&reader)) {
+			return true;
+		}
+
+		m.answered = true;
+
+		const webrtc::StunAddressAttribute * address = nullptr;
+
+		if (response.type() == webrtc::STUN_BINDING_RESPONSE) {
+			address = response.GetAddress(webrtc::STUN_ATTR_XOR_MAPPED_ADDRESS);
+
+			if (address == nullptr) {
+				address = response.GetAddress(webrtc::STUN_ATTR_MAPPED_ADDRESS);
+			}
+		}
+
+		if (address == nullptr) {
+			m.failures++;
+			m.state = StunReading::State::kFailed;
+			return true;
+		}
+
+		if (m.mapped != address->GetAddress()) {
+			m.mapped = address->GetAddress();
+			m.revision++;
+		}
+
+		m.successes++;
+		m.lastSuccessMs = nowMs;
+		m.state = StunReading::State::kSucceeded;
+
+		return true;
 	}
 
 	void IceUdpEndpoint::ClearDerivedPasswords()

@@ -105,6 +105,23 @@ namespace jni
 	class IceUdpEndpoint
 	{
 		public:
+			struct StunReading
+			{
+				enum class State { kPending, kSucceeded, kFailed };
+
+				webrtc::SocketAddress server;
+				webrtc::SocketAddress local;
+				// The address the server saw, from its latest answer.
+				std::optional<webrtc::SocketAddress> mapped;
+				// Of the latest transaction that completed.
+				State state;
+				uint64_t successfulResponses;
+				uint64_t failedTransactions;
+				// Counts changes of the mapped address, the first one included.
+				uint64_t mappingRevision;
+				std::optional<int64_t> lastSuccessAgeMs;
+			};
+
 			// Starts the endpoint thread. An empty address list allows every local address.
 			static std::shared_ptr<IceUdpEndpoint> Create(uint16_t port, std::vector<webrtc::IPAddress> addresses);
 
@@ -174,6 +191,15 @@ namespace jni
 			// The relay a client comes through, routed or still held.
 			std::optional<webrtc::SocketAddress> ProxyRelayOf(const webrtc::SocketAddress & client);
 
+			// Keeps a binding with a STUN server alive from the endpoint's socket on a
+			// local address, so that the NAT mapping of the shared port stays open and
+			// known with no connection running: a binding request every 15 seconds,
+			// retransmitted while unanswered. 0 if the address is not allowed or cannot
+			// be bound.
+			uint64_t OpenStunMonitor(const webrtc::IPAddress & local, const webrtc::SocketAddress & server);
+			std::optional<StunReading> ReadStunMonitor(uint64_t monitor);
+			void CloseStunMonitor(uint64_t monitor);
+
 		private:
 			IceUdpEndpoint(uint16_t port, std::vector<webrtc::IPAddress> addresses);
 
@@ -233,6 +259,20 @@ namespace jni
 
 			using PendingKey = std::tuple<webrtc::SocketAddress, webrtc::SocketAddress, std::string>;
 
+			struct StunMonitor
+			{
+				webrtc::SocketAddress local;
+				webrtc::SocketAddress server;
+				StunReading::State state = StunReading::State::kPending;
+				std::optional<webrtc::SocketAddress> mapped;
+				uint64_t successes = 0;
+				uint64_t failures = 0;
+				uint64_t revision = 0;
+				std::optional<int64_t> lastSuccessMs;
+				std::string transaction;
+				bool answered = true;
+			};
+
 			// Checks MESSAGE-INTEGRITY against one password after another. libwebrtc
 			// validates a message once; later passwords revalidate it.
 			class IntegrityCheck
@@ -257,6 +297,10 @@ namespace jni
 			void RouteBindingRequest(const RouteKey & key, std::span<const uint8_t> data,
 				std::optional<webrtc::Timestamp> arrival, int64_t nowMs, const std::optional<webrtc::SocketAddress> & relay);
 			bool ClientAlive(const webrtc::SocketAddress & client) const;
+			std::optional<webrtc::SocketAddress> OpenSocketHere(const webrtc::IPAddress & address);
+			void StartMonitorTransaction(uint64_t monitor);
+			void SendMonitorRequest(uint64_t monitor, const std::string & transaction, int attempt);
+			bool OnMonitorResponse(std::span<const uint8_t> data, const webrtc::SocketAddress & from, int64_t nowMs);
 			std::optional<uint64_t> Authenticate(IntegrityCheck & integrity, absl::string_view ufrag);
 			std::optional<uint64_t> SocketOf(const SessionEntry & session, const webrtc::SocketAddress & local) const;
 			bool Claim(uint64_t socket, const RouteKey & key, int64_t nowMs);
@@ -303,6 +347,8 @@ namespace jni
 			std::multimap<std::string, uint64_t, std::less<>> pendingByUfrag_;
 			bool sweepScheduled_ = false;
 			std::unique_ptr<ProxyRelays> proxy_;
+			std::map<uint64_t, StunMonitor> monitors_;
+			std::map<std::string, uint64_t> monitorTransactions_;
 	};
 }
 

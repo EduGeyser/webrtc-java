@@ -87,6 +87,30 @@ JNIEXPORT jboolean JNICALL Java_io_github_sendablemetatype_webrtc_IceUdpEndpoint
 JNIEXPORT jobject JNICALL Java_io_github_sendablemetatype_webrtc_IceUdpEndpoint_getProxyRelay
   (JNIEnv *, jobject, jobject, jint);
 
+/*
+ * Class:     io_github_sendablemetatype_webrtc_IceUdpEndpoint
+ * Method:    openStunMonitor
+ * Signature: (Ljava/net/InetAddress;Ljava/net/InetAddress;I)J
+ */
+JNIEXPORT jlong JNICALL Java_io_github_sendablemetatype_webrtc_IceUdpEndpoint_openStunMonitor
+  (JNIEnv *, jobject, jobject, jobject, jint);
+
+/*
+ * Class:     io_github_sendablemetatype_webrtc_IceUdpEndpoint
+ * Method:    readStunMonitor
+ * Signature: (J)Lio/github/sendablemetatype/webrtc/IceUdpEndpoint$StunReading;
+ */
+JNIEXPORT jobject JNICALL Java_io_github_sendablemetatype_webrtc_IceUdpEndpoint_readStunMonitor
+  (JNIEnv *, jobject, jlong);
+
+/*
+ * Class:     io_github_sendablemetatype_webrtc_IceUdpEndpoint
+ * Method:    closeStunMonitor
+ * Signature: (J)V
+ */
+JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_IceUdpEndpoint_closeStunMonitor
+  (JNIEnv *, jobject, jlong);
+
 #ifdef __cplusplus
 }
 #endif

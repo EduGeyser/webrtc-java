@@ -22,6 +22,7 @@
 #include "JavaRef.h"
 #include "JavaString.h"
 #include "JavaUtils.h"
+#include "JNI_WebRTC.h"
 
 #include "rtc_base/zero_memory.h"
 
@@ -206,6 +207,78 @@ JNIEXPORT jobject JNICALL Java_io_github_sendablemetatype_webrtc_IceUdpEndpoint_
 		ThrowCxxJavaException(env);
 		return nullptr;
 	}
+}
+
+JNIEXPORT jlong JNICALL Java_io_github_sendablemetatype_webrtc_IceUdpEndpoint_openStunMonitor
+(JNIEnv * env, jobject caller, jobject jLocal, jobject jServer, jint port)
+{
+	EndpointHandle * endpoint = GetHandle<EndpointHandle>(env, caller);
+	CHECK_HANDLEV(endpoint, 0);
+
+	try {
+		webrtc::IPAddress local = jni::InetAddress::toNative(env, jni::JavaLocalRef<jobject>(env, jLocal));
+		webrtc::SocketAddress server(jni::InetAddress::toNative(env, jni::JavaLocalRef<jobject>(env, jServer)), port);
+
+		return static_cast<jlong>((*endpoint)->OpenStunMonitor(local, server));
+	}
+	catch (...) {
+		ThrowCxxJavaException(env);
+		return 0;
+	}
+}
+
+JNIEXPORT jobject JNICALL Java_io_github_sendablemetatype_webrtc_IceUdpEndpoint_readStunMonitor
+(JNIEnv * env, jobject caller, jlong monitor)
+{
+	EndpointHandle * endpoint = GetHandle<EndpointHandle>(env, caller);
+	CHECK_HANDLEV(endpoint, nullptr);
+
+	std::optional<jni::IceUdpEndpoint::StunReading> reading = (*endpoint)->ReadStunMonitor(static_cast<uint64_t>(monitor));
+
+	if (!reading) {
+		return nullptr;
+	}
+
+	jclass cls = env->GetObjectClass(caller);
+	jmethodID factory = env->GetStaticMethodID(cls, "stunReading",
+		"(Ljava/net/InetSocketAddress;Ljava/net/InetSocketAddress;Ljava/net/InetSocketAddress;IJJJJ)L" PKG "IceUdpEndpoint$StunReading;");
+
+	if (factory == nullptr) {
+		env->DeleteLocalRef(cls);
+		return nullptr;
+	}
+
+	try {
+		jni::JavaLocalRef<jobject> server = jni::InetAddress::toJavaSocketAddress(env, reading->server);
+		jni::JavaLocalRef<jobject> local = jni::InetAddress::toJavaSocketAddress(env, reading->local);
+		jni::JavaLocalRef<jobject> mapped = reading->mapped
+			? jni::InetAddress::toJavaSocketAddress(env, *reading->mapped)
+			: jni::JavaLocalRef<jobject>(env, static_cast<jobject>(nullptr));
+
+		jobject result = env->CallStaticObjectMethod(cls, factory, server.get(), local.get(), mapped.get(),
+			static_cast<jint>(reading->state),
+			static_cast<jlong>(reading->successfulResponses),
+			static_cast<jlong>(reading->failedTransactions),
+			static_cast<jlong>(reading->mappingRevision),
+			static_cast<jlong>(reading->lastSuccessAgeMs.value_or(-1)));
+
+		env->DeleteLocalRef(cls);
+		return result;
+	}
+	catch (...) {
+		env->DeleteLocalRef(cls);
+		ThrowCxxJavaException(env);
+		return nullptr;
+	}
+}
+
+JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_IceUdpEndpoint_closeStunMonitor
+(JNIEnv * env, jobject caller, jlong monitor)
+{
+	EndpointHandle * endpoint = GetHandle<EndpointHandle>(env, caller);
+	CHECK_HANDLE(endpoint);
+
+	(*endpoint)->CloseStunMonitor(static_cast<uint64_t>(monitor));
 }
 
 JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_IceUdpEndpoint_dispose

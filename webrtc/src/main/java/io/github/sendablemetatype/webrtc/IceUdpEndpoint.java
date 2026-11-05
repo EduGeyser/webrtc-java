@@ -18,12 +18,16 @@ package io.github.sendablemetatype.webrtc;
 
 import io.github.sendablemetatype.webrtc.internal.DisposableNativeObject;
 
+import java.io.UncheckedIOException;
+import java.net.DatagramSocket;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
+import java.net.SocketException;
 import java.nio.ByteBuffer;
 import java.time.Duration;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.concurrent.Executor;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.function.Consumer;
@@ -54,6 +58,8 @@ import java.util.function.Consumer;
  * <p>
  * Behind {@linkplain #setProxyRelays PROXY protocol relays}, connections see the
  * clients the relays declare, and replies reach each client through its relay.
+ * A {@linkplain #monitorStun STUN monitor} keeps the port's NAT mapping open and
+ * known while no connection runs.
  *
  * @author Alex Andres
  */
@@ -250,6 +256,59 @@ public class IceUdpEndpoint extends DisposableNativeObject {
 	}
 
 	/**
+	 * Keeps a binding with a STUN server alive from the endpoint's port, on the
+	 * local address the system would send to the server from.
+	 *
+	 * @param server The STUN server, resolved.
+	 *
+	 * @return The monitor, to read and to close.
+	 *
+	 * @see #monitorStun(InetAddress, InetSocketAddress)
+	 */
+	public StunMonitor monitorStun(InetSocketAddress server) {
+		InetAddress serverAddress = Objects.requireNonNull(server.getAddress(), "server unresolved");
+
+		try (DatagramSocket probe = new DatagramSocket()) {
+			// Connecting a UDP socket sends nothing; it only picks the route.
+			probe.connect(serverAddress, server.getPort());
+
+			return monitorStun(probe.getLocalAddress(), server);
+		}
+		catch (SocketException e) {
+			throw new UncheckedIOException(e);
+		}
+	}
+
+	/**
+	 * Keeps a binding with a STUN server alive from the endpoint's port on a
+	 * local address, so that the port's NAT mapping stays open, and known, with
+	 * no connection running. The monitor sends a binding request every 15
+	 * seconds, retransmitted while unanswered, with no credentials, so that
+	 * relays let it through. A server can so publish its public address before
+	 * any client connects.
+	 *
+	 * @param local  The local address to send from, one the endpoint allows.
+	 * @param server The STUN server, resolved.
+	 *
+	 * @return The monitor, to read and to close.
+	 *
+	 * @throws IllegalStateException if the endpoint cannot open its socket on
+	 *                               the local address.
+	 */
+	public StunMonitor monitorStun(InetAddress local, InetSocketAddress server) {
+		Objects.requireNonNull(local, "local");
+		InetAddress serverAddress = Objects.requireNonNull(server.getAddress(), "server unresolved");
+
+		long id = openStunMonitor(local, serverAddress, server.getPort());
+
+		if (id == 0) {
+			throw new IllegalStateException("Cannot monitor STUN from " + local.getHostAddress() + " on port " + getPort());
+		}
+
+		return new StunMonitor(this, id);
+	}
+
+	/**
 	 * Closes the endpoint's sockets and releases it. Connections that still use
 	 * the endpoint stop sending and receiving.
 	 */
@@ -292,6 +351,24 @@ public class IceUdpEndpoint extends DisposableNativeObject {
 	private native boolean applyProxyRelays(String[] relays);
 
 	private native InetSocketAddress getProxyRelay(InetAddress address, int port);
+
+	private native long openStunMonitor(InetAddress local, InetAddress server, int port);
+
+	private native StunReading readStunMonitor(long id);
+
+	private native void closeStunMonitor(long id);
+
+	/*
+	 * Called from native code.
+	 */
+	@SuppressWarnings("unused")
+	private static StunReading stunReading(InetSocketAddress server, InetSocketAddress local,
+			InetSocketAddress mapped, int state, long successfulResponses, long failedTransactions,
+			long mappingRevision, long lastSuccessAgeMs) {
+		return new StunReading(server, local, mapped, StunReading.State.values()[state], successfulResponses,
+				failedTransactions, mappingRevision,
+				lastSuccessAgeMs < 0 ? Optional.empty() : Optional.of(Duration.ofMillis(lastSuccessAgeMs)));
+	}
 
 	private native void inject(InetAddress localAddress, int localPort, InetAddress remoteAddress,
 			int remotePort, byte[] data);
@@ -345,6 +422,83 @@ public class IceUdpEndpoint extends DisposableNativeObject {
 		public String toString() {
 			return "PendingRequest[local=" + localAddress + ", remote=" + remoteAddress
 					+ ", localUfrag=" + localUfrag + ", remoteUfrag=" + remoteUfrag + "]";
+		}
+	}
+
+
+
+	/**
+	 * A STUN binding the endpoint keeps alive. Close it when it is no longer
+	 * needed; disposing the endpoint closes it too.
+	 */
+	public static final class StunMonitor implements AutoCloseable {
+
+		private final IceUdpEndpoint endpoint;
+
+		private final long id;
+
+
+		private StunMonitor(IceUdpEndpoint endpoint, long id) {
+			this.endpoint = endpoint;
+			this.id = id;
+		}
+
+		/**
+		 * Returns the binding's state.
+		 *
+		 * @return The latest reading.
+		 *
+		 * @throws IllegalStateException if the monitor or its endpoint is closed.
+		 */
+		public StunReading read() {
+			StunReading reading = endpoint.readStunMonitor(id);
+
+			if (reading == null) {
+				throw new IllegalStateException("STUN monitor closed");
+			}
+
+			return reading;
+		}
+
+		/**
+		 * Stops keeping the binding alive.
+		 */
+		@Override
+		public void close() {
+			endpoint.closeStunMonitor(id);
+		}
+	}
+
+
+
+	/**
+	 * The state of a STUN binding.
+	 *
+	 * @param server              The STUN server.
+	 * @param local               The endpoint address the binding is kept from.
+	 * @param mapped              The address the server saw, from its latest
+	 *                            answer, or {@code null} before the first one.
+	 * @param state               The outcome of the latest transaction that
+	 *                            completed.
+	 * @param successfulResponses The answers so far.
+	 * @param failedTransactions  The transactions that got an error or no answer
+	 *                            in time.
+	 * @param mappingRevision     How often the mapped address changed, the first
+	 *                            answer included.
+	 * @param lastSuccessAge      How long ago the latest answer came.
+	 */
+	public record StunReading(InetSocketAddress server, InetSocketAddress local, InetSocketAddress mapped,
+			State state, long successfulResponses, long failedTransactions, long mappingRevision,
+			Optional<Duration> lastSuccessAge) {
+
+		/** The outcome of a binding's latest transaction. */
+		public enum State {
+			/** No transaction has completed yet. */
+			PENDING,
+			/** The server answered with a mapped address. */
+			SUCCEEDED,
+			/** The server answered with an error, or not in time. */
+			FAILED
 		}
 	}
 
