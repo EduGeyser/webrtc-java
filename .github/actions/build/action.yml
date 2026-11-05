@@ -134,13 +134,13 @@ runs:
         key: ffmpeg-${{ inputs.platform-name }}-${{ steps.ffmpeg-build.outputs.value }}
 
     - name: Set up JDK ${{ inputs.java-version }}
-      uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+      uses: actions/setup-java@77dd5b2ce225ea11469928ac317850245a74ae78 # v6.2.0
       with:
         java-version: ${{ inputs.java-version }}
         distribution: 'liberica'
 
     - name: Set up Gradle
-      uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
+      uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6.4.1
 
     # The cross compiled platforms are selected explicitly, the others are the
     # platform of the runner.
@@ -199,7 +199,7 @@ runs:
     # The jars of all platforms go to the test workflow and to the publishing
     # job of a release, which attaches every platform to one deployment.
     - name: Upload native library jar
-      uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
       with:
         name: natives-${{ inputs.platform-name }}
         path: webrtc-jni/build/libs/webrtc-java-*.jar
@@ -209,7 +209,7 @@ runs:
 
     - name: Upload media native library jar
       if: env.WEBRTC_VARIANT == 'full'
-      uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
       with:
         name: natives-media-${{ inputs.platform-name }}
         # The classifier jar only: the main jar is the same on every platform.
@@ -233,7 +233,7 @@ runs:
 
     - name: Upload the compiled WebRTC install tree
       if: ${{ steps.webrtc-install.outputs.path != '' }}
-      uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
       with:
         name: webrtc-install-linux-x86_64-${{ env.WEBRTC_VARIANT }}-${{ steps.native-build.outputs.fingerprint }}
         path: ${{ steps.webrtc-install.outputs.path }}
