@@ -95,8 +95,8 @@ The native library is looked for in this order:
 3. Where `System.loadLibrary` looks: the libraries of the Java runtime, which is where a jlink image keeps those of its modules, then `java.library.path`.
 
 ```shell
-java -Dwebrtc.java.library.dir=/opt/myapp/lib -jar myapp.jar
-java -Dwebrtc.java.extract.dir=/var/lib/myapp/natives -jar myapp.jar
+java -Dio.github.sendablemetatype.webrtc.library.dir=/opt/myapp/lib -jar myapp.jar
+java -Dio.github.sendablemetatype.webrtc.extract.dir=/var/lib/myapp/natives -jar myapp.jar
 ```
 
 A library loaded from a directory keeps the file name it has in the native JAR, for example `libwebrtc-java-linux-x86_64.so`. The media module's library is found the same way; its FFmpeg libraries go next to it under their names in its native JAR (`libavcodec.so.62` and so on). If the library is found nowhere, the `UnsatisfiedLinkError` lists every place that was tried.
@@ -467,10 +467,10 @@ try (AudioConverter converter = new AudioConverter(48000, 1, 16000, 1)) {
 
 #### Finding Objects That Were Never Disposed
 
-An object that becomes unreachable without being disposed or closed leaks its native object. To find such objects, start the JVM with `-Dwebrtc.java.leak.detection=true`: each one is then reported, with its class, once the garbage collector finds it unreachable. Add `-Dwebrtc.java.leak.trace=true` to have the report tell where the object was created, at the cost of a stack trace per object.
+An object that becomes unreachable without being disposed or closed leaks its native object. To find such objects, start the JVM with `-Dio.github.sendablemetatype.webrtc.leak.detection=true`: each one is then reported, with its class, once the garbage collector finds it unreachable. Add `-Dio.github.sendablemetatype.webrtc.leak.trace=true` to have the report tell where the object was created, at the cost of a stack trace per object.
 
 ```shell
-java -Dwebrtc.java.leak.detection=true -Dwebrtc.java.leak.trace=true -jar app.jar
+java -Dio.github.sendablemetatype.webrtc.leak.detection=true -Dio.github.sendablemetatype.webrtc.leak.trace=true -jar app.jar
 ```
 
 The reports are warnings through `Logging`, which writes nothing unless the application asks for it:
