@@ -20,10 +20,16 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.io.IOException;
+import java.io.UncheckedIOException;
+import java.net.DatagramPacket;
 import java.net.DatagramSocket;
+import java.net.Inet4Address;
 import java.net.InetAddress;
+import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.security.SecureRandom;
@@ -32,7 +38,9 @@ import java.util.Arrays;
 import java.util.Base64;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
@@ -193,6 +201,46 @@ class IceUdpEndpointTests extends TestBase {
 	}
 
 	@Test
+	void relayedClientIsSeenAsItself() throws Exception {
+		String host = endpointHosts().stream()
+				.filter(candidate -> candidate.indexOf(':') < 0)
+				.findFirst()
+				.orElseThrow(() -> new AssertionError("No IPv4 host candidate on the endpoint"));
+		InetAddress hostAddress = InetAddress.getByName(host);
+
+		try (TestRelay relay = new TestRelay(hostAddress, new InetSocketAddress(hostAddress, endpoint.getPort()))) {
+			endpoint.setProxyRelays(host);
+
+			Peer client = new Peer(new RTCConfiguration());
+			Peer server = new Peer(serverConfig());
+
+			client.channel = client.connection.createDataChannel("data", new RTCDataChannelInit());
+			client.channel.registerObserver(client.channelObserver(client.channel));
+
+			negotiate(client, server);
+
+			// The client knows only the relay; the server learns the client from its checks.
+			String candidate = "candidate:1 1 udp 2122260223 " + host + " " + relay.port() + " typ host";
+			client.connection.addIceCandidate(new RTCIceCandidate("0", 0, candidate), new TestAddIceObserver());
+
+			assertTrue(client.channelOpen.await(20, TimeUnit.SECONDS), "Data channel did not open");
+			assertTrue(server.channelOpen.await(20, TimeUnit.SECONDS), "Remote data channel did not open");
+
+			RTCCandidatePairChangeEvent pair = server.lastPair;
+			InetSocketAddress seen = new InetSocketAddress(InetAddress.getByName(pair.remoteAddress), pair.remotePort);
+
+			assertTrue(relay.clients().contains(seen), "The server sees " + seen + ", not a relayed client");
+			assertEquals(relay.backAddress(seen), endpoint.getProxyRelay(seen));
+		}
+	}
+
+	@Test
+	void proxyRelaysMustBeAddresses() {
+		assertThrows(IllegalArgumentException.class, () -> endpoint.setProxyRelays("relay.example"));
+		assertThrows(IllegalArgumentException.class, () -> endpoint.setProxyRelays("10.0.0.0/33"));
+	}
+
+	@Test
 	void allowedAddressesLimitGathering() throws Exception {
 		RTCConfiguration config = new RTCConfiguration();
 		// TEST-NET-1, which no host has.
@@ -347,6 +395,119 @@ class IceUdpEndpointTests extends TestBase {
 
 
 
+	/*
+	 * A PROXY protocol v2 relay for IPv4 clients. Clients send to its front
+	 * socket; it passes each client's datagrams on from a source port of its own,
+	 * every one with a header, and sends the replies back.
+	 */
+	private static final class TestRelay implements AutoCloseable {
+
+		private static final byte[] SIGNATURE = { 0x0D, 0x0A, 0x0D, 0x0A, 0x00, 0x0D, 0x0A, 0x51, 0x55, 0x49, 0x54, 0x0A };
+
+		private final InetAddress bind;
+
+		private final InetSocketAddress target;
+
+		private final DatagramSocket front;
+
+		private final Map<InetSocketAddress, DatagramSocket> backs = new ConcurrentHashMap<>();
+
+
+		TestRelay(InetAddress bind, InetSocketAddress target) throws IOException {
+			this.bind = bind;
+			this.target = target;
+			this.front = new DatagramSocket(new InetSocketAddress(bind, 0));
+
+			Thread.ofPlatform().daemon().start(this::pumpFront);
+		}
+
+		int port() {
+			return front.getLocalPort();
+		}
+
+		Set<InetSocketAddress> clients() {
+			return backs.keySet();
+		}
+
+		InetSocketAddress backAddress(InetSocketAddress client) {
+			return (InetSocketAddress) backs.get(client).getLocalSocketAddress();
+		}
+
+		@Override
+		public void close() {
+			front.close();
+			backs.values().forEach(DatagramSocket::close);
+		}
+
+		private void pumpFront() {
+			byte[] buffer = new byte[65536];
+
+			while (!front.isClosed()) {
+				DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
+
+				try {
+					front.receive(packet);
+
+					InetSocketAddress client = (InetSocketAddress) packet.getSocketAddress();
+					DatagramSocket back = backs.computeIfAbsent(client, this::openBack);
+					byte[] relayed = withHeader(client, packet.getData(), packet.getLength());
+
+					back.send(new DatagramPacket(relayed, relayed.length, target));
+				}
+				catch (IOException e) {
+					return;
+				}
+			}
+		}
+
+		private DatagramSocket openBack(InetSocketAddress client) {
+			try {
+				DatagramSocket back = new DatagramSocket(new InetSocketAddress(bind, 0));
+
+				Thread.ofPlatform().daemon().start(() -> pumpBack(back, client));
+
+				return back;
+			}
+			catch (IOException e) {
+				throw new UncheckedIOException(e);
+			}
+		}
+
+		private void pumpBack(DatagramSocket back, InetSocketAddress client) {
+			byte[] buffer = new byte[65536];
+
+			while (!back.isClosed()) {
+				DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
+
+				try {
+					back.receive(packet);
+					front.send(new DatagramPacket(packet.getData(), packet.getLength(), client));
+				}
+				catch (IOException e) {
+					return;
+				}
+			}
+		}
+
+		private byte[] withHeader(InetSocketAddress client, byte[] data, int length) {
+			if (!(client.getAddress() instanceof Inet4Address)) {
+				throw new IllegalStateException("IPv4 clients only: " + client);
+			}
+
+			ByteBuffer buffer = ByteBuffer.allocate(16 + 12 + length);
+			buffer.put(SIGNATURE);
+			// Version 2, PROXY command; IPv4 over UDP; 12 bytes of addresses.
+			buffer.put((byte) 0x21).put((byte) 0x12).putShort((short) 12);
+			buffer.put(client.getAddress().getAddress()).put(target.getAddress().getAddress());
+			buffer.putShort((short) client.getPort()).putShort((short) target.getPort());
+			buffer.put(data, 0, length);
+
+			return buffer.array();
+		}
+	}
+
+
+
 	private record Client(Peer peer, Peer server, RTCSessionDescription answer, String ufrag) {
 
 		void answerOnServer() throws Exception {
@@ -369,6 +530,8 @@ class IceUdpEndpointTests extends TestBase {
 		final CountDownLatch channelOpen = new CountDownLatch(1);
 
 		final Semaphore pairChanges = new Semaphore(0);
+
+		volatile RTCCandidatePairChangeEvent lastPair;
 
 		final BlockingQueue<String> messages = new LinkedBlockingQueue<>();
 
@@ -411,6 +574,7 @@ class IceUdpEndpointTests extends TestBase {
 
 		@Override
 		public void onSelectedCandidatePairChanged(RTCCandidatePairChangeEvent event) {
+			lastPair = event;
 			pairChanges.release();
 		}
 
