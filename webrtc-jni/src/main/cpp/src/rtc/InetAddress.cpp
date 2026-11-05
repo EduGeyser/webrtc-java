@@ -52,6 +52,21 @@ namespace jni
 			return webrtc::IPAddress(ipv6);
 		}
 
+		JavaLocalRef<jbyteArray> toJavaBytes(JNIEnv * env, const webrtc::IPAddress & address)
+		{
+			if (address.family() == AF_INET) {
+				in_addr ipv4 = address.ipv4_address();
+				JavaLocalRef<jbyteArray> bytes(env, env->NewByteArray(sizeof(ipv4)));
+				env->SetByteArrayRegion(bytes.get(), 0, sizeof(ipv4), reinterpret_cast<const jbyte *>(&ipv4));
+				return bytes;
+			}
+
+			in6_addr ipv6 = address.ipv6_address();
+			JavaLocalRef<jbyteArray> bytes(env, env->NewByteArray(sizeof(ipv6)));
+			env->SetByteArrayRegion(bytes.get(), 0, sizeof(ipv6), reinterpret_cast<const jbyte *>(&ipv6));
+			return bytes;
+		}
+
 		JavaInetAddressClass::JavaInetAddressClass(JNIEnv * env)
 		{
 			cls = FindClass(env, "java/net/InetAddress");

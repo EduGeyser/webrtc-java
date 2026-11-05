@@ -16,12 +16,18 @@
 
 #include "JNI_IceUdpEndpoint.h"
 #include "api/IceUdpEndpoint.h"
+#include "api/WebRTCUtils.h"
 #include "rtc/InetAddress.h"
 #include "JavaArray.h"
 #include "JavaRef.h"
+#include "JavaString.h"
 #include "JavaUtils.h"
 
+#include "rtc_base/zero_memory.h"
+
 #include <memory>
+#include <string>
+#include <utility>
 #include <vector>
 
 // The Java object holds a shared_ptr, as does every connection that gathers on the
@@ -70,6 +76,101 @@ JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_IceUdpEndpoint_inj
 	catch (...) {
 		ThrowCxxJavaException(env);
 	}
+}
+
+namespace
+{
+	std::string CopyBytes(JNIEnv * env, jbyteArray array)
+	{
+		std::string bytes(env->GetArrayLength(array), '\0');
+		env->GetByteArrayRegion(array, 0, static_cast<jsize>(bytes.size()), reinterpret_cast<jbyte *>(bytes.data()));
+		return bytes;
+	}
+}
+
+JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_IceUdpEndpoint_setPendingLimits
+(JNIEnv * env, jobject caller, jint maxPending, jlong timeoutMs)
+{
+	EndpointHandle * endpoint = GetHandle<EndpointHandle>(env, caller);
+	CHECK_HANDLE(endpoint);
+
+	(*endpoint)->SetPendingLimits(static_cast<size_t>(maxPending), static_cast<int64_t>(timeoutMs));
+}
+
+JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_IceUdpEndpoint_enablePendingRequests
+(JNIEnv * env, jobject caller, jboolean enabled)
+{
+	EndpointHandle * endpoint = GetHandle<EndpointHandle>(env, caller);
+	CHECK_HANDLE(endpoint);
+
+	if (!enabled) {
+		(*endpoint)->SetPendingRequestHandler(nullptr);
+		return;
+	}
+
+	jclass cls = env->GetObjectClass(caller);
+	jmethodID method = env->GetMethodID(cls, "onPendingRequest", "(J[BI[BILjava/lang/String;Ljava/lang/String;)V");
+	env->DeleteLocalRef(cls);
+
+	if (method == nullptr) {
+		return;
+	}
+
+	auto target = std::make_shared<jni::JavaGlobalRef<jobject>>(env, caller);
+
+	(*endpoint)->SetPendingRequestHandler([target, method](const jni::PendingRequestInfo & request) {
+		JNIEnv * env = AttachCurrentThread();
+
+		if (env == nullptr) {
+			return;
+		}
+
+		try {
+			jni::JavaLocalRef<jbyteArray> local = jni::InetAddress::toJavaBytes(env, request.local.ipaddr());
+			jni::JavaLocalRef<jbyteArray> remote = jni::InetAddress::toJavaBytes(env, request.remote.ipaddr());
+
+			env->CallVoidMethod(target->get(), method, static_cast<jlong>(request.id),
+				local.get(), static_cast<jint>(request.local.port()),
+				remote.get(), static_cast<jint>(request.remote.port()),
+				jni::JavaString::toJava(env, request.localUfrag).get(),
+				jni::JavaString::toJava(env, request.remoteUfrag).get());
+		}
+		catch (...) {
+			ThrowCxxJavaException(env);
+		}
+
+		jni::ReportPendingException(env);
+	});
+}
+
+JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_IceUdpEndpoint_setDerivedPasswords
+(JNIEnv * env, jobject caller, jbyteArray jContext, jobjectArray jPrefixes, jobjectArray jKeys)
+{
+	EndpointHandle * endpoint = GetHandle<EndpointHandle>(env, caller);
+	CHECK_HANDLE(endpoint);
+
+	std::string context = CopyBytes(env, jContext);
+	std::vector<std::pair<std::string, std::string>> keys;
+	jsize count = env->GetArrayLength(jPrefixes);
+
+	for (jsize i = 0; i < count; i++) {
+		jni::JavaLocalRef<jstring> prefix(env, static_cast<jstring>(env->GetObjectArrayElement(jPrefixes, i)));
+		jni::JavaLocalRef<jbyteArray> key(env, static_cast<jbyteArray>(env->GetObjectArrayElement(jKeys, i)));
+
+		keys.emplace_back(jni::JavaString::toNative(env, prefix), CopyBytes(env, key.get()));
+	}
+
+	// The endpoint takes the buffers over; nothing is left here to wipe.
+	(*endpoint)->SetDerivedPasswords(std::move(context), std::move(keys));
+}
+
+JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_IceUdpEndpoint_rejectRequest
+(JNIEnv * env, jobject caller, jlong request)
+{
+	EndpointHandle * endpoint = GetHandle<EndpointHandle>(env, caller);
+	CHECK_HANDLE(endpoint);
+
+	(*endpoint)->Reject(static_cast<uint64_t>(request));
 }
 
 JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_IceUdpEndpoint_dispose

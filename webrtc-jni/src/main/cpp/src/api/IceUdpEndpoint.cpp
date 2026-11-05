@@ -18,10 +18,14 @@
 #include "Exception.h"
 
 #include "api/environment/environment_factory.h"
+#include "api/units/time_delta.h"
 #include "rtc_base/async_udp_socket.h"
+#include "rtc_base/base64.h"
 #include "rtc_base/byte_buffer.h"
 #include "rtc_base/logging.h"
+#include "rtc_base/message_digest.h"
 #include "rtc_base/time_utils.h"
+#include "rtc_base/zero_memory.h"
 
 #include <algorithm>
 
@@ -40,6 +44,9 @@ namespace jni
 		// peer may take its address over.
 		constexpr int64_t kRouteIdleMs = 30000;
 		constexpr size_t kStunHeaderSize = 20;
+		// Binding requests are a few hundred bytes; larger ones are not held.
+		constexpr size_t kMaxHeldPacketSize = 2048;
+		constexpr size_t kDerivedPasswordBytes = 24;
 
 		bool IsStun(std::span<const uint8_t> data)
 		{
@@ -90,6 +97,11 @@ namespace jni
 			peers_.clear();
 			transactions_.clear();
 			transactionOrder_.clear();
+			pending_.clear();
+			pendingByKey_.clear();
+			pendingByUfrag_.clear();
+			handler_ = nullptr;
+			ClearDerivedPasswords();
 		});
 		thread_->Stop();
 	}
@@ -107,6 +119,11 @@ namespace jni
 			routes_.clear();
 			transactions_.clear();
 			transactionOrder_.clear();
+			pending_.clear();
+			pendingByKey_.clear();
+			pendingByUfrag_.clear();
+			handler_ = nullptr;
+			ClearDerivedPasswords();
 
 			for (auto & [id, entry] : sockets_) {
 				entry.routes.clear();
@@ -389,55 +406,86 @@ namespace jni
 			}
 		}
 
-		std::optional<uint64_t> socket = Authenticate(key.first, message, ufrag);
+		IntegrityCheck integrity(message);
 
-		if (!socket) {
+		if (std::optional<uint64_t> session = Authenticate(integrity, ufrag)) {
+			std::optional<uint64_t> socket = SocketOf(sessions_.at(*session), key.first);
+
+			if (!socket || !sockets_.at(*socket).ready) {
+				// The session has no port here that could take it yet; it gets the request
+				// once it has.
+				Hold(key, name, ufrag, data, arrival, nowMs, false);
+				return;
+			}
+
+			auto held = pendingByKey_.find(PendingKey(key.first, key.second, std::string(name)));
+
+			if (held != pendingByKey_.end()) {
+				TakePending(held->second);
+			}
+			if (Claim(*socket, key, nowMs)) {
+				Deliver(*socket, data, key.second, arrival);
+			}
 			return;
 		}
 
-		if (route != routes_.end() && route->second.socket != *socket) {
+		if (handler_ && (derivedKeys_.empty() || VerifyDerived(integrity, ufrag))) {
+			Hold(key, name, ufrag, data, arrival, nowMs, true);
+		}
+	}
+
+	bool IceUdpEndpoint::Claim(uint64_t socket, const RouteKey & key, int64_t nowMs)
+	{
+		auto route = routes_.find(key);
+
+		if (route != routes_.end() && route->second.socket != socket) {
 			auto previous = sockets_.find(route->second.socket);
-			bool samePeer = previous != sockets_.end() && previous->second.peer == sockets_.at(*socket).peer;
+			bool samePeer = previous != sockets_.end() && previous->second.peer == sockets_.at(socket).peer;
 
 			// A new ICE session of the same peer takes its addresses along. Another peer
 			// waits until the route is dead, so that a forged source address cannot cut
 			// a live connection off.
 			if (!samePeer && nowMs - route->second.lastReceiveMs < kRouteIdleMs) {
-				return;
+				return false;
 			}
 		}
 
-		MapRoute(*socket, key, nowMs);
-		Deliver(*socket, data, key.second, arrival);
+		MapRoute(socket, key, nowMs);
+		return true;
 	}
 
-	std::optional<uint64_t> IceUdpEndpoint::Authenticate(const webrtc::SocketAddress & local, webrtc::StunMessage & message,
-		absl::string_view ufrag)
+	bool IceUdpEndpoint::IntegrityCheck::Matches(const std::string & password)
+	{
+		auto status = validated_
+			? message_.RevalidateMessageIntegrity(password)
+			: message_.ValidateMessageIntegrity(password);
+		validated_ = true;
+
+		return status == webrtc::StunMessage::IntegrityStatus::kIntegrityOk;
+	}
+
+	std::optional<uint64_t> IceUdpEndpoint::Authenticate(IntegrityCheck & integrity, absl::string_view ufrag)
 	{
 		auto [first, last] = sessionsByUfrag_.equal_range(ufrag);
-		bool validated = false;
 
 		// Generated ufrags are short, so several sessions can share one; only the
 		// password tells them apart.
 		for (auto index = first; index != last; ++index) {
-			const SessionEntry & session = sessions_.at(index->second);
-
-			auto status = validated
-				? message.RevalidateMessageIntegrity(session.password)
-				: message.ValidateMessageIntegrity(session.password);
-			validated = true;
-
-			if (status != webrtc::StunMessage::IntegrityStatus::kIntegrityOk) {
-				continue;
+			if (integrity.Matches(sessions_.at(index->second).password)) {
+				return index->second;
 			}
+		}
 
-			// A session has one socket per local address; a newer one replaces an older.
-			for (auto socket = session.sockets.rbegin(); socket != session.sockets.rend(); ++socket) {
-				if (sockets_.at(*socket).local == local) {
-					return *socket;
-				}
+		return std::nullopt;
+	}
+
+	std::optional<uint64_t> IceUdpEndpoint::SocketOf(const SessionEntry & session, const webrtc::SocketAddress & local) const
+	{
+		// A session has one socket per local address; a newer one replaces an older.
+		for (auto socket = session.sockets.rbegin(); socket != session.sockets.rend(); ++socket) {
+			if (sockets_.at(*socket).local == local) {
+				return *socket;
 			}
-			return std::nullopt;
 		}
 
 		return std::nullopt;
@@ -602,5 +650,233 @@ namespace jni
 		// Transactions of the socket stay until they expire; a late response finds the
 		// socket gone and is dropped.
 		sockets_.erase(entry);
+	}
+
+	void IceUdpEndpoint::SessionReady(uint64_t session, const webrtc::IPAddress & address)
+	{
+		thread_->PostTask([this, session, address] {
+			auto entry = sessions_.find(session);
+
+			if (entry == sessions_.end()) {
+				return;
+			}
+
+			webrtc::SocketAddress local(address, port_);
+
+			for (uint64_t socket : entry->second.sockets) {
+				auto it = sockets_.find(socket);
+
+				if (it != sockets_.end() && it->second.local == local) {
+					it->second.ready = true;
+				}
+			}
+
+			Replay(session, local, webrtc::TimeMillis());
+		});
+	}
+
+	void IceUdpEndpoint::SetPendingLimits(size_t maxPending, int64_t timeoutMs)
+	{
+		thread_->PostTask([this, maxPending, timeoutMs] {
+			maxPending_ = maxPending;
+			pendingTimeoutMs_ = timeoutMs;
+		});
+	}
+
+	void IceUdpEndpoint::SetPendingRequestHandler(PendingRequestHandler handler)
+	{
+		thread_->BlockingCall([this, &handler] {
+			std::swap(handler_, handler);
+		});
+	}
+
+	void IceUdpEndpoint::SetDerivedPasswords(std::string context, std::vector<std::pair<std::string, std::string>> keys)
+	{
+		thread_->BlockingCall([this, &context, &keys] {
+			ClearDerivedPasswords();
+
+			derivedContext_ = std::move(context);
+			derivedKeys_ = std::move(keys);
+		});
+	}
+
+	void IceUdpEndpoint::Reject(uint64_t request)
+	{
+		thread_->PostTask([this, request] {
+			TakePending(request);
+		});
+	}
+
+	bool IceUdpEndpoint::VerifyDerived(IntegrityCheck & integrity, absl::string_view ufrag) const
+	{
+		for (const auto & [prefix, key] : derivedKeys_) {
+			if (ufrag.substr(0, prefix.size()) != prefix) {
+				continue;
+			}
+
+			std::string input = derivedContext_;
+			input.append(ufrag.data(), ufrag.size());
+
+			uint8_t mac[32];
+
+			if (webrtc::ComputeHmac(webrtc::DIGEST_SHA_256, key.data(), key.size(), input.data(), input.size(),
+					mac, sizeof(mac)) != sizeof(mac)) {
+				return false;
+			}
+
+			// 24 bytes encode to 32 characters without padding.
+			std::string password = webrtc::Base64Encode(std::span<const uint8_t>(mac, kDerivedPasswordBytes));
+			bool matches = integrity.Matches(password);
+
+			webrtc::ExplicitZeroMemory(mac, sizeof(mac));
+			webrtc::ExplicitZeroMemory(password.data(), password.size());
+			webrtc::ExplicitZeroMemory(input.data(), input.size());
+
+			return matches;
+		}
+
+		return false;
+	}
+
+	void IceUdpEndpoint::Hold(const RouteKey & key, absl::string_view username, absl::string_view ufrag,
+		std::span<const uint8_t> data, std::optional<webrtc::Timestamp> arrival, int64_t nowMs, bool announce)
+	{
+		if (data.size() > kMaxHeldPacketSize) {
+			return;
+		}
+
+		PendingKey pendingKey(key.first, key.second, std::string(username));
+		auto existing = pendingByKey_.find(pendingKey);
+
+		if (existing != pendingByKey_.end()) {
+			// A retransmission. The newest packet answers a transaction the client still
+			// waits for; the request keeps its deadline and is not announced again.
+			PendingRequest & request = pending_.at(existing->second);
+			request.packet.assign(data.begin(), data.end());
+			request.arrival = arrival;
+			return;
+		}
+
+		if (pending_.size() >= maxPending_) {
+			return;
+		}
+
+		uint64_t id = nextId_++;
+
+		pending_.emplace(id, PendingRequest { key.first, key.second, std::string(username), std::string(ufrag),
+			std::vector<uint8_t>(data.begin(), data.end()), arrival, nowMs + pendingTimeoutMs_, announce });
+		pendingByKey_.emplace(std::move(pendingKey), id);
+		pendingByUfrag_.emplace(std::string(ufrag), id);
+
+		if (!sweepScheduled_) {
+			sweepScheduled_ = true;
+			thread_->PostDelayedTask([this] { SweepPending(); }, webrtc::TimeDelta::Seconds(1));
+		}
+
+		if (announce) {
+			absl::string_view remoteUfrag = username.substr(ufrag.size() + 1);
+			// A copy, since the handler may replace itself while it runs.
+			PendingRequestHandler handler = handler_;
+
+			handler(PendingRequestInfo { id, key.first, key.second, std::string(ufrag), std::string(remoteUfrag) });
+		}
+	}
+
+	void IceUdpEndpoint::Replay(uint64_t sessionId, const webrtc::SocketAddress & local, int64_t nowMs)
+	{
+		const SessionEntry & session = sessions_.at(sessionId);
+		std::vector<uint64_t> requests;
+		auto [first, last] = pendingByUfrag_.equal_range(session.ufrag);
+
+		for (auto index = first; index != last; ++index) {
+			if (pending_.at(index->second).local == local) {
+				requests.push_back(index->second);
+			}
+		}
+
+		for (uint64_t id : requests) {
+			const PendingRequest & request = pending_.at(id);
+			webrtc::StunMessage message;
+			webrtc::ByteBufferReader reader(request.packet);
+			IntegrityCheck integrity(message);
+			bool verified = message.Read(&reader) && integrity.Matches(session.password);
+
+			// An announced request is verified once: if it fails, its sender has to retry.
+			// Another session may share the ufrag of one held for a port that was not
+			// ready, so that one waits for its own session.
+			if (!verified && !request.announced) {
+				continue;
+			}
+
+			std::optional<PendingRequest> taken = TakePending(id);
+
+			if (!verified) {
+				continue;
+			}
+
+			std::optional<uint64_t> socket = SocketOf(session, local);
+
+			if (socket && sockets_.at(*socket).ready && Claim(*socket, RouteKey(local, taken->remote), nowMs)) {
+				Deliver(*socket, taken->packet, taken->remote, taken->arrival);
+			}
+		}
+	}
+
+	std::optional<IceUdpEndpoint::PendingRequest> IceUdpEndpoint::TakePending(uint64_t request)
+	{
+		auto it = pending_.find(request);
+
+		if (it == pending_.end()) {
+			return std::nullopt;
+		}
+
+		PendingRequest taken = std::move(it->second);
+		pending_.erase(it);
+		pendingByKey_.erase(PendingKey(taken.local, taken.remote, taken.username));
+
+		auto [first, last] = pendingByUfrag_.equal_range(taken.localUfrag);
+
+		for (auto index = first; index != last; ++index) {
+			if (index->second == request) {
+				pendingByUfrag_.erase(index);
+				break;
+			}
+		}
+
+		return taken;
+	}
+
+	void IceUdpEndpoint::SweepPending()
+	{
+		sweepScheduled_ = false;
+
+		int64_t now = webrtc::TimeMillis();
+
+		for (auto it = pending_.begin(); it != pending_.end();) {
+			uint64_t id = it->first;
+			bool expired = it->second.expiresMs <= now;
+
+			++it;
+
+			if (expired) {
+				TakePending(id);
+			}
+		}
+
+		if (!pending_.empty()) {
+			sweepScheduled_ = true;
+			thread_->PostDelayedTask([this] { SweepPending(); }, webrtc::TimeDelta::Seconds(1));
+		}
+	}
+
+	void IceUdpEndpoint::ClearDerivedPasswords()
+	{
+		for (auto & [prefix, key] : derivedKeys_) {
+			webrtc::ExplicitZeroMemory(key.data(), key.size());
+		}
+		webrtc::ExplicitZeroMemory(derivedContext_.data(), derivedContext_.size());
+
+		derivedKeys_.clear();
+		derivedContext_.clear();
 	}
 }

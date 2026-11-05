@@ -39,6 +39,38 @@ JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_IceUdpEndpoint_ini
 JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_IceUdpEndpoint_inject
   (JNIEnv *, jobject, jobject, jint, jobject, jint, jbyteArray);
 
+/*
+ * Class:     io_github_sendablemetatype_webrtc_IceUdpEndpoint
+ * Method:    setPendingLimits
+ * Signature: (IJ)V
+ */
+JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_IceUdpEndpoint_setPendingLimits
+  (JNIEnv *, jobject, jint, jlong);
+
+/*
+ * Class:     io_github_sendablemetatype_webrtc_IceUdpEndpoint
+ * Method:    enablePendingRequests
+ * Signature: (Z)V
+ */
+JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_IceUdpEndpoint_enablePendingRequests
+  (JNIEnv *, jobject, jboolean);
+
+/*
+ * Class:     io_github_sendablemetatype_webrtc_IceUdpEndpoint
+ * Method:    setDerivedPasswords
+ * Signature: ([B[Ljava/lang/String;[[B)V
+ */
+JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_IceUdpEndpoint_setDerivedPasswords
+  (JNIEnv *, jobject, jbyteArray, jobjectArray, jobjectArray);
+
+/*
+ * Class:     io_github_sendablemetatype_webrtc_IceUdpEndpoint
+ * Method:    rejectRequest
+ * Signature: (J)V
+ */
+JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_IceUdpEndpoint_rejectRequest
+  (JNIEnv *, jobject, jlong);
+
 #ifdef __cplusplus
 }
 #endif

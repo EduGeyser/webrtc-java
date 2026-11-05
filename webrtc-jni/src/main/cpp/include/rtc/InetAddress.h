@@ -40,6 +40,9 @@ namespace jni
 		// The address of a java.net.InetAddress, from its raw bytes. An IPv6 scope is
 		// left out. Throws a NullPointerException for null.
 		webrtc::IPAddress toNative(JNIEnv * env, const JavaRef<jobject> & address);
+
+		// The raw bytes of an address, as InetAddress.getByAddress takes them.
+		JavaLocalRef<jbyteArray> toJavaBytes(JNIEnv * env, const webrtc::IPAddress & address);
 	}
 }
 

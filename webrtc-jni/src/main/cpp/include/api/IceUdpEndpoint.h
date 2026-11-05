@@ -30,6 +30,7 @@
 #include <atomic>
 #include <cstdint>
 #include <deque>
+#include <functional>
 #include <map>
 #include <memory>
 #include <mutex>
@@ -37,6 +38,7 @@
 #include <set>
 #include <span>
 #include <string>
+#include <tuple>
 #include <utility>
 #include <vector>
 
@@ -64,6 +66,19 @@ namespace jni
 		webrtc::TaskQueueBase * thread = nullptr;
 	};
 
+	// A binding request that no session on the endpoint authenticated.
+	struct PendingRequestInfo
+	{
+		uint64_t id;
+		webrtc::SocketAddress local;
+		webrtc::SocketAddress remote;
+		std::string localUfrag;
+		std::string remoteUfrag;
+	};
+
+	// Called on the endpoint thread. Must not block.
+	using PendingRequestHandler = std::function<void(const PendingRequestInfo &)>;
+
 	// One UDP port shared by many peer connections. The endpoint owns an OS socket per
 	// local address, all on the same port, and routes each datagram to the ICE port it
 	// belongs to. Peers use it through EndpointPortAllocator, whose ICE ports get
@@ -75,6 +90,13 @@ namespace jni
 	// names and whose password its MESSAGE-INTEGRITY verifies against, a response goes
 	// to the socket that sent the request, and everything else follows the route that
 	// an authenticated binding request set up for its source address.
+	//
+	// A binding request is held, packet and all, when its session cannot take it yet:
+	// its UDP port is not ready, or no session exists. In the second case a handler
+	// learns about it and may create a connection with the request's local ufrag and a
+	// password it verifies against. Once that session's port is ready, the endpoint
+	// verifies the held request against it and replays it, so the client gets its
+	// answer without retransmitting.
 	//
 	// All routing state lives on the endpoint's own thread. Peers call in from their
 	// network threads; calls that change state are posted, so they never wait on it.
@@ -124,6 +146,24 @@ namespace jni
 			void Send(uint64_t socket, const webrtc::SocketAddress & local, const webrtc::SocketAddress & remote,
 				std::vector<uint8_t> data);
 
+			// A session's UDP port on a local address can take packets.
+			void SessionReady(uint64_t session, const webrtc::IPAddress & address);
+
+			// How many requests are held at most, and for how long.
+			void SetPendingLimits(size_t maxPending, int64_t timeoutMs);
+
+			// Without a handler, requests for no session are dropped. Blocks until the
+			// previous handler is no longer called.
+			void SetPendingRequestHandler(PendingRequestHandler handler);
+
+			// With keys, a request for no session is held only if its MESSAGE-INTEGRITY
+			// verifies against a derived password: for a local ufrag that starts with a
+			// key's prefix, the unpadded standard base64 of the first 24 bytes of
+			// HMAC-SHA256(key, context || ufrag). Without keys every such request is held.
+			void SetDerivedPasswords(std::string context, std::vector<std::pair<std::string, std::string>> keys);
+
+			void Reject(uint64_t request);
+
 		private:
 			IceUdpEndpoint(uint16_t port, std::vector<webrtc::IPAddress> addresses);
 
@@ -142,6 +182,7 @@ namespace jni
 				webrtc::SocketAddress local;
 				std::shared_ptr<EndpointLink> link;
 				std::set<RouteKey> routes;
+				bool ready = false;
 			};
 
 			struct SessionEntry
@@ -164,13 +205,50 @@ namespace jni
 				int64_t expiresMs;
 			};
 
+			struct PendingRequest
+			{
+				webrtc::SocketAddress local;
+				webrtc::SocketAddress remote;
+				std::string username;
+				std::string localUfrag;
+				std::vector<uint8_t> packet;
+				std::optional<webrtc::Timestamp> arrival;
+				int64_t expiresMs;
+				// Announced to the handler, so verified against a session only once.
+				bool announced;
+			};
+
+			using PendingKey = std::tuple<webrtc::SocketAddress, webrtc::SocketAddress, std::string>;
+
+			// Checks MESSAGE-INTEGRITY against one password after another. libwebrtc
+			// validates a message once; later passwords revalidate it.
+			class IntegrityCheck
+			{
+				public:
+					explicit IntegrityCheck(webrtc::StunMessage & message) : message_(message) {}
+
+					bool Matches(const std::string & password);
+
+				private:
+					webrtc::StunMessage & message_;
+					bool validated_ = false;
+			};
+
 			// Endpoint thread only.
 			void Route(const webrtc::SocketAddress & local, std::span<const uint8_t> data,
 				const webrtc::SocketAddress & from, std::optional<webrtc::Timestamp> arrival);
 			void RouteBindingRequest(const RouteKey & key, std::span<const uint8_t> data,
 				std::optional<webrtc::Timestamp> arrival, int64_t nowMs);
-			std::optional<uint64_t> Authenticate(const webrtc::SocketAddress & local, webrtc::StunMessage & message,
-				absl::string_view ufrag);
+			std::optional<uint64_t> Authenticate(IntegrityCheck & integrity, absl::string_view ufrag);
+			std::optional<uint64_t> SocketOf(const SessionEntry & session, const webrtc::SocketAddress & local) const;
+			bool Claim(uint64_t socket, const RouteKey & key, int64_t nowMs);
+			bool VerifyDerived(IntegrityCheck & integrity, absl::string_view ufrag) const;
+			void Hold(const RouteKey & key, absl::string_view username, absl::string_view ufrag,
+				std::span<const uint8_t> data, std::optional<webrtc::Timestamp> arrival, int64_t nowMs, bool announce);
+			void Replay(uint64_t session, const webrtc::SocketAddress & local, int64_t nowMs);
+			std::optional<PendingRequest> TakePending(uint64_t request);
+			void SweepPending();
+			void ClearDerivedPasswords();
 			void Deliver(uint64_t socket, std::span<const uint8_t> data, const webrtc::SocketAddress & from,
 				std::optional<webrtc::Timestamp> arrival);
 			void MapRoute(uint64_t socket, const RouteKey & key, int64_t nowMs);
@@ -195,6 +273,16 @@ namespace jni
 			std::map<RouteKey, RouteEntry> routes_;
 			std::map<std::string, Transaction> transactions_;
 			std::deque<std::pair<int64_t, std::string>> transactionOrder_;
+
+			size_t maxPending_ = 1024;
+			int64_t pendingTimeoutMs_ = 15000;
+			PendingRequestHandler handler_;
+			std::string derivedContext_;
+			std::vector<std::pair<std::string, std::string>> derivedKeys_;
+			std::map<uint64_t, PendingRequest> pending_;
+			std::map<PendingKey, uint64_t> pendingByKey_;
+			std::multimap<std::string, uint64_t, std::less<>> pendingByUfrag_;
+			bool sweepScheduled_ = false;
 	};
 }
 

@@ -17,8 +17,10 @@
 #include "api/EndpointPortAllocator.h"
 #include "api/FieldTrialsView.h"
 
+#include "api/candidate.h"
 #include "api/environment/environment_factory.h"
 #include "api/task_queue/task_queue_base.h"
+#include "p2p/base/port_interface.h"
 
 #include <algorithm>
 #include <cerrno>
@@ -268,6 +270,14 @@ namespace jni
 		owner_->endpoint_->SetCredentials(id_, std::string(iceUfrag), std::string(icePwd));
 		// Until a sequence asks, sockets belong to the newest session.
 		owner_->socketFactory_->SetSession(id_);
+
+		// The transport channel takes the port further on in the same notification. A
+		// replay goes through the endpoint thread and back, so it finds the port in place.
+		SubscribePortReady(this, [this](webrtc::PortAllocatorSession *, webrtc::PortInterface * port) {
+			if (port->GetProtocol() == webrtc::PROTO_UDP && port->Type() == webrtc::IceCandidateType::kHost) {
+				owner_->endpoint_->SessionReady(id_, port->Network()->GetBestIP());
+			}
+		});
 	}
 
 	EndpointSession::~EndpointSession()
