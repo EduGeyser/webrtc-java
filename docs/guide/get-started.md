@@ -473,7 +473,13 @@ An object that becomes unreachable without being disposed or closed leaks its na
 java -Dio.github.sendablemetatype.webrtc.leak.detection=true -Dio.github.sendablemetatype.webrtc.leak.trace=true -jar app.jar
 ```
 
-The reports are warnings through `Logging`, which writes nothing unless the application asks for it:
+The reports are warnings through `Logging`, which writes nothing unless the application asks for it. To write them to standard error, set the [logging severity][logging] to `WARNING` or lower when the JVM starts:
+
+```shell
+java -Dio.github.sendablemetatype.webrtc.logging.severity=WARNING -Dio.github.sendablemetatype.webrtc.leak.detection=true -jar app.jar
+```
+
+Then turn on the debug output:
 
 ```java
 Logging.logToDebug(Logging.Severity.WARNING);
@@ -497,6 +503,7 @@ For a complete API reference, check the [JavaDoc][javadoc].
 [audio-devices]: /guide/audio/audio-devices
 [data-channels]: /guide/data/data-channels
 [rtc-stats]: /guide/monitoring/rtc-stats
+[logging]: /guide/monitoring/logging
 [desktop-capture]: /guide/video/desktop-capture
 [overview]: /guide/
 [javadoc]: https://javadoc.io/doc/io.github.sendablemetatype.webrtc/webrtc-java/latest/index.html

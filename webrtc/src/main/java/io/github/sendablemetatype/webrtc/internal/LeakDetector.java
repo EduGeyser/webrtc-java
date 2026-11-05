@@ -32,7 +32,8 @@ import java.util.function.Consumer;
  * object was created.
  * <p>
  * Reports are warnings through {@link Logging}, which writes nothing unless
- * the application asks for it, e.g. with {@code
+ * the application asks for it: with its severity property at
+ * {@code WARNING} or lower, and with {@code
  * Logging.logToDebug(Logging.Severity.WARNING)} or a log sink. A report is
  * all that happens: freeing the native object on a garbage collector's
  * thread could free it under a WebRTC thread that still uses it.

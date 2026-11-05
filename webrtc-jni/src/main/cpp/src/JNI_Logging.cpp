@@ -24,67 +24,32 @@
 
 #include "rtc_base/logging.h"
 
-#include <cstdint>
-#include <cstdio>
-#include <memory>
-#include <mutex>
-
-#ifdef _WIN32
-#include <windows.h>
-#endif
+#include <string>
 
 namespace
 {
-	// libwebrtc no longer lets LogMessage::LogToDebug change the severity of its
-	// own debug output after the logging configuration is initialized. A sink
-	// registered with AddLogToStream can be added and removed at any time, so
-	// logToDebug is implemented with one that writes where libwebrtc used to:
-	// the debugger output on Windows and stderr everywhere.
-	class DebugLogSink : public webrtc::LogSink
+	// The severities a Java enum can stand for, LS_NONE included.
+	bool ToSeverity(int value, webrtc::LoggingSeverity & severity)
 	{
-		public:
-			void OnLogMessage(const std::string & message) override
-			{
-#ifdef _WIN32
-				OutputDebugStringA(message.c_str());
-#endif
-				fputs(message.c_str(), stderr);
-				fflush(stderr);
-			}
-	};
-
-	DebugLogSink debugLogSink;
-	bool debugLogSinkAttached = false;
-	std::mutex debugLogSinkMutex;
-}
-
-JNIEXPORT jlong JNICALL Java_io_github_sendablemetatype_webrtc_logging_Logging_addLogSinkNative
-(JNIEnv * env, jclass caller, jobject jseverity, jobject jsink)
-{
-	try {
-		auto severity = jni::JavaEnums::toNative<webrtc::LoggingSeverity>(env, jseverity);
-		auto sink = std::make_unique<jni::LogSink>(env, jni::JavaGlobalRef<jobject>(env, jsink));
-		if (env->ExceptionCheck()) {
-			return 0;
+		if (value < webrtc::LS_VERBOSE || value > webrtc::LS_NONE) {
+			return false;
 		}
-		webrtc::LogMessage::AddLogToStream(sink.get(), severity);
-		return static_cast<jlong>(reinterpret_cast<uintptr_t>(static_cast<webrtc::LogSink *>(sink.release())));
-	}
-	catch (...) {
-		ThrowCxxJavaException(env);
-		return 0;
+
+		severity = static_cast<webrtc::LoggingSeverity>(value);
+
+		return true;
 	}
 }
 
-JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_logging_Logging_removeLogSinkNative
-(JNIEnv * env, jclass caller, jlong handle)
+JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_logging_Logging_setSinkSeverity
+(JNIEnv * env, jclass caller, jobject jseverity)
 {
 	jni::CallFromJava(env, [&]() {
-		auto sink = reinterpret_cast<webrtc::LogSink *>(static_cast<uintptr_t>(handle));
-		if (sink != nullptr) {
-			// Removal takes WebRTC's log lock and waits for callbacks before deletion.
-			webrtc::LogMessage::RemoveLogToStream(sink);
-			delete sink;
+		webrtc::LoggingSeverity severity;
+
+		if (jni::LogSink::instance != nullptr &&
+			ToSeverity(jni::JavaEnums::toNative<webrtc::LoggingSeverity>(env, jseverity), severity)) {
+			jni::LogSink::instance->setJavaSeverity(severity);
 		}
 	});
 }
@@ -107,28 +72,12 @@ JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_logging_Logging_lo
 JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_logging_Logging_logToDebug
 (JNIEnv * env, jclass caller, jobject jseverity)
 {
-	try {
-		int rtcSeverity = jni::JavaEnums::toNative<webrtc::LoggingSeverity>(env, jseverity);
+	jni::CallFromJava(env, [&]() {
+		webrtc::LoggingSeverity severity;
 
-		if (rtcSeverity < webrtc::LS_VERBOSE || rtcSeverity > webrtc::LS_NONE) {
-			return;
+		if (jni::LogSink::instance != nullptr &&
+			ToSeverity(jni::JavaEnums::toNative<webrtc::LoggingSeverity>(env, jseverity), severity)) {
+			jni::LogSink::instance->setDebugSeverity(severity);
 		}
-
-		auto severity = static_cast<webrtc::LoggingSeverity>(rtcSeverity);
-
-		std::lock_guard<std::mutex> lock(debugLogSinkMutex);
-
-		if (debugLogSinkAttached) {
-			webrtc::LogMessage::RemoveLogToStream(&debugLogSink);
-			debugLogSinkAttached = false;
-		}
-
-		if (severity != webrtc::LS_NONE) {
-			webrtc::LogMessage::AddLogToStream(&debugLogSink, severity);
-			debugLogSinkAttached = true;
-		}
-	}
-	catch (...) {
-		ThrowCxxJavaException(env);
-	}
+	});
 }

@@ -110,6 +110,9 @@ tasks.test {
 		}
 	}
 	systemProperty("webrtc.variant", if (dataChannelsOnly) "data-channels" else "full")
+	// The logging tests need messages for their sinks, which WebRTC hands on
+	// only at or above the severity set when the library is loaded.
+	systemProperty("io.github.sendablemetatype.webrtc.logging.severity", "INFO")
 
 	// Opt-in check of every JNI call's references, see docs/guide/build.md.
 	if (providers.gradleProperty("jni-check").isPresent) {

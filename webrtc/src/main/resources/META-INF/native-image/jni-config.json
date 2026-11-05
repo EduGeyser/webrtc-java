@@ -108,6 +108,10 @@
 	"methods":[{"name":"values","parameterTypes":[] }]
   },
   {
+	"name":"io.github.sendablemetatype.webrtc.logging.LogSinkRegistry",
+	"methods":[{"name":"dispatch","parameterTypes":["io.github.sendablemetatype.webrtc.logging.Logging$Severity","java.lang.String"] }]
+  },
+  {
 	"name":"io.github.sendablemetatype.webrtc.media.Device",
 	"fields":[
 	  {"name":"descriptor"},

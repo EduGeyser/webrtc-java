@@ -18,38 +18,53 @@
 #define JNI_WEBRTC_RTC_LOG_SINK_H_
 
 #include "JavaClass.h"
-#include "JavaRef.h"
 
 #include "rtc_base/logging.h"
 
 #include <jni.h>
+#include <atomic>
 #include <memory>
+#include <mutex>
 
 namespace jni
 {
+	// The one sink of the logging configuration. WebRTC takes its sinks once,
+	// when logging is initialized, so JNI_OnLoad passes this one when the
+	// system property io.github.sendablemetatype.webrtc.logging.severity asks
+	// for log messages, and WebRTC hands it every message at or above that
+	// severity. It writes those that Logging.logToDebug asks for to stderr, and
+	// passes those that a Java log sink asks for to LogSinkRegistry. WebRTC
+	// calls it on every thread that logs, also on several at once.
 	class LogSink : public webrtc::LogSink
 	{
 		public:
-			explicit LogSink(JNIEnv * env, const JavaGlobalRef<jobject> & javaSink);
-			~LogSink() = default;
+			// The sink passed to WebRTC, or null if logging was not asked for.
+			static LogSink * instance;
 
-			// LogSink implementation.
-			void OnLogMessage(const std::string & message) override;
-			void OnLogMessage(const std::string & message, webrtc::LoggingSeverity severity) override;
+			void OnLogMessage(const webrtc::LogLineRef & line) override;
+
+			void setDebugSeverity(webrtc::LoggingSeverity severity);
+			void setJavaSeverity(webrtc::LoggingSeverity severity);
 
 		private:
-			class JavaLogSinkClass : public JavaClass
+			class JavaLogSinkRegistryClass : public JavaClass
 			{
 				public:
-					explicit JavaLogSinkClass(JNIEnv * env);
+					explicit JavaLogSinkRegistryClass(JNIEnv * env);
 
-					jmethodID onLogMessage;
+					jclass cls;
+					jmethodID dispatch;
 			};
 
-		private:
-			JavaGlobalRef<jobject> javaSink;
+			void deliverToJava(const webrtc::LogLineRef & line);
 
-			const std::shared_ptr<JavaLogSinkClass> javaClass;
+			std::atomic<webrtc::LoggingSeverity> debugSeverity { webrtc::LS_NONE };
+			std::atomic<webrtc::LoggingSeverity> javaSeverity { webrtc::LS_NONE };
+
+			// Looked up on the first message for Java, which comes only after
+			// the library is loaded and a Java sink is added.
+			std::once_flag javaClassOnce;
+			std::shared_ptr<JavaLogSinkRegistryClass> javaClass;
 	};
 }
 

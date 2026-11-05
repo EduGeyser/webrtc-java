@@ -25,12 +25,20 @@ import io.github.sendablemetatype.webrtc.internal.NativeLoader;
  * Access to the native WebRTC logging.
  * <p>
  * WebRTC takes its logging configuration once, when the native library is
- * loaded. To add the ID of the logging thread or the time since the first log
- * line to each line, set the system property
- * {@code io.github.sendablemetatype.webrtc.logging.threads} or
- * {@code io.github.sendablemetatype.webrtc.logging.timestamps} to
- * {@code true} before the library is first used, for example with {@code -D}
- * on the command line.
+ * loaded, so it comes from system properties, which must be set before the
+ * library is first used, for example with {@code -D} on the command line:
+ * <ul>
+ * <li>{@code io.github.sendablemetatype.webrtc.logging.severity}: the lowest
+ * severity of the messages that {@linkplain #addLogSink log sinks} and
+ * {@link #logToDebug} can get, one of {@code VERBOSE}, {@code INFO},
+ * {@code WARNING} and {@code ERROR}. Without it they get no messages, and
+ * WebRTC formats none for them. Each message at or above it is formatted, so
+ * a low severity costs time also while no sink wants that message.</li>
+ * <li>{@code io.github.sendablemetatype.webrtc.logging.threads} and
+ * {@code io.github.sendablemetatype.webrtc.logging.timestamps}: {@code true}
+ * to add the ID of the logging thread or the time since the first log line
+ * to each line.</li>
+ * </ul>
  */
 public class Logging {
 
@@ -75,13 +83,17 @@ public class Logging {
 	}
 
 	/**
-	 * Registers a sink for messages at or above the given severity. Each call
-	 * creates a separate registration, even for the same sink object.
+	 * Registers a sink for messages at or above the given severity, and at or
+	 * above the severity of the system property
+	 * {@code io.github.sendablemetatype.webrtc.logging.severity}, see above.
+	 * Each call creates a separate registration, even for the same sink
+	 * object.
 	 * <p>
-	 * Callbacks run on the thread that emits the message. Callback exceptions
-	 * are printed to standard error and do not propagate to the sender. Do not
-	 * call WebRTC logging methods from a callback. Adding or removing sinks
-	 * from a callback throws instead of waiting for WebRTC's log lock.
+	 * Callbacks run on the thread that emits the message, also on several
+	 * threads at once. Callback exceptions are printed to standard error and
+	 * do not propagate to the sender. A message logged from a callback is not
+	 * delivered to any sink. Adding or removing sinks from a callback throws,
+	 * since removal waits for the callbacks that run.
 	 * <p>
 	 * Registration and removal are serialized across threads. A callback must
 	 * not wait for another thread that is adding or removing a sink.
@@ -99,10 +111,9 @@ public class Logging {
 	 * Removes every registration for the exact sink object, without using
 	 * {@code equals}. Removing a sink that is not registered has no effect.
 	 * <p>
-	 * This call waits for active callbacks to return, then frees the native
-	 * sinks and their callback resources. No callback from those registrations
-	 * runs after it returns. A concurrent add is serialized with removal; an
-	 * add ordered after removal creates a new registration.
+	 * This call waits for active callbacks to return. No callback from those
+	 * registrations runs after it returns. A concurrent add is serialized with
+	 * removal; an add ordered after removal creates a new registration.
 	 *
 	 * @param sink The sink whose registrations should be removed.
 	 * @throws NullPointerException If sink is null.
@@ -112,12 +123,23 @@ public class Logging {
 		LogSinkRegistry.remove(sink);
 	}
 
-	static native long addLogSinkNative(Severity severity, LogSink sink);
-
-	static native void removeLogSinkNative(long handle);
+	/**
+	 * Sets the lowest severity that a registered sink asks for, so that the
+	 * native library passes on only the messages some sink wants.
+	 */
+	static native void setSinkSeverity(Severity severity);
 
 	public static native void log(Severity severity, String message);
 
+	/**
+	 * Writes the messages at or above the given severity to standard error,
+	 * and to the debugger output on Windows, or none with {@link
+	 * Severity#NONE}. Only messages at or above the severity of the system
+	 * property {@code io.github.sendablemetatype.webrtc.logging.severity} are
+	 * there to write, see above.
+	 *
+	 * @param severity The lowest severity to write.
+	 */
 	public static native void logToDebug(Severity severity);
 
 	public static void verbose(String message) {

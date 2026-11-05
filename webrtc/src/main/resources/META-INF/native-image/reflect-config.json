@@ -111,7 +111,7 @@
 	"name": "io.github.sendablemetatype.webrtc.TlsCertPolicy"
   },
   {
-	"name": "io.github.sendablemetatype.webrtc.logging.LogSink"
+	"name": "io.github.sendablemetatype.webrtc.logging.LogSinkRegistry"
   },
   {
 	"name": "io.github.sendablemetatype.webrtc.media.audio.AudioDevice"

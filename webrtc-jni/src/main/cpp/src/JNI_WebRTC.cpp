@@ -19,12 +19,16 @@
 #include "JavaRef.h"
 #include "JavaUtils.h"
 #include "WebRTCContext.h"
+#include "rtc/LogSink.h"
 
 #include "rtc_base/logging.h"
 
 #include <jni.h>
 
+#include <algorithm>
+#include <cctype>
 #include <memory>
+#include <string>
 #include <utility>
 
 jni::JavaContext * javaContext = nullptr;
@@ -56,6 +60,60 @@ namespace
 
 		return value == JNI_TRUE;
 	}
+
+	// The severity named by the system property, in the names of
+	// Logging.Severity and ignoring case. LS_NONE if it is not set or names
+	// none of them.
+	webrtc::LoggingSeverity GetSeverityProperty(JNIEnv * env, const char * name)
+	{
+		std::string value;
+
+		jni::JavaLocalRef<jclass> systemClass(env, env->FindClass("java/lang/System"));
+
+		if (systemClass.get() != nullptr) {
+			jmethodID getProperty = env->GetStaticMethodID(systemClass.get(), "getProperty", "(Ljava/lang/String;)Ljava/lang/String;");
+			jni::JavaLocalRef<jstring> propertyName(env, getProperty != nullptr ? env->NewStringUTF(name) : nullptr);
+
+			if (propertyName.get() != nullptr) {
+				jni::JavaLocalRef<jstring> property(env, static_cast<jstring>(
+					env->CallStaticObjectMethod(systemClass.get(), getProperty, propertyName.get())));
+
+				if (property.get() != nullptr && !env->ExceptionCheck()) {
+					const char * chars = env->GetStringUTFChars(property.get(), nullptr);
+
+					if (chars != nullptr) {
+						value = chars;
+						env->ReleaseStringUTFChars(property.get(), chars);
+					}
+				}
+			}
+		}
+
+		if (env->ExceptionCheck()) {
+			env->ExceptionClear();
+
+			return webrtc::LS_NONE;
+		}
+
+		std::transform(value.begin(), value.end(), value.begin(), [](unsigned char c) {
+			return static_cast<char>(std::toupper(c));
+		});
+
+		if (value == "VERBOSE") {
+			return webrtc::LS_VERBOSE;
+		}
+		if (value == "INFO") {
+			return webrtc::LS_INFO;
+		}
+		if (value == "WARNING") {
+			return webrtc::LS_WARNING;
+		}
+		if (value == "ERROR") {
+			return webrtc::LS_ERROR;
+		}
+
+		return webrtc::LS_NONE;
+	}
 }
 
 JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM * vm, void * reserved)
@@ -81,15 +139,32 @@ JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM * vm, void * reserved)
 		// line, with everything from LS_INFO upwards written to stderr, and the
 		// configuration can be set only once. Initialize it here, before
 		// anything can log, so nothing is written unless the application asks
-		// for it through Logging.logToDebug or a log sink. For the same reason,
-		// the thread IDs and timestamps in log lines are turned on with system
-		// properties, which must be set before the library is loaded.
+		// for it. For the same reason, the thread IDs and timestamps in log
+		// lines, and the severity of the messages log sinks get, come from
+		// system properties, which must be set before the library is loaded.
 		webrtc::LoggingConfig loggingConfig;
 		loggingConfig.set_min_severity(webrtc::LS_NONE);
 		loggingConfig.set_debug_severity(webrtc::LS_NONE);
 		loggingConfig.set_log_thread(GetBooleanProperty(env, "io.github.sendablemetatype.webrtc.logging.threads"));
 		loggingConfig.set_log_timestamp(GetBooleanProperty(env, "io.github.sendablemetatype.webrtc.logging.timestamps"));
-		webrtc::InitializeLogging(std::move(loggingConfig));
+
+		// The configuration takes the log sinks too. One sink serves the Java log
+		// sinks and Logging.logToDebug, with the messages at or above the
+		// severity of the property. Without it, WebRTC formats no message for
+		// them at all.
+		webrtc::LoggingSeverity sinkSeverity = GetSeverityProperty(env, "io.github.sendablemetatype.webrtc.logging.severity");
+
+		if (sinkSeverity != webrtc::LS_NONE) {
+			auto sink = std::make_unique<jni::LogSink>();
+			jni::LogSink::instance = sink.get();
+			loggingConfig.set_min_severity(sinkSeverity);
+			loggingConfig.AddSink(std::move(sink));
+		}
+		if (!webrtc::InitializeLogging(std::move(loggingConfig))) {
+			// Logging was initialized before, and the sink went with this
+			// configuration.
+			jni::LogSink::instance = nullptr;
+		}
 
 		auto context = std::make_unique<jni::WebRTCContext>(vm);
 		context->initialize(env);

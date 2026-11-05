@@ -44,30 +44,30 @@ try {
 
 ### Configuring Logging Behavior
 
-You can configure various aspects of the logging system:
+WebRTC takes its logging configuration once, when the native library is loaded, so it comes from system properties that must be set before the library is first used:
 
-```java
-// Configure logging to debug output with minimum severity level
-Logging.logToDebug(Logging.Severity.INFO);
-```
+| Property | Value |
+|----------|-------|
+| `io.github.sendablemetatype.webrtc.logging.severity` | The lowest severity of the messages that log sinks and `logToDebug` can get: `VERBOSE`, `INFO`, `WARNING` or `ERROR`. Without it they get no messages. |
+| `io.github.sendablemetatype.webrtc.logging.threads` | `true` to add the ID of the thread that wrote it to each line |
+| `io.github.sendablemetatype.webrtc.logging.timestamps` | `true` to add the time since the first log line, in seconds and milliseconds, to each line |
 
-WebRTC takes the rest of its logging configuration once, when the native library is loaded. To add more details to each log line, set these system properties to `true` before the library is first used:
-
-| Property | Adds to each line |
-|----------|-------------------|
-| `io.github.sendablemetatype.webrtc.logging.threads` | The ID of the thread that wrote it |
-| `io.github.sendablemetatype.webrtc.logging.timestamps` | The time since the first log line, in seconds and milliseconds |
-
-Set them on the command line:
+WebRTC formats every message at or above the severity of the first property, also while no sink wants it, so a lower severity costs more time. Set the properties on the command line:
 
 ```shell
-java -Dio.github.sendablemetatype.webrtc.logging.threads=true -jar app.jar
+java -Dio.github.sendablemetatype.webrtc.logging.severity=INFO -Dio.github.sendablemetatype.webrtc.logging.threads=true -jar app.jar
 ```
 
 Or set them in code, before the first use of the library:
 
 ```java
-System.setProperty("io.github.sendablemetatype.webrtc.logging.threads", "true");
+System.setProperty("io.github.sendablemetatype.webrtc.logging.severity", "INFO");
+```
+
+`logToDebug` writes the messages at or above a severity to standard error, and to the debugger output on Windows, and can be changed at any time:
+
+```java
+Logging.logToDebug(Logging.Severity.INFO);
 ```
 
 ### Custom Log Sinks
@@ -102,13 +102,13 @@ try {
 }
 ```
 
-The sink receives messages at or above its minimum severity. Keep it registered for as long as you need the callbacks, then remove it to free its native sink and callback resources.
+The sink receives messages at or above its minimum severity, and at or above the severity of `io.github.sendablemetatype.webrtc.logging.severity`. Keep it registered for as long as you need the callbacks, then remove it.
 
 Each call to `addLogSink` creates a separate registration. Adding the same sink twice can deliver a message twice. `removeLogSink` removes all registrations for that exact object, without calling `equals`. Removing an unregistered sink does nothing. Both methods reject null arguments.
 
-Adds and removals from different threads are serialized. Removal waits for active callbacks before freeing their resources. No callback from a removed registration runs after removal returns, but an add ordered after removal creates a new registration.
+Adds and removals from different threads are serialized. Removal waits for active callbacks. No callback from a removed registration runs after removal returns, but an add ordered after removal creates a new registration.
 
-Callbacks run on the thread that emits the log. Do not call WebRTC logging methods from a callback, or wait for another thread that adds or removes a sink. Direct calls to `addLogSink` or `removeLogSink` from a callback throw `IllegalStateException` instead of blocking. Callback exceptions are printed to standard error and do not propagate to the sender.
+Callbacks run on the thread that emits the log, also on several threads at once. A message logged from a callback is not delivered to any sink. Do not wait in a callback for another thread that adds or removes a sink. Direct calls to `addLogSink` or `removeLogSink` from a callback throw `IllegalStateException` instead of blocking. Callback exceptions are printed to standard error and do not propagate to the sender.
 
 ## Integration with Other Logging Frameworks
 
@@ -146,7 +146,7 @@ public class Slf4jLogSink implements LogSink {
 }
 ```
 
-Then register this sink with the WebRTC logging system:
+Then register this sink with the WebRTC logging system, with `io.github.sendablemetatype.webrtc.logging.severity` set to `VERBOSE`:
 
 ```java
 Slf4jLogSink logSink = new Slf4jLogSink();
