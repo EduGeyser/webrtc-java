@@ -651,9 +651,14 @@ class PeerTests extends ClientTestBase {
 	@Test
 	void statsAfterConnecting() throws Exception {
 		Peer[] peers = pair();
+		CompletableFuture<Integer> received = new CompletableFuture<>();
+		peers[1].onChannel(remote -> remote.onMessage(message -> received.complete(message.bytes().length)));
 		DataChannel channel = peers[0].createChannel("chat");
 		await(channel.whenOpen());
 		await(channel.send(new byte[10_000]));
+		// A send completes once WebRTC took the message, which its network
+		// thread sends later. Once the other side has it, the report counts it.
+		assertEquals(10_000, await(received));
 
 		PeerStats first = await(peers[0].stats());
 		PeerStats second = await(peers[0].stats());
