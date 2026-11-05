@@ -1,0 +1,32 @@
+TEMPORARY: delete this patch once the clang that WebRTC's DEPS pin
+includes llvm/llvm-project 1ac17ec2bf (2026-11-04). From then on the
+patch no longer applies, and the build logs a warning that names it.
+
+Backports that LLVM fix to the header of the prebuilt clang. Since LLVM
+22287cb04, clang declares the FP8 scale helpers __arm_set_fpm_lscale,
+__arm_set_fpm_nscale and __arm_set_fpm_lscale2 as builtins with C
+linkage, while arm_vector_types.h declares them without extern "C". On
+Windows ARM64 the UCRT's wchar.h includes <arm_neon.h>, and BoringSSL
+includes <memory> inside extern "C++", so every BoringSSL file fails
+with: declaration of '__arm_set_fpm_lscale' has a different language
+linkage.
+
+--- a/third_party/llvm-build/Release+Asserts/lib/clang/24/include/arm_vector_types.h
++++ b/third_party/llvm-build/Release+Asserts/lib/clang/24/include/arm_vector_types.h
+@@ -58,9 +58,15 @@
+   return (__fpm & ~0x8000ull) | ((fpm_t)__behaviour << 15u);
+ }
+ 
++#ifdef __cplusplus
++extern "C" {
++#endif
+ __inline__ fpm_t __attribute__((__always_inline__, __nodebug__)) __arm_set_fpm_lscale(fpm_t __fpm, uint64_t __scale);
+ __inline__ fpm_t __attribute__((__always_inline__, __nodebug__)) __arm_set_fpm_nscale(fpm_t __fpm, int64_t __scale);
+-__inline__ fpm_t __attribute__((__always_inline__, __nodebug__))  __arm_set_fpm_lscale2(fpm_t __fpm, uint64_t __scale);
++__inline__ fpm_t __attribute__((__always_inline__, __nodebug__)) __arm_set_fpm_lscale2(fpm_t __fpm, uint64_t __scale);
++#ifdef __cplusplus
++}
++#endif
+ 
+ typedef __attribute__((neon_vector_type(8))) int8_t int8x8_t;
+ typedef __attribute__((neon_vector_type(16))) int8_t int8x16_t;
