@@ -19,7 +19,7 @@ The [`ClientApiExample`](https://github.com/devopvoid/webrtc-java/blob/master/we
 This example is the shortest way to see a complete call working, and a starting point for applications built on the client API.
 
 ```bash
-mvn exec:java -D"exec.mainClass=io.github.sendablemetatype.webrtc.examples.ClientApiExample" -D"exec.args=10"
+./gradlew :webrtc-examples:run -Pwebrtc.variant=full -PmainClass=io.github.sendablemetatype.webrtc.examples.ClientApiExample -Pargs=10
 ```
 
 ## PeerConnection
@@ -37,7 +37,7 @@ The [`PeerConnectionExample`](https://github.com/devopvoid/webrtc-java/blob/mast
 This example provides a foundation for building WebRTC applications that need to handle audio and video communication. Press Enter to end the call:
 
 ```bash
-mvn exec:java -D"exec.mainClass=io.github.sendablemetatype.webrtc.examples.PeerConnectionExample"
+./gradlew :webrtc-examples:run -Pwebrtc.variant=full -PmainClass=io.github.sendablemetatype.webrtc.examples.PeerConnectionExample
 ```
 
 ## WHEP
@@ -52,7 +52,7 @@ The [`WhepExample`](https://github.com/devopvoid/webrtc-java/blob/master/webrtc-
 This example is useful for applications that need to receive media streams from WHEP-compatible servers, such as live streaming platforms. The endpoint and the number of seconds to receive are optional:
 
 ```bash
-mvn exec:java -D"exec.mainClass=io.github.sendablemetatype.webrtc.examples.WhepExample" -D"exec.args=http://localhost:8889/mystream/whep 10"
+./gradlew :webrtc-examples:run -Pwebrtc.variant=full -PmainClass=io.github.sendablemetatype.webrtc.examples.WhepExample -Pargs="http://localhost:8889/mystream/whep 10"
 ```
 
 ## Codec List
@@ -80,8 +80,8 @@ The [`DesktopVideoExample`](https://github.com/devopvoid/webrtc-java/blob/master
 This example is particularly useful for applications that need to implement screen sharing or remote desktop functionality. It shares the first screen, or the first window with `window`. Under Wayland, the system asks which one to share instead.
 
 ```bash
-mvn exec:java -D"exec.mainClass=io.github.sendablemetatype.webrtc.examples.DesktopVideoExample"
-mvn exec:java -D"exec.mainClass=io.github.sendablemetatype.webrtc.examples.DesktopVideoExample" -D"exec.args=window"
+./gradlew :webrtc-examples:run -Pwebrtc.variant=full -PmainClass=io.github.sendablemetatype.webrtc.examples.DesktopVideoExample
+./gradlew :webrtc-examples:run -Pwebrtc.variant=full -PmainClass=io.github.sendablemetatype.webrtc.examples.DesktopVideoExample -Pargs=window
 ```
 
 ## Media File
@@ -144,7 +144,7 @@ The [`JavaFxCameraExample`](https://github.com/devopvoid/webrtc-java/blob/master
 - Closing the runtime off the JavaFX thread before JavaFX exits
 
 ```bash
-mvn exec:java -D"exec.mainClass=io.github.sendablemetatype.webrtc.examples.JavaFxCameraExample"
+./gradlew :webrtc-examples:run -Pwebrtc.variant=full -PmainClass=io.github.sendablemetatype.webrtc.examples.JavaFxCameraExample
 ```
 
 ## Encrypted Recording
@@ -197,13 +197,13 @@ To run these examples, run the `run` task of the `webrtc-examples` module from t
 For example, to run the `CodecListExample`:
 
 ```bash
-./gradlew :webrtc-examples:run -PmainClass=io.github.sendablemetatype.webrtc.examples.CodecListExample
+./gradlew :webrtc-examples:run -Pwebrtc.variant=full -PmainClass=io.github.sendablemetatype.webrtc.examples.CodecListExample
 ```
 
 Or to run the `WebClientExample`:
 
 ```bash
-./gradlew :webrtc-examples:run -PmainClass=io.github.sendablemetatype.webrtc.examples.web.WebClientExample
+./gradlew :webrtc-examples:run -Pwebrtc.variant=full -PmainClass=io.github.sendablemetatype.webrtc.examples.web.WebClientExample
 ```
 
 Note that these examples focus on setting up the local components for WebRTC communication. In a real application, you would need to establish a connection with a remote peer through a signaling channel (e.g., WebSocket). The `WebClientExample` demonstrates this by connecting to a signaling server.

@@ -905,5 +905,5 @@ The function passed to `withNative` runs after the operations called before it a
 The [`ClientApiExample`](https://github.com/devopvoid/webrtc-java/blob/master/webrtc-examples/src/main/java/io/github/sendablemetatype/webrtc/examples/ClientApiExample.java) connects two peers in one process through a signaling that carries JSON text. It sends pushed video, audio and chat messages from one to the other, and prints statistics once a second. It needs no audio or video hardware:
 
 ```bash
-mvn exec:java -D"exec.mainClass=io.github.sendablemetatype.webrtc.examples.ClientApiExample" -D"exec.args=10"
+./gradlew :webrtc-examples:run -Pwebrtc.variant=full -PmainClass=io.github.sendablemetatype.webrtc.examples.ClientApiExample -Pargs=10
 ```
