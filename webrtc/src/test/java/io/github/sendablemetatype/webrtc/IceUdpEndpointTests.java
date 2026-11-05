@@ -67,11 +67,15 @@ class IceUdpEndpointTests extends TestBase {
 
 	private final BlockingQueue<IceUdpEndpoint.PendingRequest> requests = new LinkedBlockingQueue<>();
 
-	private final ExecutorService requestExecutor = Executors.newSingleThreadExecutor();
+	// The test instance serves the whole class (see TestBase), so each test
+	// sets these up anew.
+	private ExecutorService requestExecutor;
 
 
 	@BeforeEach
 	void createEndpoint() throws Exception {
+		requestExecutor = Executors.newSingleThreadExecutor();
+
 		try (DatagramSocket socket = new DatagramSocket(0)) {
 			endpoint = new IceUdpEndpoint(socket.getLocalPort());
 		}
@@ -80,6 +84,8 @@ class IceUdpEndpointTests extends TestBase {
 	@AfterEach
 	void dispose() {
 		peers.forEach(Peer::close);
+		peers.clear();
+		requests.clear();
 		endpoint.dispose();
 		requestExecutor.shutdownNow();
 	}
@@ -122,13 +128,18 @@ class IceUdpEndpointTests extends TestBase {
 		pair.client.connection.restartIce();
 		negotiate(pair.client, pair.server);
 
-		// Checks of the new session come from the same addresses as the old ones,
-		// so the pair only changes if the endpoint hands them to the new session.
-		assertTrue(pair.server.pairChanges.tryAcquire(2, 20, TimeUnit.SECONDS), "No pair of the new session");
+		// The client moves to a pair of the new session once the server's new
+		// session answers its checks on the shared port.
+		assertTrue(pair.client.pairChanges.tryAcquire(2, 20, TimeUnit.SECONDS), "The client kept its old pair");
 
+		// The client now sends on the new pair only. The server, which is
+		// controlled, moves over once data arrives on it, which takes the endpoint
+		// handing that data to the new session.
 		pair.client.send("after restart");
 
 		assertEquals("after restart", pair.server.nextMessage());
+		assertTrue(pair.server.pairChanges.tryAcquire(2, 20, TimeUnit.SECONDS), "The server kept its old pair");
+		assertTrue(pair.server.lastPair.getLocal().sdp.contains(" generation 1 "), pair.server.lastPair.getLocal().sdp);
 	}
 
 	@Test
