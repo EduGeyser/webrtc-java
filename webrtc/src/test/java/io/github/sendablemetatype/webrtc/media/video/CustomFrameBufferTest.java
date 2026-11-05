@@ -29,11 +29,13 @@ import io.github.sendablemetatype.webrtc.TestBase;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 /**
  * Buffers of the application's own, which provide their pixels through {@link VideoFrameBuffer#toI420()}.
  */
+@Tag("media")
 class CustomFrameBufferTest extends TestBase {
 
 	private static final int WIDTH = 6;

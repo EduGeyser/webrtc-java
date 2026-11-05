@@ -30,6 +30,7 @@ import java.util.List;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -81,6 +82,7 @@ class NativeStringTests extends TestBase {
 		}
 	}
 
+	@Tag("media")
 	@Test
 	void trackAndStreamIds() {
 		AudioTrackSource source = factory.createAudioSource(new AudioOptions());
@@ -158,6 +160,7 @@ class NativeStringTests extends TestBase {
 		}
 	}
 
+	@Tag("media")
 	@Test
 	void errorMessageCarriesTrackId() {
 		// WebRTC puts the id into its error text, which used to go to vsnprintf
@@ -209,6 +212,7 @@ class NativeStringTests extends TestBase {
 		assertTrue(e.getMessage().contains(line), () -> "message: " + codeUnits(e.getMessage()));
 	}
 
+	@Tag("media")
 	@Test
 	void midIsNullUntilNegotiated() {
 		RTCRtpTransceiver transceiver = connection.addTransceiver(MediaType.AUDIO, new RTCRtpTransceiverInit());

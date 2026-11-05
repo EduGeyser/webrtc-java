@@ -32,6 +32,7 @@ import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -139,6 +140,7 @@ class LoadTests extends ClientTestBase {
 		await(rtc.closeAsync());
 	}
 
+	@Tag("media")
 	@Test
 	void limitedPoolsCarryCall() throws Exception {
 		replaceRuntime(WebRtc.builder().eventThreads(1).frameThreads(1).audioBuffer(Duration.ofMillis(200)));

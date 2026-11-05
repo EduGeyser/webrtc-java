@@ -31,6 +31,7 @@ import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 class LeakDetectorTests {
@@ -38,6 +39,7 @@ class LeakDetectorTests {
 	private static final long TIMEOUT_SECONDS = 60;
 
 
+	@Tag("media")
 	@Test
 	void offWatchesNothing() {
 		// This JVM runs without the property.
@@ -79,6 +81,7 @@ class LeakDetectorTests {
 		assertTrue(reports.get(0).contains(LeakDetectorTests.class.getName()), reports.get(0));
 	}
 
+	@Tag("media")
 	@Test
 	void forgottenObjectsReported() throws Exception {
 		Result result = run("-D" + LeakDetector.PROPERTY + "=true");
@@ -86,6 +89,7 @@ class LeakDetectorTests {
 		assertEquals(0, result.exitValue, result.output);
 	}
 
+	@Tag("media")
 	@Test
 	void traceNamesWhereCreated() throws Exception {
 		Result result = run("-D" + LeakDetector.PROPERTY + "=true", "-D" + LeakDetector.TRACE_PROPERTY + "=true");

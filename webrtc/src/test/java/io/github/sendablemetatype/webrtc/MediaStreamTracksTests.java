@@ -32,6 +32,7 @@ import java.util.List;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.parallel.Execution;
 import org.junit.jupiter.api.parallel.ExecutionMode;
@@ -42,6 +43,7 @@ import org.junit.jupiter.api.parallel.ExecutionMode;
  * Java as null, whether the stream had tracks of that kind or none.
  */
 @Execution(ExecutionMode.SAME_THREAD)
+@Tag("media")
 class MediaStreamTracksTests extends TestBase {
 
 	private final List<String> audioTrackIds = Collections.synchronizedList(new ArrayList<>());

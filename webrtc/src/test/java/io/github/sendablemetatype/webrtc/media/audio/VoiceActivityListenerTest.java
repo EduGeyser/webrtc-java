@@ -34,6 +34,7 @@ import io.github.sendablemetatype.webrtc.TestBase;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -41,6 +42,7 @@ import org.junit.jupiter.api.Test;
  * and in what a factory's audio processing sends, with only the changes
  * reaching the listener.
  */
+@Tag("media")
 class VoiceActivityListenerTest extends TestBase {
 
 	/** Long enough to bridge every pause of the fixture. */

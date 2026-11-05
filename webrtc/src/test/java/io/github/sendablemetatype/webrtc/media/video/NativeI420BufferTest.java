@@ -27,10 +27,12 @@ import java.util.List;
 
 import io.github.sendablemetatype.webrtc.TestBase;
 
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 class NativeI420BufferTest extends TestBase {
 
+	@Tag("media")
 	@Test
 	void cropOutlivesSource() {
 		NativeI420Buffer source = NativeI420Buffer.allocate(8, 8);
@@ -72,6 +74,7 @@ class NativeI420BufferTest extends TestBase {
 		assertEquals(Collections.singletonList(4), widths);
 	}
 
+	@Tag("media")
 	@Test
 	void cropEndsAtLastPixel() {
 		NativeI420Buffer source = NativeI420Buffer.allocate(8, 8);
@@ -86,6 +89,7 @@ class NativeI420BufferTest extends TestBase {
 		source.release();
 	}
 
+	@Tag("media")
 	@Test
 	void cropOutsideBuffer() {
 		NativeI420Buffer source = NativeI420Buffer.allocate(8, 8);
@@ -114,6 +118,7 @@ class NativeI420BufferTest extends TestBase {
 		assertThrows(IllegalArgumentException.class, () -> NativeI420Buffer.allocate(Integer.MAX_VALUE, 1));
 	}
 
+	@Tag("media")
 	@Test
 	void allocateOddSize() {
 		NativeI420Buffer buffer = NativeI420Buffer.allocate(3, 1);
@@ -127,6 +132,7 @@ class NativeI420BufferTest extends TestBase {
 		buffer.release();
 	}
 
+	@Tag("media")
 	@Test
 	void pushReleasedBuffer() {
 		CustomVideoSource videoSource = new CustomVideoSource();

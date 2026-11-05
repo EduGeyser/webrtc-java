@@ -70,8 +70,10 @@ import io.github.sendablemetatype.webrtc.media.video.VideoFrame;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
+@Tag("media")
 class HttpSessionTests extends ClientTestBase {
 
 	/** Longer than any test takes: the session times out only when a test fires it. */

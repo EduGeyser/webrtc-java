@@ -36,12 +36,14 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import io.github.sendablemetatype.webrtc.media.video.VideoDevice;
 
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 /**
  * Captures real cameras, so it skips on machines without one, as CI runners
  * are.
  */
+@Tag("media")
 class CameraIntegrationTest extends ClientTestBase {
 
 	@Test

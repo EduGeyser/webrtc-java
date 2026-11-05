@@ -25,6 +25,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 class PowerManagementTests extends TestBase {
@@ -37,6 +38,7 @@ class PowerManagementTests extends TestBase {
 		released = 0;
 	}
 
+	@Tag("media")
 	@Test
 	void nativeCallsSucceed() {
 		PowerManagement powerManagement = new PowerManagement();
@@ -50,6 +52,7 @@ class PowerManagementTests extends TestBase {
 		});
 	}
 
+	@Tag("media")
 	@Test
 	void disableOnOtherThread() throws Exception {
 		PowerManagement powerManagement = new PowerManagement();

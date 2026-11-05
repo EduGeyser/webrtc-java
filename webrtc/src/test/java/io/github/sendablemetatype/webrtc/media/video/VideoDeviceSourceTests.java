@@ -23,11 +23,13 @@ import java.util.List;
 
 import io.github.sendablemetatype.webrtc.TestBase;
 
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.parallel.Execution;
 import org.junit.jupiter.api.parallel.ExecutionMode;
 
 @Execution(ExecutionMode.SAME_THREAD)
+@Tag("media")
 class VideoDeviceSourceTests extends TestBase {
 
 	@Test

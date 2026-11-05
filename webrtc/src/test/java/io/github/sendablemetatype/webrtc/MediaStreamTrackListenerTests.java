@@ -30,6 +30,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.parallel.Execution;
 import org.junit.jupiter.api.parallel.ExecutionMode;
@@ -41,6 +42,7 @@ import org.junit.jupiter.api.parallel.ExecutionMode;
  * memory, which ends the test run.
  */
 @Execution(ExecutionMode.SAME_THREAD)
+@Tag("media")
 class MediaStreamTrackListenerTests extends TestBase {
 
 	private AudioTrackSource audioSource;

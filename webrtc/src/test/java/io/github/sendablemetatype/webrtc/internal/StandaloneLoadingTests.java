@@ -34,6 +34,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 
 import org.junit.jupiter.api.DynamicTest;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.TestFactory;
 import org.junit.jupiter.api.parallel.Execution;
 import org.junit.jupiter.api.parallel.ExecutionMode;
@@ -44,6 +45,7 @@ import org.junit.jupiter.api.parallel.ExecutionMode;
  * the native library, which hides a class that needs it and does not load it.
  */
 @Execution(ExecutionMode.SAME_THREAD)
+@Tag("media")
 class StandaloneLoadingTests {
 
 	private static final long TIMEOUT_SECONDS = 60;

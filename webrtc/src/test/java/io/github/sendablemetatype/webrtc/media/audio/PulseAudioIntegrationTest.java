@@ -27,6 +27,7 @@ import io.github.sendablemetatype.webrtc.RTCConfiguration;
 import io.github.sendablemetatype.webrtc.RTCIceCandidate;
 import io.github.sendablemetatype.webrtc.RTCPeerConnection;
 
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledIfSystemProperty;
 import org.junit.jupiter.api.condition.EnabledOnOs;
@@ -42,6 +43,7 @@ import org.junit.jupiter.api.parallel.ExecutionMode;
 @EnabledOnOs(OS.LINUX)
 @EnabledIfSystemProperty(named = "webrtc.test.pulseaudio", matches = "true")
 @Execution(ExecutionMode.SAME_THREAD)
+@Tag("media")
 class PulseAudioIntegrationTest {
 
     @Test

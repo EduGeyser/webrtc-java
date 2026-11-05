@@ -40,8 +40,10 @@ import io.github.sendablemetatype.webrtc.RTCIceCandidate;
 import io.github.sendablemetatype.webrtc.RTCSessionDescription;
 import io.github.sendablemetatype.webrtc.RTCSignalingState;
 
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
+@Tag("media")
 class NegotiationTimeoutTests extends ClientTestBase {
 
 	private static final Duration OPERATION_TIMEOUT = Duration.ofSeconds(37);

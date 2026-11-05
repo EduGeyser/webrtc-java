@@ -20,6 +20,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.Map;
 
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -27,6 +28,7 @@ import org.junit.jupiter.api.Test;
  * These tests hold them to the other half of that: what passes reaches the
  * wire, also at the limits of what the checks let through.
  */
+@Tag("media")
 class CustomAudioSendTests extends TestBase {
 
 	private static final long TIMEOUT_NANOS = 10_000_000_000L;

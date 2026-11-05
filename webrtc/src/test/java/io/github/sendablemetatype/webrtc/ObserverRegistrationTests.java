@@ -24,6 +24,7 @@ import java.lang.ref.WeakReference;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -32,6 +33,7 @@ import org.junit.jupiter.api.Test;
  * packet's notification while it is being set, on the signaling thread, so an
  * observer that blocks there holds the registration in the middle.
  */
+@Tag("media")
 class ObserverRegistrationTests extends TestBase {
 
 	@Test

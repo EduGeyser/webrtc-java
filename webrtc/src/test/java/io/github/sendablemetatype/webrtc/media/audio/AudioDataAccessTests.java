@@ -29,6 +29,7 @@ import java.util.List;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -36,6 +37,7 @@ import org.junit.jupiter.api.Test;
  * pushAudio} returns, on the pushing thread, so each test sees every call of
  * its sink by the time the push is done.
  */
+@Tag("media")
 class AudioDataAccessTests extends TestBase {
 
 	private CustomAudioSource source;

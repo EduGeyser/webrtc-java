@@ -49,6 +49,7 @@ import java.util.concurrent.TimeUnit;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.function.Executable;
 
@@ -82,6 +83,7 @@ class NativeDisposeTests extends TestBase {
 		assertDoesNotThrow(peerConnection::close);
 	}
 
+	@Tag("media")
 	@Test
 	void callAfterCloseThrows() {
 		RTCPeerConnection peerConnection = factory.createPeerConnection(new RTCConfiguration(), observer);
@@ -95,6 +97,7 @@ class NativeDisposeTests extends TestBase {
 		assertEquals(RTCPeerConnectionState.CLOSED, peerConnection.getConnectionState());
 	}
 
+	@Tag("media")
 	@Test
 	void disposeTwiceDoesNothing() {
 		RTCPeerConnection peerConnection = factory.createPeerConnection(new RTCConfiguration(), observer);
@@ -125,6 +128,7 @@ class NativeDisposeTests extends TestBase {
 		assertDisposed("AudioConverter is disposed", () -> converter.convert(new byte[960], new byte[960]));
 	}
 
+	@Tag("media")
 	@Test
 	void tryWithResourcesDisposes() {
 		AudioConverter converter = new AudioConverter(48000, 1, 48000, 1);
@@ -140,6 +144,7 @@ class NativeDisposeTests extends TestBase {
 		assertDisposed("VideoCapture is disposed", capture::start);
 	}
 
+	@Tag("media")
 	@Test
 	void tryWithResourcesDisposesOnException() {
 		SyncClock clock = new SyncClock();
@@ -156,6 +161,7 @@ class NativeDisposeTests extends TestBase {
 		assertDisposed("SyncClock is disposed", clock::getTimestampUs);
 	}
 
+	@Tag("media")
 	@Test
 	void closeAfterDisposeDoesNothing() {
 		SyncClock clock = new SyncClock();
@@ -182,6 +188,7 @@ class NativeDisposeTests extends TestBase {
 		peerConnection.close();
 	}
 
+	@Tag("media")
 	@Test
 	void disposeFactoryTwice() {
 		AudioDeviceModule audioModule = new AudioDeviceModule(AudioLayer.kDummyAudio);
@@ -194,6 +201,7 @@ class NativeDisposeTests extends TestBase {
 				() -> disposable.createPeerConnection(new RTCConfiguration(), observer));
 	}
 
+	@Tag("media")
 	@Test
 	void closeDuringCall() throws Exception {
 		RTCPeerConnection peerConnection = factory.createPeerConnection(new RTCConfiguration(), observer);
@@ -225,6 +233,7 @@ class NativeDisposeTests extends TestBase {
 	}
 
 
+	@Tag("media")
 	@Test
 	void closeInCallbackDuringCall() throws Exception {
 		RTCPeerConnection peerConnection = factory.createPeerConnection(new RTCConfiguration(), observer);
@@ -279,6 +288,7 @@ class NativeDisposeTests extends TestBase {
 		source.dispose();
 	}
 
+	@Tag("media")
 	@Test
 	void disposeTrackDuringCall() throws Exception {
 		RTCPeerConnection peerConnection = factory.createPeerConnection(new RTCConfiguration(), observer);
@@ -306,6 +316,7 @@ class NativeDisposeTests extends TestBase {
 		source.dispose();
 	}
 
+	@Tag("media")
 	@Test
 	void concurrentCloseDuringCall() throws Exception {
 		RTCPeerConnection peerConnection = factory.createPeerConnection(new RTCConfiguration(), observer);
@@ -337,6 +348,7 @@ class NativeDisposeTests extends TestBase {
 		source.dispose();
 	}
 
+	@Tag("media")
 	@Test
 	void disposeTrackInListener() {
 		AudioTrackSource source = factory.createAudioSource(new AudioOptions());
@@ -360,6 +372,7 @@ class NativeDisposeTests extends TestBase {
 		source.dispose();
 	}
 
+	@Tag("media")
 	@Test
 	void removeListenerInListener() {
 		AudioTrackSource source = factory.createAudioSource(new AudioOptions());
@@ -384,6 +397,7 @@ class NativeDisposeTests extends TestBase {
 		source.dispose();
 	}
 
+	@Tag("media")
 	@Test
 	void disposeFactoryWhileCloseIsPending() throws Exception {
 		AudioDeviceModule audioModule = new AudioDeviceModule(AudioLayer.kDummyAudio);

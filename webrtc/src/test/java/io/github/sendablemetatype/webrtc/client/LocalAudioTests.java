@@ -37,12 +37,14 @@ import io.github.sendablemetatype.webrtc.media.audio.AudioProcessingStreamConfig
 import io.github.sendablemetatype.webrtc.media.audio.AudioTrackSource;
 import io.github.sendablemetatype.webrtc.media.audio.VoiceActivityConfig;
 
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 /**
  * Speech in the audio a local track sends, detected in native code: pushed
  * audio as pushed, a microphone's after the runtime's audio processing.
  */
+@Tag("media")
 class LocalAudioTests extends ClientTestBase {
 
 	/** Long enough to bridge every pause of the fixture. */

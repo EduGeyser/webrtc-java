@@ -56,6 +56,7 @@ import java.util.function.Consumer;
 
 import io.github.sendablemetatype.webrtc.RTCSessionDescription;
 
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 class PeerTests extends ClientTestBase {
@@ -441,6 +442,7 @@ class PeerTests extends ClientTestBase {
 		assertThrows(IllegalStateException.class, () -> pair()[0].negotiator());
 	}
 
+	@Tag("media")
 	@Test
 	void unreachableStunServerBoundsGathering() throws Exception {
 		// 192.0.2.1 is reserved for documentation and never answers, which
@@ -804,6 +806,7 @@ class PeerTests extends ClientTestBase {
 		assertInstanceOf(PeerClosedException.class, cause(peer.stats()));
 	}
 
+	@Tag("media")
 	@Test
 	void handlersRunOnEventExecutor() throws Exception {
 		// Whichever thread a report comes from, the application hears of it
@@ -859,6 +862,7 @@ class PeerTests extends ClientTestBase {
 		assertTrue(afterClose.isEmpty(), () -> "Channels: " + afterClose);
 	}
 
+	@Tag("media")
 	@Test
 	void lateHandlerGetsTracks() throws Exception {
 		Peer[] peers = pair();

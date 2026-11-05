@@ -37,6 +37,7 @@ import io.github.sendablemetatype.webrtc.media.audio.AudioDevice;
 import io.github.sendablemetatype.webrtc.media.video.CustomVideoSource;
 import io.github.sendablemetatype.webrtc.media.video.VideoDevice;
 
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -317,6 +318,7 @@ class RuntimeCloseTests extends ClientTestBase {
 		await(closed);
 	}
 
+	@Tag("media")
 	@Test
 	void closeWhileCreatingTrack() throws Exception {
 		// The runtime begins to close while a track is created over its
@@ -345,6 +347,7 @@ class RuntimeCloseTests extends ClientTestBase {
 		await(track.closeAsync());
 	}
 
+	@Tag("media")
 	@Test
 	void endedHandlerWaitsForClose() throws Exception {
 		// Handlers of a track wait for its own close and for that of another
@@ -367,6 +370,7 @@ class RuntimeCloseTests extends ClientTestBase {
 		assertTrue(second.isEnded());
 	}
 
+	@Tag("media")
 	@Test
 	void cancelledTrackClose() throws Exception {
 		// The application stops waiting for a track's close before the release
@@ -407,6 +411,7 @@ class RuntimeCloseTests extends ClientTestBase {
 		await(peer.closeAsync());
 	}
 
+	@Tag("media")
 	@Test
 	void releaseFailureFailsClose() throws Exception {
 		// A step of the release fails. The steps after it run all the same,
@@ -456,6 +461,7 @@ class RuntimeCloseTests extends ClientTestBase {
 		}
 	}
 
+	@Tag("media")
 	@Test
 	void closeWhileSwitchingDevice() throws Exception {
 		// A speaker switch is queued when the runtime begins to close. The
@@ -482,6 +488,7 @@ class RuntimeCloseTests extends ClientTestBase {
 		assertInstanceOf(ConfigurationException.class, e.getCause());
 	}
 
+	@Tag("media")
 	@Test
 	void switchDeviceAfterClose() throws Exception {
 		Devices devices = rtc.media().devices();
@@ -496,6 +503,7 @@ class RuntimeCloseTests extends ClientTestBase {
 		await(closed);
 	}
 
+	@Tag("media")
 	@Test
 	void closeWhileSwitchingCamera() throws Exception {
 		// A camera switch is queued when the runtime begins to close. The
@@ -520,6 +528,7 @@ class RuntimeCloseTests extends ClientTestBase {
 		assertTrackClosed(switched);
 	}
 
+	@Tag("media")
 	@Test
 	void switchCameraAfterClose() throws Exception {
 		LocalCameraImpl camera = camera(rtc);
@@ -532,6 +541,7 @@ class RuntimeCloseTests extends ClientTestBase {
 		assertTrackClosed(switched);
 	}
 
+	@Tag("media")
 	@Test
 	void switchCameraRejected() throws Exception {
 		// The executor refuses the switch, which fails and lets go of its

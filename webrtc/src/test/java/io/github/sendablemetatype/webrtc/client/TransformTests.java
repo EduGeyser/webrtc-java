@@ -41,6 +41,7 @@ import io.github.sendablemetatype.webrtc.media.video.VideoFrame;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -48,6 +49,7 @@ import org.junit.jupiter.api.Test;
  * of the peer options are in place from the first frame, those of a sender or
  * track replace them, and a transform that throws drops its frames.
  */
+@Tag("media")
 class TransformTests extends ClientTestBase {
 
 	/** What the send transforms append and the receive transforms strip. */

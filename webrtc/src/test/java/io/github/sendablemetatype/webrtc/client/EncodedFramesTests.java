@@ -29,6 +29,7 @@ import java.util.concurrent.RejectedExecutionException;
 import io.github.sendablemetatype.webrtc.client.internal.EncodedFrames;
 import io.github.sendablemetatype.webrtc.internal.NativeApi;
 
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -36,6 +37,7 @@ import org.junit.jupiter.api.Test;
  * module's recorder takes them: the futures settle whatever the runtime
  * does, and each source's reference is handed over or dropped once.
  */
+@Tag("media")
 class EncodedFramesTests extends ClientTestBase {
 
 	@Test

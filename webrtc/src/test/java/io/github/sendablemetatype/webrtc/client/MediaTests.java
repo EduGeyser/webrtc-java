@@ -52,6 +52,7 @@ import io.github.sendablemetatype.webrtc.media.video.desktop.DesktopSource;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 class MediaTests extends ClientTestBase {
@@ -70,6 +71,7 @@ class MediaTests extends ClientTestBase {
 		feeder.awaitTermination(5, TimeUnit.SECONDS);
 	}
 
+	@Tag("media")
 	@Test
 	void pushedAudioArrives() throws Exception {
 		Peer[] peers = pair();
@@ -89,6 +91,7 @@ class MediaTests extends ClientTestBase {
 		assertEquals(chunk.frames() * chunk.channels() * 2, chunk.samples().length);
 	}
 
+	@Tag("media")
 	@Test
 	void clearedAudioNotResent() throws Exception {
 		// A format change sends the chunk begun before it, filled with
@@ -130,6 +133,7 @@ class MediaTests extends ClientTestBase {
 		}
 	}
 
+	@Tag("media")
 	@Test
 	void stalledAudioNotBurst() throws Exception {
 		// After a stall the pacer runs the missed ticks back to back. Those
@@ -176,6 +180,7 @@ class MediaTests extends ClientTestBase {
 		}
 	}
 
+	@Tag("media")
 	@Test
 	void defaultQueueLimit() throws Exception {
 		ManualTimer pacer = new ManualTimer();
@@ -199,6 +204,7 @@ class MediaTests extends ClientTestBase {
 		}
 	}
 
+	@Tag("media")
 	@Test
 	void fullQueueRejectsPush() throws Exception {
 		// A refused push leaves nothing of itself behind, not even in the
@@ -253,6 +259,7 @@ class MediaTests extends ClientTestBase {
 		}
 	}
 
+	@Tag("media")
 	@Test
 	void fullQueueDropsOldest() throws Exception {
 		ManualTimer pacer = new ManualTimer();
@@ -315,6 +322,7 @@ class MediaTests extends ClientTestBase {
 		assertEquals(1000, options.frameRate(1000).build().frameRate);
 	}
 
+	@Tag("media")
 	@Test
 	void queueLimitBelowChunkRejected() {
 		CustomAudio voice = rtc.media().customAudio("voice");
@@ -323,6 +331,7 @@ class MediaTests extends ClientTestBase {
 				() -> voice.queueLimit(Duration.ofMillis(9), AudioOverflow.REJECT));
 	}
 
+	@Tag("media")
 	@Test
 	void slowPushLeavesTimerFree() throws Exception {
 		// Pushed audio is sent on a thread of its own: a push that hangs in
@@ -374,6 +383,7 @@ class MediaTests extends ClientTestBase {
 		assertThrows(IllegalArgumentException.class, () -> PcmFormat.of(384000, 2));
 	}
 
+	@Tag("media")
 	@Test
 	void pushedVideoArrives() throws Exception {
 		Peer[] peers = pair();
@@ -392,6 +402,7 @@ class MediaTests extends ClientTestBase {
 		assertEquals(240, await(preview)[1]);
 	}
 
+	@Tag("media")
 	@Test
 	void slowFrameHandlerGetsNewest() throws Exception {
 		Peer[] peers = pair();
@@ -466,6 +477,7 @@ class MediaTests extends ClientTestBase {
 		return frames;
 	}
 
+	@Tag("media")
 	@Test
 	void removedSenderEndsRemoteTrack() throws Exception {
 		Peer[] peers = pair();
@@ -494,6 +506,7 @@ class MediaTests extends ClientTestBase {
 		assertTrue(!video.isEnded());
 	}
 
+	@Tag("media")
 	@Test
 	void closedTrackLeavesEveryPeer() throws Exception {
 		Peer[] first = pair();
@@ -520,6 +533,7 @@ class MediaTests extends ClientTestBase {
 		assertEquals(other, one.track());
 	}
 
+	@Tag("media")
 	@Test
 	void sameTrackRegisteredOnce() throws Exception {
 		Peer[] peers = pair();
@@ -539,6 +553,7 @@ class MediaTests extends ClientTestBase {
 		assertTrue(voice.registeredSenders().isEmpty());
 	}
 
+	@Tag("media")
 	@Test
 	void senderConfigured() throws Exception {
 		Peer[] peers = pair();
@@ -550,6 +565,7 @@ class MediaTests extends ClientTestBase {
 		assertThrows(IllegalArgumentException.class, () -> sender.replaceTrack(rtc.media().customAudio("audio")));
 	}
 
+	@Tag("media")
 	@Test
 	void deliveredFramesReleased() throws Exception {
 		Path status = Paths.get("/proc/self/status");
@@ -588,6 +604,7 @@ class MediaTests extends ClientTestBase {
 		throw new IllegalStateException("No VmRSS in " + status);
 	}
 
+	@Tag("media")
 	@Test
 	void tonesSent() throws Exception {
 		Peer[] peers = pair();
@@ -613,6 +630,7 @@ class MediaTests extends ClientTestBase {
 		assertInstanceOf(IllegalStateException.class, refused.getCause());
 	}
 
+	@Tag("media")
 	@Test
 	void tracksOverOwnSources() throws Exception {
 		Peer[] peers = pair();
