@@ -121,6 +121,8 @@ try (MediaReader reader = new MediaReader(Path.of("movie.mp4"))) {
 }
 ```
 
+The width and height are those of the video as it is shown, which can differ from what the file stores. A phone stores a portrait video sideways with a rotation next to it: its frames keep the stored size and carry the rotation in `VideoFrame.rotation`, which the video views and the receiving peers apply, and `MediaInfo` reports the upright size. A video of pixels that are not square, such as 720x576 PAL with 16:15 pixels, is scaled to square ones while it plays, to 768x576 in that case, because WebRTC has no way to describe them. One side grows so that no detail is lost, at the price of one copy of each picture. Only quarter turns are applied: a video that is to be shown mirrored, or turned by another angle, plays as it is stored. So does one whose pixels are said to be more than four times as wide as high, or the other way round.
+
 A `MediaFileSource` already has this, so there is no need to open the file twice:
 
 ```java
@@ -295,6 +297,8 @@ The FFmpeg build is deliberately small, and carries only what this module plays:
 | **Audio** | AAC, MP3, MP2, AC-3, Opus, Vorbis, FLAC, PCM, MS and IMA ADPCM |
 
 Audio of any rate or layout is resampled to what WebRTC takes, which is 48 kHz 16-bit PCM in mono or stereo. Video that decodes to I420 — almost all 8-bit H.264, VP8, VP9 and MPEG-4 — reaches the encoder without being copied; anything else is converted first.
+
+Video retains its color matrix, full or limited range, color primaries and transfer function through conversion and into the native WebRTC frame, including hardware readback. Missing matrix/range metadata defaults to BT.601 limited range; RGB and JPEG pixel formats imply full range. RGB is converted to BT.601 YUV. The negotiated encoder and receiver determine how this information is carried and displayed.
 
 Sources can be local files, or live streams over RTSP (`rtsp://`), with RTP over UDP or TCP. Protocols that need TLS, such as `rtsps://` and `https://`, are not part of the build, and neither are HLS, DASH and RTMP. A source cannot reach any other protocol either, even one FFmpeg uses internally, so a URL passed on from a user cannot make the module fetch something else.
 

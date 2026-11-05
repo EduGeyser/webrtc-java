@@ -17,6 +17,7 @@
 #include "media/MediaPacer.h"
 #include "media/AudioDecoder.h"
 #include "media/PlaybackProbe.h"
+#include "media/VideoGeometry.h"
 
 #include <algorithm>
 #include <limits>
@@ -495,7 +496,7 @@ namespace ffmpeg
 		pushed.stride_y = frame->linesize[0];
 		pushed.stride_u = frame->linesize[1];
 		pushed.stride_v = frame->linesize[2];
-		pushed.rotation = 0;
+		pushed.rotation = GetFrameRotation(frame);
 		pushed.timestamp_us = mapped_us;
 		pushed.release = ReleaseVideoFrame;
 		pushed.opaque = frame;
@@ -504,7 +505,14 @@ namespace ffmpeg
 		// the push succeeds or fails, so this item must not free it as well.
 		item.frame = nullptr;
 
-		api_->video_source_push(video_source_, &pushed);
+		const wj_color_space color = {
+			static_cast<uint8_t>(frame->color_primaries),
+			static_cast<uint8_t>(frame->color_trc),
+			static_cast<uint8_t>(frame->colorspace),
+			static_cast<uint8_t>(frame->color_range)
+		};
+
+		api_->video_source_push_color(video_source_, &pushed, &color);
 	}
 
 	void MediaPacer::DeliverAudio(const AudioItem & item, int64_t mapped_us)
