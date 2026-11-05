@@ -20,7 +20,6 @@ import io.github.sendablemetatype.webrtc.internal.DisposableNativeObject;
 
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
-import java.net.UnknownHostException;
 import java.nio.ByteBuffer;
 import java.time.Duration;
 import java.util.Map;
@@ -52,6 +51,9 @@ import java.util.function.Consumer;
  * check against it and hands it over, so the remote side gets its answer
  * without retransmitting. A server can so admit a client before it has created
  * any state for it.
+ * <p>
+ * Behind {@linkplain #setProxyRelays PROXY protocol relays}, connections see the
+ * clients the relays declare, and replies reach each client through its relay.
  *
  * @author Alex Andres
  */
@@ -196,6 +198,58 @@ public class IceUdpEndpoint extends DisposableNativeObject {
 	}
 
 	/**
+	 * Takes PROXY protocol version 2 headers from relays at these addresses. A
+	 * relay prefixes a client's datagrams with a header that declares the
+	 * client, and sends them from one source port per client. Connections then
+	 * see the declared client as the remote address.
+	 * <p>
+	 * A header alone only attributes the relay's datagrams to the client. Replies
+	 * go back through the relay once a connectivity check it brought
+	 * authenticates for a connection, so a relay cannot claim arbitrary clients.
+	 * A relay port that routes one client passes to another only once the
+	 * first one's connection stops receiving.
+	 * <p>
+	 * While relays are set, nothing leaves the endpoint straight except STUN
+	 * server lookups: everything else to a destination no relay routes is
+	 * dropped, connectivity checks to signaled candidates included. A listed
+	 * relay may leave out the header after the first datagram of a flow; a
+	 * header from anywhere else is dropped, as is any other datagram outside a
+	 * flow, except STUN responses. TURN is not affected, as it uses sockets of
+	 * its own.
+	 *
+	 * @param relays Numeric addresses or CIDR ranges, such as
+	 *               {@code "203.0.113.7"} or {@code "2001:db8::/32"}. A new list
+	 *               keeps the clients of relays it still lists; none clears the
+	 *               list.
+	 *
+	 * @throws IllegalArgumentException if an entry is neither.
+	 */
+	public void setProxyRelays(String... relays) {
+		for (String relay : relays) {
+			Objects.requireNonNull(relay, "relay");
+		}
+
+		if (!applyProxyRelays(relays.clone())) {
+			throw new IllegalArgumentException("Not a numeric address or CIDR range in " + String.join(", ", relays));
+		}
+	}
+
+	/**
+	 * Returns the relay a client comes through, including one whose check is
+	 * still held.
+	 *
+	 * @param client The client as a relay's header declared it.
+	 *
+	 * @return The relay's address and source port, or {@code null} if no relay
+	 *         speaks for the client.
+	 */
+	public InetSocketAddress getProxyRelay(InetSocketAddress client) {
+		InetAddress address = Objects.requireNonNull(client.getAddress(), "client address unresolved");
+
+		return getProxyRelay(address, client.getPort());
+	}
+
+	/**
 	 * Closes the endpoint's sockets and releases it. Connections that still use
 	 * the endpoint stop sending and receiving.
 	 */
@@ -207,21 +261,10 @@ public class IceUdpEndpoint extends DisposableNativeObject {
 	 * the handler.
 	 */
 	@SuppressWarnings("unused")
-	private void onPendingRequest(long id, byte[] localAddress, int localPort, byte[] remoteAddress,
-			int remotePort, String localUfrag, String remoteUfrag) {
+	private void onPendingRequest(long id, InetSocketAddress localAddress, InetSocketAddress remoteAddress,
+			String localUfrag, String remoteUfrag) {
 		RequestDispatch dispatch = requestDispatch;
-		PendingRequest request;
-
-		try {
-			request = new PendingRequest(this, id,
-					new InetSocketAddress(InetAddress.getByAddress(localAddress), localPort),
-					new InetSocketAddress(InetAddress.getByAddress(remoteAddress), remotePort),
-					localUfrag, remoteUfrag);
-		}
-		catch (UnknownHostException e) {
-			// The native side passes 4 or 16 bytes.
-			throw new IllegalStateException(e);
-		}
+		PendingRequest request = new PendingRequest(this, id, localAddress, remoteAddress, localUfrag, remoteUfrag);
 
 		if (dispatch == null) {
 			request.reject();
@@ -245,6 +288,10 @@ public class IceUdpEndpoint extends DisposableNativeObject {
 	private native void setDerivedPasswords(byte[] context, String[] prefixes, byte[][] keys);
 
 	private native void rejectRequest(long id);
+
+	private native boolean applyProxyRelays(String[] relays);
+
+	private native InetSocketAddress getProxyRelay(InetAddress address, int port);
 
 	private native void inject(InetAddress localAddress, int localPort, InetAddress remoteAddress,
 			int remotePort, byte[] data);

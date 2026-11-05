@@ -26,6 +26,7 @@
 #include "rtc_base/zero_memory.h"
 
 #include <memory>
+#include <optional>
 #include <string>
 #include <utility>
 #include <vector>
@@ -109,7 +110,8 @@ JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_IceUdpEndpoint_ena
 	}
 
 	jclass cls = env->GetObjectClass(caller);
-	jmethodID method = env->GetMethodID(cls, "onPendingRequest", "(J[BI[BILjava/lang/String;Ljava/lang/String;)V");
+	jmethodID method = env->GetMethodID(cls, "onPendingRequest",
+		"(JLjava/net/InetSocketAddress;Ljava/net/InetSocketAddress;Ljava/lang/String;Ljava/lang/String;)V");
 	env->DeleteLocalRef(cls);
 
 	if (method == nullptr) {
@@ -126,12 +128,10 @@ JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_IceUdpEndpoint_ena
 		}
 
 		try {
-			jni::JavaLocalRef<jbyteArray> local = jni::InetAddress::toJavaBytes(env, request.local.ipaddr());
-			jni::JavaLocalRef<jbyteArray> remote = jni::InetAddress::toJavaBytes(env, request.remote.ipaddr());
+			jni::JavaLocalRef<jobject> local = jni::InetAddress::toJavaSocketAddress(env, request.local);
+			jni::JavaLocalRef<jobject> remote = jni::InetAddress::toJavaSocketAddress(env, request.remote);
 
-			env->CallVoidMethod(target->get(), method, static_cast<jlong>(request.id),
-				local.get(), static_cast<jint>(request.local.port()),
-				remote.get(), static_cast<jint>(request.remote.port()),
+			env->CallVoidMethod(target->get(), method, static_cast<jlong>(request.id), local.get(), remote.get(),
 				jni::JavaString::toJava(env, request.localUfrag).get(),
 				jni::JavaString::toJava(env, request.remoteUfrag).get());
 		}
@@ -171,6 +171,41 @@ JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_IceUdpEndpoint_rej
 	CHECK_HANDLE(endpoint);
 
 	(*endpoint)->Reject(static_cast<uint64_t>(request));
+}
+
+JNIEXPORT jboolean JNICALL Java_io_github_sendablemetatype_webrtc_IceUdpEndpoint_applyProxyRelays
+(JNIEnv * env, jobject caller, jobjectArray jRelays)
+{
+	EndpointHandle * endpoint = GetHandle<EndpointHandle>(env, caller);
+	CHECK_HANDLEV(endpoint, JNI_FALSE);
+
+	std::vector<std::string> relays;
+	jsize count = env->GetArrayLength(jRelays);
+
+	for (jsize i = 0; i < count; i++) {
+		jni::JavaLocalRef<jstring> relay(env, static_cast<jstring>(env->GetObjectArrayElement(jRelays, i)));
+		relays.push_back(jni::JavaString::toNative(env, relay));
+	}
+
+	return (*endpoint)->SetProxyRelays(std::move(relays)) ? JNI_TRUE : JNI_FALSE;
+}
+
+JNIEXPORT jobject JNICALL Java_io_github_sendablemetatype_webrtc_IceUdpEndpoint_getProxyRelay
+(JNIEnv * env, jobject caller, jobject jAddress, jint port)
+{
+	EndpointHandle * endpoint = GetHandle<EndpointHandle>(env, caller);
+	CHECK_HANDLEV(endpoint, nullptr);
+
+	try {
+		webrtc::SocketAddress client(jni::InetAddress::toNative(env, jni::JavaLocalRef<jobject>(env, jAddress)), port);
+		std::optional<webrtc::SocketAddress> relay = (*endpoint)->ProxyRelayOf(client);
+
+		return relay ? jni::InetAddress::toJavaSocketAddress(env, *relay).release() : nullptr;
+	}
+	catch (...) {
+		ThrowCxxJavaException(env);
+		return nullptr;
+	}
 }
 
 JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_IceUdpEndpoint_dispose

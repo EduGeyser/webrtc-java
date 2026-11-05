@@ -102,6 +102,7 @@ namespace jni
 			pendingByUfrag_.clear();
 			handler_ = nullptr;
 			ClearDerivedPasswords();
+			proxy_.reset();
 		});
 		thread_->Stop();
 	}
@@ -124,6 +125,7 @@ namespace jni
 			pendingByUfrag_.clear();
 			handler_ = nullptr;
 			ClearDerivedPasswords();
+			proxy_.reset();
 
 			for (auto & [id, entry] : sockets_) {
 				entry.routes.clear();
@@ -139,7 +141,7 @@ namespace jni
 	{
 		thread_->PostTask([this, local, remote, data = std::move(data)] {
 			if (!closed_) {
-				Route(local, data, remote, std::nullopt);
+				Receive(local, data, remote, std::nullopt);
 			}
 		});
 	}
@@ -260,7 +262,7 @@ namespace jni
 			}
 
 			socket->RegisterReceivedPacketCallback([this, local](webrtc::AsyncPacketSocket *, const webrtc::ReceivedIpPacket & packet) {
-				Route(local, packet.payload(), packet.source_address(), packet.arrival_time());
+				Receive(local, packet.payload(), packet.source_address(), packet.arrival_time());
 			});
 
 			osSockets_.emplace(local, std::move(socket));
@@ -314,6 +316,18 @@ namespace jni
 				return;
 			}
 
+			webrtc::SocketAddress target = remote;
+
+			if (proxy_) {
+				// Behind relays a client is reached only through the relay that routes it.
+				std::optional<webrtc::SocketAddress> routed = proxy_->RouteOutbound(remote, data);
+
+				if (!routed) {
+					return;
+				}
+				target = *routed;
+			}
+
 			int64_t now = webrtc::TimeMillis();
 
 			if (IsStun(data) && webrtc::IsStunRequestType(StunType(data))) {
@@ -328,12 +342,36 @@ namespace jni
 				MapRoute(socket, RouteKey(local, remote), now);
 			}
 
-			it->second->SendTo(data.data(), data.size(), remote, webrtc::AsyncSocketPacketOptions());
+			it->second->SendTo(data.data(), data.size(), target, webrtc::AsyncSocketPacketOptions());
 		});
 	}
 
-	void IceUdpEndpoint::Route(const webrtc::SocketAddress & local, std::span<const uint8_t> data,
+	void IceUdpEndpoint::Receive(const webrtc::SocketAddress & local, std::span<const uint8_t> data,
 		const webrtc::SocketAddress & from, std::optional<webrtc::Timestamp> arrival)
+	{
+		if (!proxy_) {
+			Route(local, data, from, arrival, std::nullopt);
+			return;
+		}
+
+		webrtc::SocketAddress client = from;
+		webrtc::SocketAddress relay;
+
+		switch (proxy_->OnReceive(data, client, relay, webrtc::TimeMillis())) {
+			case ProxyRelays::Receive::kDrop:
+				return;
+			case ProxyRelays::Receive::kPass:
+				Route(local, data, client, arrival, std::nullopt);
+				return;
+			case ProxyRelays::Receive::kClaimed:
+				Route(local, data, client, arrival, relay);
+				return;
+		}
+	}
+
+	void IceUdpEndpoint::Route(const webrtc::SocketAddress & local, std::span<const uint8_t> data,
+		const webrtc::SocketAddress & from, std::optional<webrtc::Timestamp> arrival,
+		const std::optional<webrtc::SocketAddress> & relay)
 	{
 		RouteKey key(local, from);
 		int64_t now = webrtc::TimeMillis();
@@ -354,7 +392,7 @@ namespace jni
 				}
 			}
 			else if (type == webrtc::STUN_BINDING_REQUEST) {
-				RouteBindingRequest(key, data, arrival, now);
+				RouteBindingRequest(key, data, arrival, now, relay);
 				return;
 			}
 		}
@@ -368,7 +406,7 @@ namespace jni
 	}
 
 	void IceUdpEndpoint::RouteBindingRequest(const RouteKey & key, std::span<const uint8_t> data,
-		std::optional<webrtc::Timestamp> arrival, int64_t nowMs)
+		std::optional<webrtc::Timestamp> arrival, int64_t nowMs, const std::optional<webrtc::SocketAddress> & relay)
 	{
 		webrtc::StunMessage message;
 		webrtc::ByteBufferReader reader(data);
@@ -400,6 +438,13 @@ namespace jni
 
 			// The port checks the integrity itself, as it does on a port of its own.
 			if (session != sessions_.end() && session->second.ufrag == ufrag) {
+				// A relay new to a routed client routes it once the client's credentials
+				// sign a datagram the relay brought, such as a consent check. The datagram
+				// is passed on either way.
+				if (relay && IntegrityCheck(message).Matches(session->second.password)) {
+					proxy_->Commit(*relay, key.second, nowMs);
+				}
+
 				route->second.lastReceiveMs = nowMs;
 				Deliver(route->second.socket, data, key.second, arrival);
 				return;
@@ -409,12 +454,18 @@ namespace jni
 		IntegrityCheck integrity(message);
 
 		if (std::optional<uint64_t> session = Authenticate(integrity, ufrag)) {
+			// A relay that could not route the client once a session takes it is refused
+			// now.
+			if (relay && !proxy_->Admits(*relay, key.second, nowMs)) {
+				return;
+			}
+
 			std::optional<uint64_t> socket = SocketOf(sessions_.at(*session), key.first);
 
 			if (!socket || !sockets_.at(*socket).ready) {
 				// The session has no port here that could take it yet; it gets the request
 				// once it has.
-				Hold(key, name, ufrag, data, arrival, nowMs, false);
+				Hold(key, name, ufrag, data, arrival, nowMs, false, relay);
 				return;
 			}
 
@@ -423,15 +474,77 @@ namespace jni
 			if (held != pendingByKey_.end()) {
 				TakePending(held->second);
 			}
-			if (Claim(*socket, key, nowMs)) {
+			if ((!relay || proxy_->Commit(*relay, key.second, nowMs)) && Claim(*socket, key, nowMs)) {
 				Deliver(*socket, data, key.second, arrival);
 			}
 			return;
 		}
 
-		if (handler_ && (derivedKeys_.empty() || VerifyDerived(integrity, ufrag))) {
-			Hold(key, name, ufrag, data, arrival, nowMs, true);
+		if (!handler_ || (relay && !proxy_->Admits(*relay, key.second, nowMs))) {
+			return;
 		}
+		if (derivedKeys_.empty() || VerifyDerived(integrity, ufrag)) {
+			Hold(key, name, ufrag, data, arrival, nowMs, true, relay);
+		}
+	}
+
+	bool IceUdpEndpoint::ClientAlive(const webrtc::SocketAddress & client) const
+	{
+		// A route that still receives belongs to a connection with ICE consent, which
+		// only the client's own credentials renew.
+		int64_t now = webrtc::TimeMillis();
+
+		for (const auto & [local, socket] : osSockets_) {
+			auto route = routes_.find(RouteKey(local, client));
+
+			if (route != routes_.end() && now - route->second.lastReceiveMs < kRouteIdleMs) {
+				return true;
+			}
+		}
+
+		return false;
+	}
+
+	bool IceUdpEndpoint::SetProxyRelays(std::vector<std::string> relays)
+	{
+		return thread_->BlockingCall([this, &relays] {
+			if (relays.empty()) {
+				proxy_.reset();
+				return true;
+			}
+
+			std::unique_ptr<ProxyRelays> proxy = ProxyRelays::Create(relays,
+				[this](const webrtc::SocketAddress & client) { return ClientAlive(client); }, proxy_.get());
+
+			if (!proxy) {
+				return false;
+			}
+
+			proxy_ = std::move(proxy);
+			return true;
+		});
+	}
+
+	std::optional<webrtc::SocketAddress> IceUdpEndpoint::ProxyRelayOf(const webrtc::SocketAddress & client)
+	{
+		return thread_->BlockingCall([this, &client]() -> std::optional<webrtc::SocketAddress> {
+			if (!proxy_) {
+				return std::nullopt;
+			}
+			if (std::optional<webrtc::SocketAddress> relay = proxy_->RelayOf(client)) {
+				return relay;
+			}
+
+			// A held request names its relay too, though the relay routes the client only
+			// once a session takes it.
+			for (const auto & [id, request] : pending_) {
+				if (request.relay && request.remote == client) {
+					return request.relay;
+				}
+			}
+
+			return std::nullopt;
+		});
 	}
 
 	bool IceUdpEndpoint::Claim(uint64_t socket, const RouteKey & key, int64_t nowMs)
@@ -739,7 +852,8 @@ namespace jni
 	}
 
 	void IceUdpEndpoint::Hold(const RouteKey & key, absl::string_view username, absl::string_view ufrag,
-		std::span<const uint8_t> data, std::optional<webrtc::Timestamp> arrival, int64_t nowMs, bool announce)
+		std::span<const uint8_t> data, std::optional<webrtc::Timestamp> arrival, int64_t nowMs, bool announce,
+		const std::optional<webrtc::SocketAddress> & relay)
 	{
 		if (data.size() > kMaxHeldPacketSize) {
 			return;
@@ -754,6 +868,9 @@ namespace jni
 			PendingRequest & request = pending_.at(existing->second);
 			request.packet.assign(data.begin(), data.end());
 			request.arrival = arrival;
+			if (relay) {
+				request.relay = relay;
+			}
 			return;
 		}
 
@@ -764,7 +881,7 @@ namespace jni
 		uint64_t id = nextId_++;
 
 		pending_.emplace(id, PendingRequest { key.first, key.second, std::string(username), std::string(ufrag),
-			std::vector<uint8_t>(data.begin(), data.end()), arrival, nowMs + pendingTimeoutMs_, announce });
+			std::vector<uint8_t>(data.begin(), data.end()), arrival, nowMs + pendingTimeoutMs_, announce, relay });
 		pendingByKey_.emplace(std::move(pendingKey), id);
 		pendingByUfrag_.emplace(std::string(ufrag), id);
 
@@ -816,7 +933,15 @@ namespace jni
 
 			std::optional<uint64_t> socket = SocketOf(session, local);
 
-			if (socket && sockets_.at(*socket).ready && Claim(*socket, RouteKey(local, taken->remote), nowMs)) {
+			if (!socket || !sockets_.at(*socket).ready) {
+				continue;
+			}
+			// A request a relay brought needs that relay to route the client, and the
+			// relay to be listed still.
+			if (taken->relay && (!proxy_ || !proxy_->Commit(*taken->relay, taken->remote, nowMs))) {
+				continue;
+			}
+			if (Claim(*socket, RouteKey(local, taken->remote), nowMs)) {
 				Deliver(*socket, taken->packet, taken->remote, taken->arrival);
 			}
 		}

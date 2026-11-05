@@ -52,25 +52,41 @@ namespace jni
 			return webrtc::IPAddress(ipv6);
 		}
 
-		JavaLocalRef<jbyteArray> toJavaBytes(JNIEnv * env, const webrtc::IPAddress & address)
+		JavaLocalRef<jobject> toJavaSocketAddress(JNIEnv * env, const webrtc::SocketAddress & address)
 		{
-			if (address.family() == AF_INET) {
-				in_addr ipv4 = address.ipv4_address();
-				JavaLocalRef<jbyteArray> bytes(env, env->NewByteArray(sizeof(ipv4)));
-				env->SetByteArrayRegion(bytes.get(), 0, sizeof(ipv4), reinterpret_cast<const jbyte *>(&ipv4));
-				return bytes;
+			const auto javaClass = JavaClasses::get<JavaInetAddressClass>(env);
+			const webrtc::IPAddress & ip = address.ipaddr();
+
+			in_addr ipv4;
+			in6_addr ipv6;
+			const void * raw = &ipv6;
+			jsize length = sizeof(ipv6);
+
+			if (ip.family() == AF_INET) {
+				ipv4 = ip.ipv4_address();
+				raw = &ipv4;
+				length = sizeof(ipv4);
+			}
+			else {
+				ipv6 = ip.ipv6_address();
 			}
 
-			in6_addr ipv6 = address.ipv6_address();
-			JavaLocalRef<jbyteArray> bytes(env, env->NewByteArray(sizeof(ipv6)));
-			env->SetByteArrayRegion(bytes.get(), 0, sizeof(ipv6), reinterpret_cast<const jbyte *>(&ipv6));
-			return bytes;
+			JavaLocalRef<jbyteArray> bytes(env, env->NewByteArray(length));
+			env->SetByteArrayRegion(bytes.get(), 0, length, static_cast<const jbyte *>(raw));
+
+			JavaLocalRef<jobject> inetAddress(env, env->CallStaticObjectMethod(javaClass->cls, javaClass->getByAddress, bytes.get()));
+
+			return JavaLocalRef<jobject>(env, env->NewObject(javaClass->socketCls, javaClass->socketCtor,
+				inetAddress.get(), static_cast<jint>(address.port())));
 		}
 
 		JavaInetAddressClass::JavaInetAddressClass(JNIEnv * env)
 		{
 			cls = FindClass(env, "java/net/InetAddress");
 			getAddress = GetMethod(env, cls, "getAddress", "()[B");
+			getByAddress = GetStaticMethod(env, cls, "getByAddress", "([B)Ljava/net/InetAddress;");
+			socketCls = FindClass(env, "java/net/InetSocketAddress");
+			socketCtor = GetMethod(env, socketCls, "<init>", "(Ljava/net/InetAddress;I)V");
 		}
 	}
 }

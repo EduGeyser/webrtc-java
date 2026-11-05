@@ -21,6 +21,7 @@
 #include "JavaRef.h"
 
 #include "rtc_base/ip_address.h"
+#include "rtc_base/socket_address.h"
 
 #include <jni.h>
 
@@ -35,14 +36,17 @@ namespace jni
 
 				jclass cls;
 				jmethodID getAddress;
+				jmethodID getByAddress;
+				jclass socketCls;
+				jmethodID socketCtor;
 		};
 
 		// The address of a java.net.InetAddress, from its raw bytes. An IPv6 scope is
 		// left out. Throws a NullPointerException for null.
 		webrtc::IPAddress toNative(JNIEnv * env, const JavaRef<jobject> & address);
 
-		// The raw bytes of an address, as InetAddress.getByAddress takes them.
-		JavaLocalRef<jbyteArray> toJavaBytes(JNIEnv * env, const webrtc::IPAddress & address);
+		// A java.net.InetSocketAddress, built from the raw address without a lookup.
+		JavaLocalRef<jobject> toJavaSocketAddress(JNIEnv * env, const webrtc::SocketAddress & address);
 	}
 }
 

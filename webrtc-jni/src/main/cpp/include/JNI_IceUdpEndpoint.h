@@ -71,6 +71,22 @@ JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_IceUdpEndpoint_set
 JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_IceUdpEndpoint_rejectRequest
   (JNIEnv *, jobject, jlong);
 
+/*
+ * Class:     io_github_sendablemetatype_webrtc_IceUdpEndpoint
+ * Method:    applyProxyRelays
+ * Signature: ([Ljava/lang/String;)Z
+ */
+JNIEXPORT jboolean JNICALL Java_io_github_sendablemetatype_webrtc_IceUdpEndpoint_applyProxyRelays
+  (JNIEnv *, jobject, jobjectArray);
+
+/*
+ * Class:     io_github_sendablemetatype_webrtc_IceUdpEndpoint
+ * Method:    getProxyRelay
+ * Signature: (Ljava/net/InetAddress;I)Ljava/net/InetSocketAddress;
+ */
+JNIEXPORT jobject JNICALL Java_io_github_sendablemetatype_webrtc_IceUdpEndpoint_getProxyRelay
+  (JNIEnv *, jobject, jobject, jint);
+
 #ifdef __cplusplus
 }
 #endif

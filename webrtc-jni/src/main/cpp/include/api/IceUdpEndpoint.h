@@ -17,6 +17,8 @@
 #ifndef JNI_WEBRTC_API_ICE_UDP_ENDPOINT_H_
 #define JNI_WEBRTC_API_ICE_UDP_ENDPOINT_H_
 
+#include "api/ProxyRelays.h"
+
 #include "absl/strings/string_view.h"
 #include "api/environment/environment.h"
 #include "api/task_queue/task_queue_base.h"
@@ -164,6 +166,14 @@ namespace jni
 
 			void Reject(uint64_t request);
 
+			// Takes PROXY protocol v2 headers from relays at these numeric addresses or
+			// CIDR ranges; see ProxyRelays. A new list keeps the clients of relays it
+			// still lists; an empty one clears it. False if an entry is invalid.
+			bool SetProxyRelays(std::vector<std::string> relays);
+
+			// The relay a client comes through, routed or still held.
+			std::optional<webrtc::SocketAddress> ProxyRelayOf(const webrtc::SocketAddress & client);
+
 		private:
 			IceUdpEndpoint(uint16_t port, std::vector<webrtc::IPAddress> addresses);
 
@@ -216,6 +226,9 @@ namespace jni
 				int64_t expiresMs;
 				// Announced to the handler, so verified against a session only once.
 				bool announced;
+				// The PROXY protocol relay that brought it, which routes the client once a
+				// session takes it.
+				std::optional<webrtc::SocketAddress> relay;
 			};
 
 			using PendingKey = std::tuple<webrtc::SocketAddress, webrtc::SocketAddress, std::string>;
@@ -234,17 +247,23 @@ namespace jni
 					bool validated_ = false;
 			};
 
-			// Endpoint thread only.
-			void Route(const webrtc::SocketAddress & local, std::span<const uint8_t> data,
+			// Endpoint thread only. relay is the PROXY protocol relay that brought a
+			// datagram, when it does not route the client yet.
+			void Receive(const webrtc::SocketAddress & local, std::span<const uint8_t> data,
 				const webrtc::SocketAddress & from, std::optional<webrtc::Timestamp> arrival);
+			void Route(const webrtc::SocketAddress & local, std::span<const uint8_t> data,
+				const webrtc::SocketAddress & from, std::optional<webrtc::Timestamp> arrival,
+				const std::optional<webrtc::SocketAddress> & relay);
 			void RouteBindingRequest(const RouteKey & key, std::span<const uint8_t> data,
-				std::optional<webrtc::Timestamp> arrival, int64_t nowMs);
+				std::optional<webrtc::Timestamp> arrival, int64_t nowMs, const std::optional<webrtc::SocketAddress> & relay);
+			bool ClientAlive(const webrtc::SocketAddress & client) const;
 			std::optional<uint64_t> Authenticate(IntegrityCheck & integrity, absl::string_view ufrag);
 			std::optional<uint64_t> SocketOf(const SessionEntry & session, const webrtc::SocketAddress & local) const;
 			bool Claim(uint64_t socket, const RouteKey & key, int64_t nowMs);
 			bool VerifyDerived(IntegrityCheck & integrity, absl::string_view ufrag) const;
 			void Hold(const RouteKey & key, absl::string_view username, absl::string_view ufrag,
-				std::span<const uint8_t> data, std::optional<webrtc::Timestamp> arrival, int64_t nowMs, bool announce);
+				std::span<const uint8_t> data, std::optional<webrtc::Timestamp> arrival, int64_t nowMs, bool announce,
+				const std::optional<webrtc::SocketAddress> & relay);
 			void Replay(uint64_t session, const webrtc::SocketAddress & local, int64_t nowMs);
 			std::optional<PendingRequest> TakePending(uint64_t request);
 			void SweepPending();
@@ -283,6 +302,7 @@ namespace jni
 			std::map<PendingKey, uint64_t> pendingByKey_;
 			std::multimap<std::string, uint64_t, std::less<>> pendingByUfrag_;
 			bool sweepScheduled_ = false;
+			std::unique_ptr<ProxyRelays> proxy_;
 	};
 }
 
