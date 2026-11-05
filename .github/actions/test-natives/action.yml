@@ -44,7 +44,9 @@ runs:
   using: "composite"
   steps:
     # The variant of the native library comes from the input, or else from
-    # gradle.properties. The full variant has the media module as well.
+    # gradle.properties. The full variant has the media and Swing modules as
+    # well. The Swing view paints into images, which needs no display. The
+    # JavaFX view needs one, so its tests skip on runners and do not run here.
     - name: Derive the variant
       run: |
         variant="${{ inputs.variant }}"
@@ -58,7 +60,7 @@ runs:
         else
           echo "WEBRTC_VARIANT=full" >> "$GITHUB_ENV"
           echo "WEBRTC_VARIANT_ARG=-Pwebrtc.variant=full" >> "$GITHUB_ENV"
-          echo "WEBRTC_TEST_TASKS=:webrtc:test :webrtc-media:test" >> "$GITHUB_ENV"
+          echo "WEBRTC_TEST_TASKS=:webrtc:test :webrtc-media:test :webrtc-swing:test" >> "$GITHUB_ENV"
         fi
       shell: bash
 

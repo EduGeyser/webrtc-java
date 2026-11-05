@@ -49,6 +49,20 @@ if (variant != "full" && variant != "data-channels") {
 
 // Shared by the subprojects.
 extra["platformClassifier"] = platformClassifier
+
+// OpenJFX publishes its modules once per platform, with the native code of
+// that platform. The Java code is the same in all of them, so the JavaFX
+// module and the examples compile against those of the build machine, which
+// their tests and runs need. There is none for Windows on arm64.
+extra["javafxClassifier"] = hostPlatform().let {
+	when (it) {
+		"windows-x86_64", "windows-aarch64" -> "win"
+		"macos-x86_64" -> "mac"
+		"macos-aarch64" -> "mac-aarch64"
+		"linux-aarch64" -> "linux-aarch64"
+		else -> "linux"
+	}
+}
 extra["dataChannelsOnly"] = variant == "data-channels"
 // A directory holding prebuilt native library jars, "webrtc-java-<version>-<classifier>.jar",
 // in place of the ones webrtc-jni builds: the tests run against the jar of the
@@ -152,9 +166,12 @@ publishing {
 dependencies {
 	nmcpAggregation(project(":"))
 	nmcpAggregation(project(":webrtc"))
-	// The media module needs the audio and video of the full variant.
+	// The media, Swing and JavaFX modules need the audio and video of the full
+	// variant.
 	if (variant == "full") {
 		nmcpAggregation(project(":webrtc-media"))
+		nmcpAggregation(project(":webrtc-swing"))
+		nmcpAggregation(project(":webrtc-javafx"))
 	}
 }
 

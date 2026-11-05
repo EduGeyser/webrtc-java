@@ -3,6 +3,7 @@ plugins {
 }
 
 val platformClassifier = rootProject.extra["platformClassifier"] as String
+val javafxClassifier = rootProject.extra["javafxClassifier"] as String
 val nativesDir = rootProject.extra["nativesDir"] as File?
 
 base {
@@ -12,6 +13,11 @@ base {
 dependencies {
 	implementation(project(":webrtc"))
 	implementation(project(":webrtc-media"))
+	implementation(project(":webrtc-swing"))
+	implementation(project(":webrtc-javafx"))
+	implementation(variantOf(libs.javafx.base) { classifier(javafxClassifier) })
+	implementation(variantOf(libs.javafx.graphics) { classifier(javafxClassifier) })
+	implementation(variantOf(libs.javafx.controls) { classifier(javafxClassifier) })
 	implementation(libs.jetty.server)
 	implementation(libs.jetty.websocket.server)
 	implementation(libs.jetty.util)
