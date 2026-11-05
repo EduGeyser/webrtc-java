@@ -157,6 +157,9 @@ tasks.test {
 			"--add-reads", "$moduleName=ALL-UNNAMED",
 			"--add-reads", "$moduleName=java.desktop",
 			"--enable-native-access=$moduleName",
+			// For the tests that start a JVM of their own: neither path names
+			// the patched test classes.
+			"-Dwebrtc.test.classes=$patch",
 		) + opens.flatMap { listOf("--add-opens", "$moduleName/$it=ALL-UNNAMED") }
 	})
 }

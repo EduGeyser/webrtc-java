@@ -86,12 +86,14 @@ class StandaloneLoadingTests {
 
 	/**
 	 * The classes and libraries this JVM runs with, whether they are on the
-	 * class path or, as for a module, on the module path.
+	 * class path or, as for a module, on the module path. The test classes
+	 * are patched into the module, so the build names them in the property
+	 * webrtc.test.classes.
 	 */
 	static String classPath() {
 		Set<String> entries = new LinkedHashSet<>();
 
-		for (String property : new String[] { "jdk.module.path", "java.class.path" }) {
+		for (String property : new String[] { "webrtc.test.classes", "jdk.module.path", "java.class.path" }) {
 			String value = System.getProperty(property);
 
 			if (value != null && !value.isEmpty()) {
