@@ -29,6 +29,12 @@
 #include "JavaUtils.h"
 #include "JNI_WebRTC.h"
 
+#include "api/dtls_transport_interface.h"
+#include "api/ice_transport_interface.h"
+#include "api/sctp_transport_interface.h"
+#include "p2p/base/connection.h"
+#include "p2p/base/p2p_transport_channel.h"
+
 namespace jni
 {
 	PeerConnectionObserver::PeerConnectionObserver(JNIEnv * env, const JavaGlobalRef<jobject> & observer) :
@@ -303,6 +309,51 @@ namespace jni
 		ReportPendingException(env);
 	}
 
+	void PeerConnectionObserver::setPeerConnection(webrtc::PeerConnectionInterface * pc, webrtc::Thread * thread)
+	{
+		peerConnection.store(pc);
+		networkThread.store(thread);
+	}
+
+	std::optional<webrtc::CandidatePair> PeerConnectionObserver::selectedCandidatePair(const std::string & transportName)
+	{
+		webrtc::PeerConnectionInterface * pc = peerConnection.load();
+		webrtc::Thread * thread = networkThread.load();
+
+		if (pc == nullptr || thread == nullptr) {
+			return std::nullopt;
+		}
+
+		// The transports and the selected connection belong to the network thread. Callbacks run
+		// on the signaling thread, which may block on the network thread, as WebRTC itself does.
+		return thread->BlockingCall([pc, &transportName]() -> std::optional<webrtc::CandidatePair> {
+			webrtc::scoped_refptr<webrtc::DtlsTransportInterface> dtls = pc->LookupDtlsTransportByMid(transportName);
+
+			if (dtls == nullptr) {
+				// A data channel only connection has one transport, the SCTP one.
+				webrtc::scoped_refptr<webrtc::SctpTransportInterface> sctp = pc->GetSctpTransport();
+				dtls = sctp ? sctp->dtls_transport() : nullptr;
+			}
+			if (dtls == nullptr) {
+				return std::nullopt;
+			}
+
+			webrtc::scoped_refptr<webrtc::IceTransportInterface> ice = dtls->ice_transport();
+			auto channel = ice ? dynamic_cast<const webrtc::P2PTransportChannel *>(ice->internal()) : nullptr;
+			const webrtc::Connection * connection = channel ? channel->selected_connection() : nullptr;
+
+			if (connection == nullptr) {
+				return std::nullopt;
+			}
+
+			webrtc::CandidatePair pair;
+			pair.local = connection->local_candidate();
+			pair.remote = connection->remote_candidate();
+
+			return pair;
+		});
+	}
+
 	void PeerConnectionObserver::OnIceSelectedCandidatePairChanged(const webrtc::CandidatePairChangeEvent & event)
 	{
 		JNIEnv * env = AttachCurrentThread();
@@ -312,7 +363,18 @@ namespace jni
 		}
 
 		try {
-			JavaLocalRef<jobject> jEvent = RTCCandidatePairChangeEvent::toJava(env, event);
+			// WebRTC hands out a copy of the pair sanitized for browser privacy: a peer reflexive
+			// remote candidate, learned from a connectivity check instead of signaling, arrives
+			// without its address. Report the selected connection's own candidates instead, so the
+			// application learns the address it is actually connected to. The sanitized copy is
+			// only kept when the connection cannot be read, for example while closing.
+			webrtc::CandidatePairChangeEvent reported = event;
+
+			if (std::optional<webrtc::CandidatePair> pair = selectedCandidatePair(event.transport_name)) {
+				reported.selected_candidate_pair = *pair;
+			}
+
+			JavaLocalRef<jobject> jEvent = RTCCandidatePairChangeEvent::toJava(env, reported);
 
 			if (!env->ExceptionCheck()) {
 				env->CallVoidMethod(observer, javaClass->onSelectedCandidatePairChanged, jEvent.get());

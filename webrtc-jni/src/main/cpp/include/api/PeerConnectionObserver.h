@@ -21,9 +21,12 @@
 #include "JavaRef.h"
 
 #include "api/peer_connection_interface.h"
+#include "rtc_base/thread.h"
 
+#include <atomic>
 #include <jni.h>
 #include <memory>
+#include <optional>
 
 namespace jni
 {
@@ -51,7 +54,13 @@ namespace jni
 			void OnIceConnectionReceivingChange(bool receiving) override;
 			void OnIceSelectedCandidatePairChanged(const webrtc::CandidatePairChangeEvent & event) override;
 
+			// Lets the observer read the selected connection itself. Set once, right after the
+			// peer connection was created and before it can report a candidate pair. The peer
+			// connection is not referenced: it only calls this observer while it is alive.
+			void setPeerConnection(webrtc::PeerConnectionInterface * peerConnection, webrtc::Thread * networkThread);
+
 		private:
+			std::optional<webrtc::CandidatePair> selectedCandidatePair(const std::string & transportName);
 			class JavaPeerConnectionObserverClass : public JavaClass
 			{
 				public:
@@ -79,6 +88,9 @@ namespace jni
 			JavaGlobalRef<jobject> observer;
 
 			const std::shared_ptr<JavaPeerConnectionObserverClass> javaClass;
+
+			std::atomic<webrtc::PeerConnectionInterface *> peerConnection { nullptr };
+			std::atomic<webrtc::Thread *> networkThread { nullptr };
 	};
 }
 

@@ -518,7 +518,7 @@ JNIEXPORT jobject JNICALL Java_io_github_sendablemetatype_webrtc_PeerConnectionF
 		return nullptr;
 	}
 
-	webrtc::PeerConnectionObserver * observer = new jni::PeerConnectionObserver(env, jni::JavaGlobalRef<jobject>(env, jobserver));
+	jni::PeerConnectionObserver * observer = new jni::PeerConnectionObserver(env, jni::JavaGlobalRef<jobject>(env, jobserver));
 	webrtc::PeerConnectionDependencies dependencies(observer);
 
 	auto result = factory->CreatePeerConnectionOrError(configuration, std::move(dependencies));
@@ -543,6 +543,8 @@ JNIEXPORT jobject JNICALL Java_io_github_sendablemetatype_webrtc_PeerConnectionF
 		delete observer;
 		return nullptr;
 	}
+
+	observer->setPeerConnection(pc.get(), GetHandle<webrtc::Thread>(env, caller, "networkThreadHandle"));
 
 	try {
 		// The observer is bound before the Java object takes the connection, so

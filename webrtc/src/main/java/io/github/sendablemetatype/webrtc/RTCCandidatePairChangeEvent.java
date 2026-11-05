@@ -19,6 +19,12 @@ package io.github.sendablemetatype.webrtc;
 /**
  * This event occurs when ICE selects, or later re-selects, the candidate pair
  * that carries a transport's traffic.
+ * <p>
+ * Both candidates are those of the selected connection, with the addresses it
+ * actually uses. Browsers hide the address of a peer reflexive remote
+ * candidate, one learned from a connectivity check instead of signaling; this
+ * event reports it, since an application here is connected to that address
+ * anyway.
  *
  * @author Alex Andres
  *
