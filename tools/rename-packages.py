@@ -108,7 +108,11 @@ def rewrite_files(root):
             with open(path, "rb") as file:
                 original = file.read()
 
-            text = original.decode("utf-8")
+            try:
+                text = original.decode("utf-8")
+            except UnicodeDecodeError:
+                # A binary file with a text suffix, such as an MPEG-TS test video.
+                continue
             for old, new in REPLACEMENTS:
                 text = text.replace(old, new)
             text = MODULE_PATTERN.sub(NEW_MODULE, text)
