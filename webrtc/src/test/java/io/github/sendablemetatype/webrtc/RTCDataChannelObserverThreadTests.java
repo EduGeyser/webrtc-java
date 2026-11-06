@@ -1,0 +1,327 @@
+package io.github.sendablemetatype.webrtc;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertNotSame;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
+import java.util.Set;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.BooleanSupplier;
+import java.util.function.Supplier;
+
+import org.junit.jupiter.api.Test;
+
+/**
+ * Which thread calls a data channel observer: the signaling thread by
+ * default, the network thread for an observer that asks for it.
+ * <p>
+ * The network thread cannot be named from Java, so the tests hold the
+ * signaling thread in a callback and check that a message still arrives,
+ * which it cannot if WebRTC posts it to the signaling thread.
+ */
+class RTCDataChannelObserverThreadTests extends TestBase {
+
+	@Test
+	void defaultObserverRunsOnTheSignalingThread() throws Exception {
+		try (Pair pair = new Pair(factory, false)) {
+			pair.connect();
+			pair.send("default");
+
+			Thread signaling = pair.signalingThread.get(5, TimeUnit.SECONDS);
+
+			assertSame(signaling, pair.messageThread.get(5, TimeUnit.SECONDS));
+			assertEquals(Set.of(signaling), pair.stateThreads);
+		}
+	}
+
+	@Test
+	void networkThreadObserverRunsWhileTheSignalingThreadIsHeld() throws Exception {
+		try (Pair pair = new Pair(factory, true)) {
+			pair.connect();
+
+			CountDownLatch received = new CountDownLatch(1);
+			pair.onMessage = () -> received.countDown();
+
+			Hold hold = Hold.signalingThread(pair.caller, received);
+			pair.send("network");
+
+			assertTrue(hold.released.get(10, TimeUnit.SECONDS), "The message waited for the signaling thread");
+
+			Thread signaling = pair.signalingThread.get(5, TimeUnit.SECONDS);
+			Thread network = pair.messageThread.get(5, TimeUnit.SECONDS);
+
+			assertSame(signaling, hold.thread);
+			assertNotSame(signaling, network);
+			// Both channels' state changes, on the one network thread.
+			assertEquals(Set.of(network), pair.stateThreads);
+			// Read when registering, not for each event.
+			assertEquals(1, pair.senderAsked.get());
+			assertEquals(1, pair.receiverAsked.get());
+		}
+	}
+
+	@Test
+	void networkThreadCallbackCannotUnregisterButCanDispose() throws Exception {
+		try (Pair pair = new Pair(factory, true)) {
+			pair.connect();
+
+			CompletableFuture<Throwable> unregistered = new CompletableFuture<>();
+			CountDownLatch disposed = new CountDownLatch(1);
+			pair.onMessage = () -> {
+				try {
+					pair.receiver.unregisterObserver();
+					unregistered.complete(null);
+				}
+				catch (Throwable e) {
+					unregistered.complete(e);
+				}
+				// Waits for the signaling thread, unless the release is handed on.
+				pair.receiver.dispose();
+				disposed.countDown();
+			};
+
+			Hold hold = Hold.signalingThread(pair.caller, disposed);
+			pair.send("dispose");
+
+			assertTrue(hold.released.get(10, TimeUnit.SECONDS), "The dispose waited for the signaling thread");
+			assertInstanceOf(IllegalStateException.class, unregistered.get(5, TimeUnit.SECONDS));
+			assertThrows(IllegalStateException.class, pair.receiver::getState);
+		}
+	}
+
+	@Test
+	void registerObserverRefusesAMissingOrFailingObserver() {
+		RTCPeerConnection connection = factory.createPeerConnection(new RTCConfiguration(), candidate -> { });
+		RTCDataChannel channel = connection.createDataChannel("refused", new RTCDataChannelInit());
+
+		try {
+			assertThrows(NullPointerException.class, () -> channel.registerObserver(null));
+
+			RuntimeException failure = new RuntimeException("asked");
+			RuntimeException thrown = assertThrows(RuntimeException.class, () ->
+					channel.registerObserver(new Observer(() -> { throw failure; })));
+
+			assertSame(failure, thrown);
+		}
+		finally {
+			channel.dispose();
+			connection.close();
+		}
+	}
+
+	/**
+	 * Blocks the signaling thread in a callback until a latch opens, for at
+	 * most 5 seconds.
+	 */
+	private static final class Hold {
+
+		/** Completes with whether the latch opened while the thread was held. */
+		final CompletableFuture<Boolean> released = new CompletableFuture<>();
+
+		volatile Thread thread;
+
+		static Hold signalingThread(RTCPeerConnection peer, CountDownLatch until) throws InterruptedException {
+			Hold hold = new Hold();
+			CountDownLatch holding = new CountDownLatch(1);
+
+			// A created offer is reported on the signaling thread.
+			peer.createOffer(new RTCOfferOptions(), new CreateSessionDescriptionObserver() {
+				@Override
+				public void onSuccess(RTCSessionDescription description) {
+					hold.thread = Thread.currentThread();
+					holding.countDown();
+					try {
+						hold.released.complete(until.await(5, TimeUnit.SECONDS));
+					}
+					catch (InterruptedException e) {
+						hold.released.completeExceptionally(e);
+					}
+				}
+
+				@Override
+				public void onFailure(String error) {
+					hold.released.completeExceptionally(new IllegalStateException(error));
+					holding.countDown();
+				}
+			});
+
+			assertTrue(holding.await(5, TimeUnit.SECONDS), "The signaling thread was not held");
+
+			return hold;
+		}
+	}
+
+	/**
+	 * Two connected peers of one factory with a negotiated data channel, which
+	 * record the threads their observers run on.
+	 */
+	private static final class Pair implements AutoCloseable {
+
+		final RTCPeerConnection caller;
+		final RTCPeerConnection callee;
+		final RTCDataChannel sender;
+		final RTCDataChannel receiver;
+
+		final CompletableFuture<Thread> signalingThread = new CompletableFuture<>();
+		final CompletableFuture<Thread> messageThread = new CompletableFuture<>();
+		final Set<Thread> stateThreads = ConcurrentHashMap.newKeySet();
+		final AtomicInteger senderAsked = new AtomicInteger();
+		final AtomicInteger receiverAsked = new AtomicInteger();
+
+		/** Runs in the receiver's onMessage, before the message thread is recorded. */
+		volatile Runnable onMessage = () -> { };
+
+		private final CountDownLatch open = new CountDownLatch(2);
+
+		Pair(PeerConnectionFactory factory, boolean networkThread) {
+			RTCPeerConnection[] peers = new RTCPeerConnection[2];
+			caller = factory.createPeerConnection(new RTCConfiguration(), new Peer(() -> peers[1]));
+			callee = factory.createPeerConnection(new RTCConfiguration(), new Peer(() -> peers[0]));
+			peers[0] = caller;
+			peers[1] = callee;
+
+			RTCDataChannelInit config = new RTCDataChannelInit();
+			config.negotiated = true;
+			config.id = 0;
+			sender = caller.createDataChannel("threads", config);
+			receiver = callee.createDataChannel("threads", config);
+
+			sender.registerObserver(new Observer(() -> {
+				senderAsked.incrementAndGet();
+				return networkThread;
+			}) {
+				@Override
+				public void onStateChange() {
+					stateChanged(sender);
+				}
+			});
+			receiver.registerObserver(new Observer(() -> {
+				receiverAsked.incrementAndGet();
+				return networkThread;
+			}) {
+				@Override
+				public void onStateChange() {
+					stateChanged(receiver);
+				}
+
+				@Override
+				public void onMessage(RTCDataChannelBuffer buffer) {
+					onMessage.run();
+					messageThread.complete(Thread.currentThread());
+				}
+			});
+		}
+
+		void connect() throws Exception {
+			TestCreateDescObserver offer = new TestCreateDescObserver();
+			caller.createOffer(new RTCOfferOptions(), offer);
+			RTCSessionDescription offerDescription = offer.get(5, TimeUnit.SECONDS);
+			setDescription(caller, offerDescription, true);
+			setDescription(callee, offerDescription, false);
+
+			TestCreateDescObserver answer = new TestCreateDescObserver();
+			callee.createAnswer(new RTCAnswerOptions(), answer);
+			RTCSessionDescription answerDescription = answer.get(5, TimeUnit.SECONDS);
+			setDescription(callee, answerDescription, true);
+			setDescription(caller, answerDescription, false);
+
+			assertTrue(open.await(5, TimeUnit.SECONDS), "Data channels did not open");
+		}
+
+		void send(String text) throws Exception {
+			ByteBuffer data = ByteBuffer.wrap(text.getBytes(StandardCharsets.UTF_8));
+			sender.send(new RTCDataChannelBuffer(data, true));
+		}
+
+		private void stateChanged(RTCDataChannel channel) {
+			stateThreads.add(Thread.currentThread());
+			if (channel.getState() == RTCDataChannelState.OPEN) {
+				open.countDown();
+			}
+		}
+
+		private static void setDescription(RTCPeerConnection peer,
+				RTCSessionDescription description, boolean local) throws Exception {
+			TestSetDescObserver observer = new TestSetDescObserver();
+			if (local) {
+				peer.setLocalDescription(description, observer);
+			}
+			else {
+				peer.setRemoteDescription(description, observer);
+			}
+			observer.get(5, TimeUnit.SECONDS);
+		}
+
+		@Override
+		public void close() {
+			for (RTCDataChannel channel : new RTCDataChannel[] { sender, receiver }) {
+				try {
+					channel.unregisterObserver();
+				}
+				catch (IllegalStateException disposed) {
+					// A test disposed it.
+				}
+			}
+			caller.close();
+			callee.close();
+			sender.dispose();
+			receiver.dispose();
+		}
+
+		/** Passes candidates on and records the signaling thread. */
+		private final class Peer implements PeerConnectionObserver {
+
+			private final Supplier<RTCPeerConnection> remote;
+
+			Peer(Supplier<RTCPeerConnection> remote) {
+				this.remote = remote;
+			}
+
+			@Override
+			public void onIceCandidate(RTCIceCandidate candidate) {
+				remote.get().addIceCandidate(candidate);
+			}
+
+			@Override
+			public void onSignalingChange(RTCSignalingState state) {
+				signalingThread.complete(Thread.currentThread());
+			}
+		}
+	}
+
+	/** An observer that ignores its events; the thread choice comes from a supplier. */
+	private static class Observer implements RTCDataChannelObserver {
+
+		private final BooleanSupplier networkThread;
+
+		Observer(BooleanSupplier networkThread) {
+			this.networkThread = networkThread;
+		}
+
+		@Override
+		public void onBufferedAmountChange(long sentDataSize) {
+		}
+
+		@Override
+		public void onStateChange() {
+		}
+
+		@Override
+		public void onMessage(RTCDataChannelBuffer buffer) {
+		}
+
+		@Override
+		public boolean isOkToCallOnTheNetworkThread() {
+			return networkThread.getAsBoolean();
+		}
+	}
+}
