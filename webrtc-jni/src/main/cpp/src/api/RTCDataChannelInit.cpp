@@ -34,8 +34,19 @@ namespace jni
 			webrtc::DataChannelInit init;
 			init.ordered = obj.getBoolean(javaClass->ordered);
 			init.negotiated = obj.getBoolean(javaClass->negotiated);
-			init.maxRetransmitTime = obj.getInt(javaClass->maxPacketLifeTime);
-			init.maxRetransmits = obj.getInt(javaClass->maxRetransmits);
+			// The Java fields use -1 for "not set". Left unset here, as libwebrtc's own
+			// optionals mean the same; a negative value would make libwebrtc log
+			// "Accepting maxRetransmits < 0 for backwards compatibility" at error level
+			// for every channel before treating it as unset (pc/sctp_data_channel.cc).
+			const jint maxPacketLifeTime = obj.getInt(javaClass->maxPacketLifeTime);
+			const jint maxRetransmits = obj.getInt(javaClass->maxRetransmits);
+
+			if (maxPacketLifeTime >= 0) {
+				init.maxRetransmitTime = maxPacketLifeTime;
+			}
+			if (maxRetransmits >= 0) {
+				init.maxRetransmits = maxRetransmits;
+			}
 			init.id = obj.getInt(javaClass->id);
 			init.protocol = JavaString::toNative(env, obj.getString(javaClass->protocol));
 
