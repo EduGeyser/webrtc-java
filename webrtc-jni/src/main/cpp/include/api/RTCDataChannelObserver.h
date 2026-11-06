@@ -28,16 +28,28 @@
 
 namespace jni
 {
+	// Calls a Java RTCDataChannelObserver. WebRTC calls it on its network
+	// thread when the Java observer asked for that, and otherwise posts each
+	// event to the signaling thread first.
 	class RTCDataChannelObserver : public webrtc::DataChannelObserver
 	{
 		public:
+			// Asks the Java observer once whether it may be called on the
+			// network thread. If that throws, the exception is left pending
+			// and the observer must not be registered.
 			explicit RTCDataChannelObserver(JNIEnv * env, const JavaGlobalRef<jobject> & observer);
 			~RTCDataChannelObserver() = default;
+
+			// Whether the calling thread is in a callback of an observer that
+			// WebRTC calls on its network thread. That thread must not wait
+			// for the signaling thread, which may be waiting for it.
+			static bool InNetworkThreadCallback();
 
 			// DataChannelObserver implementation.
 			void OnStateChange() override;
 			void OnMessage(const webrtc::DataBuffer & buffer) override;
 			void OnBufferedAmountChange(uint64_t sent_data_size) override;
+			bool IsOkToCallOnTheNetworkThread() override;
 
 		private:
 			class JavaRTCDataChannelObserverClass : public JavaClass
@@ -48,6 +60,7 @@ namespace jni
 					jmethodID onStateChange;
 					jmethodID onMessage;
 					jmethodID onBufferedAmountChange;
+					jmethodID isOkToCallOnTheNetworkThread;
 			};
 
 		private:
@@ -56,6 +69,8 @@ namespace jni
 			std::unique_ptr<DataBufferFactory> bufferFactory;
 
 			const std::shared_ptr<JavaRTCDataChannelObserverClass> javaClass;
+
+			const bool networkThread;
 	};
 }
 

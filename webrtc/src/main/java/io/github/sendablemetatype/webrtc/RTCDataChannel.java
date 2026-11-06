@@ -55,13 +55,28 @@ public class RTCDataChannel extends DisposableNativeObject {
 	 * dispose has no effect. While another thread's call through this object
 	 * is still handing an observer to WebRTC, this call may return before
 	 * WebRTC has its observer; the other call hands it on before it returns.
+	 * <p>
+	 * The observer's {@link RTCDataChannelObserver#isOkToCallOnTheNetworkThread()}
+	 * is read here, once, and decides the thread its callbacks run on; see
+	 * {@link RTCDataChannelObserver}. Messages that arrived before it are
+	 * delivered right after it, and callbacks may run before this method returns.
 	 *
 	 * @param observer The new data channel observer.
+	 *
+	 * @throws NullPointerException If the observer is null.
+	 * @throws IllegalStateException If called in a callback on the network
+	 *                               thread, or if the channel is disposed.
 	 */
 	public native void registerObserver(RTCDataChannelObserver observer);
 
 	/**
-	 * Unregister the last set RTCDataChannelObserver.
+	 * Unregister the last set RTCDataChannelObserver. Once this returns, the
+	 * observer is not called any more and none of its callbacks is still
+	 * running, unless another thread registers through this object at the
+	 * same time.
+	 *
+	 * @throws IllegalStateException If called in a callback on the network
+	 *                               thread, or if the channel is disposed.
 	 */
 	public native void unregisterObserver();
 
@@ -185,6 +200,14 @@ public class RTCDataChannel extends DisposableNativeObject {
 	@Override
 	public native void close();
 
+	/**
+	 * Unregisters the observer, if any, and releases the native channel. The
+	 * release waits for WebRTC's signaling thread. When it would run in a
+	 * callback on the network thread, because that callback disposes a
+	 * channel or holds this one in a call while another thread disposes it,
+	 * it runs on webrtc-java's callback thread instead, after this method
+	 * returned.
+	 */
 	@Override
 	public native void dispose();
 

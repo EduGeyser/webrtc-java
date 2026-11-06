@@ -22,11 +22,56 @@
 
 namespace jni
 {
+	namespace
+	{
+		// How many network thread callbacks the calling thread is in. One can
+		// run inside another, when the Java observer calls into its channel.
+		thread_local int networkThreadCallbacks = 0;
+
+		// Counts the calling thread as in a network thread callback for as
+		// long as it lives, if the observer is called there.
+		class CallbackScope
+		{
+			public:
+				explicit CallbackScope(bool networkThread) :
+					counted(networkThread)
+				{
+					if (counted) {
+						++networkThreadCallbacks;
+					}
+				}
+
+				~CallbackScope()
+				{
+					if (counted) {
+						--networkThreadCallbacks;
+					}
+				}
+
+				CallbackScope(const CallbackScope &) = delete;
+				CallbackScope & operator=(const CallbackScope &) = delete;
+
+			private:
+				const bool counted;
+		};
+	}
+
 	RTCDataChannelObserver::RTCDataChannelObserver(JNIEnv * env, const JavaGlobalRef<jobject> & observer) :
 		observer(observer),
 		bufferFactory(std::make_unique<DataBufferFactory>(env, PKG"RTCDataChannelBuffer")),
-		javaClass(JavaClasses::get<JavaRTCDataChannelObserverClass>(env))
+		javaClass(JavaClasses::get<JavaRTCDataChannelObserverClass>(env)),
+		networkThread(env->CallBooleanMethod(observer, javaClass->isOkToCallOnTheNetworkThread) == JNI_TRUE)
 	{
+	}
+
+	bool RTCDataChannelObserver::InNetworkThreadCallback()
+	{
+		return networkThreadCallbacks > 0;
+	}
+
+	bool RTCDataChannelObserver::IsOkToCallOnTheNetworkThread()
+	{
+		return networkThread;
 	}
 
 	void RTCDataChannelObserver::OnStateChange()
@@ -36,6 +81,8 @@ namespace jni
 		if (env == nullptr) {
 			return;
 		}
+
+		CallbackScope scope(networkThread);
 
 		env->CallVoidMethod(observer, javaClass->onStateChange);
 
@@ -49,6 +96,8 @@ namespace jni
 		if (env == nullptr) {
 			return;
 		}
+
+		CallbackScope scope(networkThread);
 
 		try {
 			JavaLocalRef<jobject> jBuffer = bufferFactory->create(env, &buffer);
@@ -70,6 +119,8 @@ namespace jni
 			return;
 		}
 
+		CallbackScope scope(networkThread);
+
 		env->CallVoidMethod(observer, javaClass->onBufferedAmountChange, static_cast<jlong>(sent_data_size));
 
 		ReportPendingException(env);
@@ -82,5 +133,6 @@ namespace jni
 		onStateChange = GetMethod(env, cls, "onStateChange", "()V");
 		onMessage = GetMethod(env, cls, "onMessage", "(L" PKG "RTCDataChannelBuffer;)V");
 		onBufferedAmountChange = GetMethod(env, cls, "onBufferedAmountChange", "(J)V");
+		isOkToCallOnTheNetworkThread = GetMethod(env, cls, "isOkToCallOnTheNetworkThread", "()Z");
 	}
 }

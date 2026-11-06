@@ -129,6 +129,25 @@ dataChannel.registerObserver(new RTCDataChannelObserver() {
 });
 ```
 
+### Callback Threads
+
+WebRTC raises data channel events on the factory's network thread. By default it posts each event to the factory's signaling thread and calls the observer there, like a `PeerConnectionObserver`. That costs a thread switch per message, and one signaling thread serves every peer connection of the factory.
+
+An observer whose callbacks only hand work to other threads can be called on the network thread directly:
+
+```java
+dataChannel.registerObserver(new RTCDataChannelObserver() {
+    @Override
+    public boolean isOkToCallOnTheNetworkThread() {
+        return true;
+    }
+
+    // onStateChange, onMessage and onBufferedAmountChange as above
+});
+```
+
+`registerObserver` reads the setting once. On the network thread, a callback must return promptly. It may call the methods of the factory's data channels, except `registerObserver` and `unregisterObserver`, which throw there. It must not call peer connection or factory methods: they wait for the signaling thread, which may be waiting for the network thread, and every connection of the factory stops. Its channel's events are not ordered with the peer connection's events, which stay on the signaling thread. See the Javadoc of `RTCDataChannelObserver` for the full rules.
+
 ### Receiving Data Channels
 
 When the remote peer creates a data channel, the `onDataChannel` method of your `PeerConnectionObserver` will be called:

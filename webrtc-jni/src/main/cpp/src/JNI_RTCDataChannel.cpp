@@ -16,12 +16,14 @@
 
 #include "JNI_RTCDataChannel.h"
 #include "NativeHandle.h"
+#include "api/JavaCallbackThread.h"
 #include "api/RTCDataChannelObserver.h"
 #include "api/RTCDataChannelSendObserver.h"
 #include "api/RTCError.h"
 #include "JavaBoundary.h"
 #include "JavaEnums.h"
 #include "JavaError.h"
+#include "JavaNullPointerException.h"
 #include "JavaRef.h"
 #include "JavaRuntimeException.h"
 #include "JavaString.h"
@@ -52,18 +54,45 @@ namespace
 			}
 		};
 	}
+
+	// WebRTC registers and unregisters observers by waiting for its
+	// signaling thread, which may be waiting for the network thread.
+	bool RefuseInNetworkThreadCallback(JNIEnv * env)
+	{
+		if (!jni::RTCDataChannelObserver::InNetworkThreadCallback()) {
+			return false;
+		}
+
+		ThrowJavaException(env, "java/lang/IllegalStateException",
+			"Data channel observers cannot be registered or unregistered in a callback on the network thread");
+
+		return true;
+	}
 }
 
 JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_RTCDataChannel_registerObserver
 (JNIEnv * env, jobject caller, jobject jObserver)
 {
 	try {
+		if (jObserver == nullptr) {
+			env->Throw(jni::JavaNullPointerException(env, "The observer must not be null"));
+			return;
+		}
+		if (RefuseInNetworkThreadCallback(env)) {
+			return;
+		}
+
 		jni::NativeLease<webrtc::DataChannelInterface> channel(env, caller);
 		CHECK_HANDLE(channel);
 
-		auto observer = new jni::RTCDataChannelObserver(env, jni::JavaGlobalRef<jobject>(env, jObserver));
+		auto observer = std::make_unique<jni::RTCDataChannelObserver>(env, jni::JavaGlobalRef<jobject>(env, jObserver));
 
-		DataChannelObserverSlot::Set(env, caller, "observerHandle", observer, ApplyTo(channel));
+		// Thrown by the observer's isOkToCallOnTheNetworkThread().
+		if (env->ExceptionCheck()) {
+			return;
+		}
+
+		DataChannelObserverSlot::Set(env, caller, "observerHandle", observer.release(), ApplyTo(channel));
 	}
 	catch (...) {
 		ThrowCxxJavaException(env);
@@ -74,6 +103,10 @@ JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_RTCDataChannel_unr
 (JNIEnv * env, jobject caller)
 {
 	try {
+		if (RefuseInNetworkThreadCallback(env)) {
+			return;
+		}
+
 		jni::NativeLease<webrtc::DataChannelInterface> channel(env, caller);
 		CHECK_HANDLE(channel);
 
@@ -253,12 +286,28 @@ JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_RTCDataChannel_dis
 	// Runs once no other thread registers through this object any more, so
 	// the observer it frees is the one the channel has, if any.
 	jni::ReleaseHandle(env, channel, [channel, slot](bool deferred) {
-		if (slot) {
-			channel->UnregisterObserver();
-		}
+		auto release = [channel, slot](bool reportDeferred) {
+			if (slot) {
+				channel->UnregisterObserver();
+			}
 
-		if (channel->Release() != webrtc::RefCountReleaseStatus::kDroppedLastRef) {
-			jni::NativeHandle::ReportNotDeleted(deferred);
+			if (channel->Release() != webrtc::RefCountReleaseStatus::kDroppedLastRef) {
+				jni::NativeHandle::ReportNotDeleted(reportDeferred);
+			}
+		};
+
+		// Both steps wait for the signaling thread, which may be waiting for
+		// the network thread. A release that would run in a callback on the
+		// network thread, because the callback disposed the channel or held
+		// it in a call while another thread disposed it, runs on the callback
+		// thread instead.
+		if (jni::RTCDataChannelObserver::InNetworkThreadCallback()) {
+			jni::JavaCallbackThread::Post([release = std::move(release)](JNIEnv *) {
+				release(true);
+			});
+		}
+		else {
+			release(deferred);
 		}
 	});
 }
