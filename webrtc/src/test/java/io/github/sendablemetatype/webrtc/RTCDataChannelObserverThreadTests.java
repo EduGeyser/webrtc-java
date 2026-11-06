@@ -1,6 +1,7 @@
 package io.github.sendablemetatype.webrtc;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertSame;
@@ -15,7 +16,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.function.BooleanSupplier;
 import java.util.function.Supplier;
 
 import org.junit.jupiter.api.Test;
@@ -31,13 +31,14 @@ import org.junit.jupiter.api.Test;
 class RTCDataChannelObserverThreadTests extends TestBase {
 
 	@Test
-	void defaultObserverRunsOnTheSignalingThread() throws Exception {
+	void anObserverThatKeepsTheDefaultRunsOnTheSignalingThread() throws Exception {
 		try (Pair pair = new Pair(factory, false)) {
 			pair.connect();
 			pair.send("default");
 
 			Thread signaling = pair.signalingThread.get(5, TimeUnit.SECONDS);
 
+			assertFalse(pair.receiverObserver.isOkToCallOnTheNetworkThread());
 			assertSame(signaling, pair.messageThread.get(5, TimeUnit.SECONDS));
 			assertEquals(Set.of(signaling), pair.stateThreads);
 		}
@@ -108,7 +109,12 @@ class RTCDataChannelObserverThreadTests extends TestBase {
 
 			RuntimeException failure = new RuntimeException("asked");
 			RuntimeException thrown = assertThrows(RuntimeException.class, () ->
-					channel.registerObserver(new Observer(() -> { throw failure; })));
+					channel.registerObserver(new Recorder() {
+						@Override
+						public boolean isOkToCallOnTheNetworkThread() {
+							throw failure;
+						}
+					}));
 
 			assertSame(failure, thrown);
 		}
@@ -116,6 +122,10 @@ class RTCDataChannelObserverThreadTests extends TestBase {
 			channel.dispose();
 			connection.close();
 		}
+	}
+
+	private static RTCDataChannelBuffer binary(String text) {
+		return new RTCDataChannelBuffer(ByteBuffer.wrap(text.getBytes(StandardCharsets.UTF_8)), true);
 	}
 
 	/**
@@ -170,6 +180,7 @@ class RTCDataChannelObserverThreadTests extends TestBase {
 		final RTCPeerConnection callee;
 		final RTCDataChannel sender;
 		final RTCDataChannel receiver;
+		final RTCDataChannelObserver receiverObserver;
 
 		final CompletableFuture<Thread> signalingThread = new CompletableFuture<>();
 		final CompletableFuture<Thread> messageThread = new CompletableFuture<>();
@@ -182,6 +193,10 @@ class RTCDataChannelObserverThreadTests extends TestBase {
 
 		private final CountDownLatch open = new CountDownLatch(2);
 
+		/**
+		 * @param networkThread whether the observers ask for the network
+		 *                      thread; if not, they keep the interface's default
+		 */
 		Pair(PeerConnectionFactory factory, boolean networkThread) {
 			RTCPeerConnection[] peers = new RTCPeerConnection[2];
 			caller = factory.createPeerConnection(new RTCConfiguration(), new Peer(() -> peers[1]));
@@ -195,30 +210,14 @@ class RTCDataChannelObserverThreadTests extends TestBase {
 			sender = caller.createDataChannel("threads", config);
 			receiver = callee.createDataChannel("threads", config);
 
-			sender.registerObserver(new Observer(() -> {
-				senderAsked.incrementAndGet();
-				return networkThread;
-			}) {
-				@Override
-				public void onStateChange() {
-					stateChanged(sender);
-				}
-			});
-			receiver.registerObserver(new Observer(() -> {
-				receiverAsked.incrementAndGet();
-				return networkThread;
-			}) {
-				@Override
-				public void onStateChange() {
-					stateChanged(receiver);
-				}
+			Recorder senderObserver = networkThread ? new NetworkThreadRecorder(senderAsked) : new Recorder();
+			Recorder receiverRecorder = networkThread ? new NetworkThreadRecorder(receiverAsked) : new Recorder();
+			senderObserver.bind(this, sender, false);
+			receiverRecorder.bind(this, receiver, true);
+			receiverObserver = receiverRecorder;
 
-				@Override
-				public void onMessage(RTCDataChannelBuffer buffer) {
-					onMessage.run();
-					messageThread.complete(Thread.currentThread());
-				}
-			});
+			sender.registerObserver(senderObserver);
+			receiver.registerObserver(receiverRecorder);
 		}
 
 		void connect() throws Exception {
@@ -238,15 +237,19 @@ class RTCDataChannelObserverThreadTests extends TestBase {
 		}
 
 		void send(String text) throws Exception {
-			ByteBuffer data = ByteBuffer.wrap(text.getBytes(StandardCharsets.UTF_8));
-			sender.send(new RTCDataChannelBuffer(data, true));
+			sender.send(binary(text));
 		}
 
-		private void stateChanged(RTCDataChannel channel) {
+		void stateChanged(RTCDataChannel channel) {
 			stateThreads.add(Thread.currentThread());
 			if (channel.getState() == RTCDataChannelState.OPEN) {
 				open.countDown();
 			}
+		}
+
+		void received() {
+			onMessage.run();
+			messageThread.complete(Thread.currentThread());
 		}
 
 		private static void setDescription(RTCPeerConnection peer,
@@ -298,13 +301,21 @@ class RTCDataChannelObserverThreadTests extends TestBase {
 		}
 	}
 
-	/** An observer that ignores its events; the thread choice comes from a supplier. */
-	private static class Observer implements RTCDataChannelObserver {
+	/**
+	 * Hands a pair's channel events to it, on the thread the interface's
+	 * default asks for: this class does not override
+	 * {@link #isOkToCallOnTheNetworkThread()}.
+	 */
+	private static class Recorder implements RTCDataChannelObserver {
 
-		private final BooleanSupplier networkThread;
+		private Pair pair;
+		private RTCDataChannel channel;
+		private boolean receiver;
 
-		Observer(BooleanSupplier networkThread) {
-			this.networkThread = networkThread;
+		void bind(Pair pair, RTCDataChannel channel, boolean receiver) {
+			this.pair = pair;
+			this.channel = channel;
+			this.receiver = receiver;
 		}
 
 		@Override
@@ -313,15 +324,32 @@ class RTCDataChannelObserverThreadTests extends TestBase {
 
 		@Override
 		public void onStateChange() {
+			if (pair != null) {
+				pair.stateChanged(channel);
+			}
 		}
 
 		@Override
 		public void onMessage(RTCDataChannelBuffer buffer) {
+			if (pair != null && receiver) {
+				pair.received();
+			}
+		}
+	}
+
+	/** A recorder that asks for the network thread and counts how often it is asked. */
+	private static final class NetworkThreadRecorder extends Recorder {
+
+		private final AtomicInteger asked;
+
+		NetworkThreadRecorder(AtomicInteger asked) {
+			this.asked = asked;
 		}
 
 		@Override
 		public boolean isOkToCallOnTheNetworkThread() {
-			return networkThread.getAsBoolean();
+			asked.incrementAndGet();
+			return true;
 		}
 	}
 }
