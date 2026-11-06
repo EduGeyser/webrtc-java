@@ -484,8 +484,11 @@ public class PeerConnectionFactory extends DisposableNativeObject {
 	}
 
 	/**
-	 * Releases the factory and stops its threads. Connections, tracks and the
-	 * other objects it created are to be closed and disposed before.
+	 * Releases the factory and stops its threads. Connections, their data
+	 * channels, tracks and the other objects it created, directly or through
+	 * its connections, are to be closed and disposed before this call starts,
+	 * not after it or while it runs on another thread: those calls use the
+	 * threads this stops, and can crash the process once they are gone.
 	 * <p>
 	 * A connection closed with {@link RTCPeerConnection#close()} is freed on
 	 * the factory's threads, possibly after close() has returned: when it was

@@ -218,7 +218,9 @@ public class RTCDataChannel extends DisposableNativeObject {
 	 * <p>
 	 * A release that runs after this method returned keeps the channel's
 	 * {@link PeerConnectionFactory} working until it is done: a dispose of the
-	 * factory meanwhile stops the factory's threads only after it.
+	 * factory meanwhile stops the factory's threads only after it. The channel
+	 * itself is to be disposed before the factory, as
+	 * {@link PeerConnectionFactory#dispose()} requires.
 	 */
 	@Override
 	public native void dispose();
