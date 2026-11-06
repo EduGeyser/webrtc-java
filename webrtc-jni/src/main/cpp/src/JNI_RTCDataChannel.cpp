@@ -16,6 +16,7 @@
 
 #include "JNI_RTCDataChannel.h"
 #include "NativeHandle.h"
+#include "api/DataChannelFactory.h"
 #include "api/JavaCallbackThread.h"
 #include "api/RTCDataChannelObserver.h"
 #include "api/RTCDataChannelSendObserver.h"
@@ -283,16 +284,34 @@ JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_RTCDataChannel_dis
 
 	auto slot = DataChannelObserverSlot::Take(env, caller, "observerHandle");
 
+	// The release needs the factory's threads, and it may run after this
+	// returns: on the thread of a call that still holds the channel, or on
+	// the callback thread. The factory stays in use until it is done, so a
+	// dispose of the factory stops its threads only after that.
+	jlong factory = 0;
+
+	try {
+		factory = jni::DataChannelFactory::Use(env, caller);
+	}
+	catch (...) {
+		ThrowCxxJavaException(env);
+	}
+
 	// Runs once no other thread registers through this object any more, so
 	// the observer it frees is the one the channel has, if any.
-	jni::ReleaseHandle(env, channel, [channel, slot](bool deferred) {
-		auto release = [channel, slot](bool reportDeferred) {
+	jni::ReleaseHandle(env, channel, [channel, slot, factory](bool deferred) {
+		auto release = [channel, slot, factory](bool reportDeferred) {
 			if (slot) {
 				channel->UnregisterObserver();
 			}
 
 			if (channel->Release() != webrtc::RefCountReleaseStatus::kDroppedLastRef) {
 				jni::NativeHandle::ReportNotDeleted(reportDeferred);
+			}
+
+			// May release a factory disposed meanwhile.
+			if (factory != 0) {
+				jni::NativeHandle::Unuse(AttachCurrentThread(), factory);
 			}
 		};
 
@@ -302,6 +321,11 @@ JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_RTCDataChannel_dis
 		// it in a call while another thread disposed it, runs on the callback
 		// thread instead.
 		if (jni::RTCDataChannelObserver::InNetworkThreadCallback()) {
+			// WebRTC calls the observer until the callback thread unregisters it.
+			if (slot && slot->applied() != nullptr) {
+				slot->applied()->Stop();
+			}
+
 			jni::JavaCallbackThread::Post([release = std::move(release)](JNIEnv *) {
 				release(true);
 			});

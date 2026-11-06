@@ -34,7 +34,10 @@ namespace jni
 	class PeerConnectionObserver : public webrtc::PeerConnectionObserver
 	{
 		public:
-			PeerConnectionObserver(JNIEnv * env, const JavaGlobalRef<jobject> & observer);
+			// The factory is the Java PeerConnectionFactory that creates the
+			// connection, which the data channels the remote peer opens get.
+			PeerConnectionObserver(JNIEnv * env, const JavaGlobalRef<jobject> & observer,
+				const JavaGlobalRef<jobject> & factory);
 			virtual ~PeerConnectionObserver() = default;
 
 			// PeerConnectionObserver implementation.
@@ -92,6 +95,8 @@ namespace jni
 
 		private:
 			JavaGlobalRef<jobject> observer;
+
+			JavaGlobalRef<jobject> factory;
 
 			const std::shared_ptr<JavaPeerConnectionObserverClass> javaClass;
 

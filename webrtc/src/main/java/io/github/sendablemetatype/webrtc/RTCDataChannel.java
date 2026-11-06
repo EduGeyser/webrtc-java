@@ -40,6 +40,14 @@ public class RTCDataChannel extends DisposableNativeObject {
 	private long observerHandle;
 
 	/**
+	 * The factory of the channel's peer connection, set by the native api.
+	 * {@link #dispose()} keeps it from releasing its threads until the native
+	 * channel is released, which may be after the dispose returned.
+	 */
+	@SuppressWarnings("unused")
+	private PeerConnectionFactory factory;
+
+	/**
 	 * Used by the native api.
 	 */
 	private RTCDataChannel() {
@@ -206,7 +214,11 @@ public class RTCDataChannel extends DisposableNativeObject {
 	 * callback on the network thread, because that callback disposes a
 	 * channel or holds this one in a call while another thread disposes it,
 	 * it runs on webrtc-java's callback thread instead, after this method
-	 * returned.
+	 * returned; the observer is not called from then on.
+	 * <p>
+	 * A release that runs after this method returned keeps the channel's
+	 * {@link PeerConnectionFactory} working until it is done: a dispose of the
+	 * factory meanwhile stops the factory's threads only after it.
 	 */
 	@Override
 	public native void dispose();

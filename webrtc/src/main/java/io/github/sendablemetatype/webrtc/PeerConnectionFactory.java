@@ -492,7 +492,8 @@ public class PeerConnectionFactory extends DisposableNativeObject {
 	 * closed from a callback, or while another thread was still in one of its
 	 * methods. Until it is freed, the factory stays: disposing it meanwhile
 	 * returns at once, and the factory is released once the last such
-	 * connection is.
+	 * connection is. The same holds for a data channel whose native release
+	 * runs after its {@link RTCDataChannel#dispose()} returned.
 	 */
 	@Override
 	public void dispose() {

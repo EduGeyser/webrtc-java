@@ -18,6 +18,7 @@
 #include "NativeHandle.h"
 #include "api/AddIceCandidateObserver.h"
 #include "api/CreateSessionDescriptionObserver.h"
+#include "api/DataChannelFactory.h"
 #include "api/PeerConnectionObserver.h"
 #include "api/SetSessionDescriptionObserver.h"
 #include "api/RTCAnswerOptions.h"
@@ -287,7 +288,12 @@ JNIEXPORT jobject JNICALL Java_io_github_sendablemetatype_webrtc_RTCPeerConnecti
 
 		auto dataChannel = result.MoveValue();
 
-		return jni::JavaFactories::createOwning(env, std::move(dataChannel)).release();
+		jni::JavaLocalRef<jobject> factory(env, env->GetObjectField(caller,
+			GetFieldID(env, caller, "factory", "L" PKG "PeerConnectionFactory;")));
+
+		return jni::JavaFactories::createOwning(env, std::move(dataChannel), [&](jobject jChannel) {
+			jni::DataChannelFactory::Set(env, jChannel, factory.get());
+		}).release();
 	}
 	catch (...) {
 		ThrowCxxJavaException(env);

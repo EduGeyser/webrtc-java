@@ -593,7 +593,8 @@ JNIEXPORT jobject JNICALL Java_io_github_sendablemetatype_webrtc_PeerConnectionF
 		return nullptr;
 	}
 
-	jni::PeerConnectionObserver * observer = new jni::PeerConnectionObserver(env, jni::JavaGlobalRef<jobject>(env, jobserver));
+	jni::PeerConnectionObserver * observer = new jni::PeerConnectionObserver(env, jni::JavaGlobalRef<jobject>(env, jobserver),
+		jni::JavaGlobalRef<jobject>(env, caller));
 	webrtc::PeerConnectionDependencies dependencies(observer);
 	dependencies.allocator = std::move(allocator);
 

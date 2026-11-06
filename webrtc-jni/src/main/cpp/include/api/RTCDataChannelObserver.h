@@ -24,6 +24,7 @@
 #include <api/DataBufferFactory.h>
 
 #include <jni.h>
+#include <atomic>
 #include <memory>
 
 namespace jni
@@ -44,6 +45,11 @@ namespace jni
 			// WebRTC calls on its network thread. That thread must not wait
 			// for the signaling thread, which may be waiting for it.
 			static bool InNetworkThreadCallback();
+
+			// Drops every later event, for an observer whose unregistration
+			// was handed to another thread and that WebRTC may still call
+			// until then.
+			void Stop();
 
 			// DataChannelObserver implementation.
 			void OnStateChange() override;
@@ -71,6 +77,8 @@ namespace jni
 			const std::shared_ptr<JavaRTCDataChannelObserverClass> javaClass;
 
 			const bool networkThread;
+
+			std::atomic<bool> stopped { false };
 	};
 }
 

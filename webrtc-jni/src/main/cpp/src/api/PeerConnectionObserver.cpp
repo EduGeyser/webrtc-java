@@ -15,6 +15,7 @@
  */
 
 #include "api/PeerConnectionObserver.h"
+#include "api/DataChannelFactory.h"
 #include "api/MetricsSctpTransport.h"
 #include "api/RTCCandidatePairChangeEvent.h"
 #include "api/RTCIceCandidate.h"
@@ -39,8 +40,10 @@
 
 namespace jni
 {
-	PeerConnectionObserver::PeerConnectionObserver(JNIEnv * env, const JavaGlobalRef<jobject> & observer) :
+	PeerConnectionObserver::PeerConnectionObserver(JNIEnv * env, const JavaGlobalRef<jobject> & observer,
+		const JavaGlobalRef<jobject> & factory) :
 		observer(observer),
+		factory(factory),
 		javaClass(JavaClasses::get<JavaPeerConnectionObserverClass>(env))
 	{
 	}
@@ -172,7 +175,9 @@ namespace jni
 		}
 
 		try {
-			auto jDataChannel = JavaFactories::createOwning(env, std::move(channel));
+			auto jDataChannel = JavaFactories::createOwning(env, std::move(channel), [&](jobject jChannel) {
+				DataChannelFactory::Set(env, jChannel, factory);
+			});
 
 			env->CallVoidMethod(observer, javaClass->onDataChannel, jDataChannel.get());
 		}

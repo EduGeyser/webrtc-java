@@ -74,8 +74,17 @@ namespace jni
 		return networkThread;
 	}
 
+	void RTCDataChannelObserver::Stop()
+	{
+		stopped.store(true, std::memory_order_release);
+	}
+
 	void RTCDataChannelObserver::OnStateChange()
 	{
+		if (stopped.load(std::memory_order_acquire)) {
+			return;
+		}
+
 		JNIEnv * env = AttachCurrentThread();
 
 		if (env == nullptr) {
@@ -91,6 +100,10 @@ namespace jni
 
 	void RTCDataChannelObserver::OnMessage(const webrtc::DataBuffer & buffer)
 	{
+		if (stopped.load(std::memory_order_acquire)) {
+			return;
+		}
+
 		JNIEnv * env = AttachCurrentThread();
 
 		if (env == nullptr) {
@@ -113,6 +126,10 @@ namespace jni
 
 	void RTCDataChannelObserver::OnBufferedAmountChange(uint64_t sent_data_size)
 	{
+		if (stopped.load(std::memory_order_acquire)) {
+			return;
+		}
+
 		JNIEnv * env = AttachCurrentThread();
 
 		if (env == nullptr) {

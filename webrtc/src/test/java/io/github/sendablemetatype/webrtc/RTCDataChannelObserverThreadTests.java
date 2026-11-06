@@ -8,6 +8,9 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import io.github.sendablemetatype.webrtc.media.audio.AudioDeviceModule;
+import io.github.sendablemetatype.webrtc.media.audio.AudioLayer;
+
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.Set;
@@ -96,6 +99,83 @@ class RTCDataChannelObserverThreadTests extends TestBase {
 			assertTrue(hold.released.get(10, TimeUnit.SECONDS), "The dispose waited for the signaling thread");
 			assertInstanceOf(IllegalStateException.class, unregistered.get(5, TimeUnit.SECONDS));
 			assertThrows(IllegalStateException.class, pair.receiver::getState);
+		}
+	}
+
+	/**
+	 * A release handed to the callback thread still needs the factory's
+	 * threads, so a dispose of the factory before it has run must leave them
+	 * until it is done. Without that, the release runs on freed threads and
+	 * crashes or hangs, and the marker queued behind it never runs.
+	 */
+	@Test
+	void aReleaseHandedOnFromACallbackFinishesBeforeTheFactoryStops() throws Exception {
+		AudioDeviceModule module = DATA_CHANNELS_ONLY ? null : new AudioDeviceModule(AudioLayer.kDummyAudio);
+		PeerConnectionFactory own = module == null ? new PeerConnectionFactory() : new PeerConnectionFactory(module);
+		Pair pair = new Pair(own, true);
+		TestDataChannelPair marker = new TestDataChannelPair(factory);
+		CountDownLatch blocked = new CountDownLatch(1);
+		CountDownLatch unblock = new CountDownLatch(1);
+
+		try {
+			pair.connect();
+			marker.connect();
+
+			CountDownLatch disposed = new CountDownLatch(1);
+			pair.onMessage = () -> {
+				pair.receiver.dispose();
+				disposed.countDown();
+			};
+
+			// The send's result is posted to the callback thread before the
+			// message reaches the receiver, whose callback then posts the
+			// release, so the release waits behind the held result.
+			pair.sender.sendAsync(binary("hold"), new RTCDataChannelSendObserver() {
+				@Override
+				public void onSuccess() {
+					blocked.countDown();
+					try {
+						unblock.await(10, TimeUnit.SECONDS);
+					}
+					catch (InterruptedException e) {
+						Thread.currentThread().interrupt();
+					}
+				}
+
+				@Override
+				public void onFailure(String error) {
+					blocked.countDown();
+				}
+			});
+
+			assertTrue(blocked.await(5, TimeUnit.SECONDS), "The callback thread was not held");
+			assertTrue(disposed.await(5, TimeUnit.SECONDS), "The receiver was not disposed in its callback");
+
+			pair.close();
+			if (module != null) {
+				module.dispose();
+			}
+			own.dispose();
+
+			CountDownLatch released = new CountDownLatch(1);
+			marker.sender.sendAsync(binary("marker"), new RTCDataChannelSendObserver() {
+				@Override
+				public void onSuccess() {
+					released.countDown();
+				}
+
+				@Override
+				public void onFailure(String error) {
+					released.countDown();
+				}
+			});
+			unblock.countDown();
+
+			assertTrue(released.await(10, TimeUnit.SECONDS), "The release queued before the marker did not finish");
+		}
+		finally {
+			unblock.countDown();
+			marker.close();
 		}
 	}
 
