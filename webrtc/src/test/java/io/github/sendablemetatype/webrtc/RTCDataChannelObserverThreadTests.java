@@ -108,74 +108,86 @@ class RTCDataChannelObserverThreadTests extends TestBase {
 	 * until it is done. Without that, the release runs on freed threads and
 	 * crashes or hangs, and the marker queued behind it never runs.
 	 */
+	// The pair is closed in the body too, before the factory's dispose; its
+	// close is idempotent, so the resource closes it again on every path.
+	@SuppressWarnings("try")
 	@Test
 	void aReleaseHandedOnFromACallbackFinishesBeforeTheFactoryStops() throws Exception {
-		AudioDeviceModule module = DATA_CHANNELS_ONLY ? null : new AudioDeviceModule(AudioLayer.kDummyAudio);
-		PeerConnectionFactory own = module == null ? new PeerConnectionFactory() : new PeerConnectionFactory(module);
-		Pair pair = new Pair(own, true);
-		TestDataChannelPair marker = new TestDataChannelPair(factory);
-		CountDownLatch blocked = new CountDownLatch(1);
 		CountDownLatch unblock = new CountDownLatch(1);
+		// True once this test lets go of the held send result, false if the
+		// hold expired on its own, which would void the test.
+		CompletableFuture<Boolean> letGo = new CompletableFuture<>();
 
-		try {
-			pair.connect();
-			marker.connect();
+		try (AudioDeviceModule module = DATA_CHANNELS_ONLY ? null : new AudioDeviceModule(AudioLayer.kDummyAudio);
+				PeerConnectionFactory own = module == null ? new PeerConnectionFactory() : new PeerConnectionFactory(module);
+				Pair pair = new Pair(own, true);
+				TestDataChannelPair marker = new TestDataChannelPair(factory)) {
+			// Runs before the resources close, so a failure never leaves the
+			// callback thread held while they do.
+			try {
+				pair.connect();
+				marker.connect();
 
-			CountDownLatch disposed = new CountDownLatch(1);
-			pair.onMessage = () -> {
-				pair.receiver.dispose();
-				disposed.countDown();
-			};
+				CountDownLatch disposed = new CountDownLatch(1);
+				pair.onMessage = () -> {
+					pair.receiver.dispose();
+					disposed.countDown();
+				};
 
-			// The send's result is posted to the callback thread before the
-			// message reaches the receiver, whose callback then posts the
-			// release, so the release waits behind the held result.
-			pair.sender.sendAsync(binary("hold"), new RTCDataChannelSendObserver() {
-				@Override
-				public void onSuccess() {
-					blocked.countDown();
-					try {
-						unblock.await(10, TimeUnit.SECONDS);
+				// The send's result is posted to the callback thread before the
+				// message reaches the receiver, whose callback then posts the
+				// release, so the release waits behind the held result.
+				CountDownLatch blocked = new CountDownLatch(1);
+				pair.sender.sendAsync(binary("hold"), new RTCDataChannelSendObserver() {
+					@Override
+					public void onSuccess() {
+						blocked.countDown();
+						try {
+							letGo.complete(unblock.await(60, TimeUnit.SECONDS));
+						}
+						catch (InterruptedException e) {
+							letGo.completeExceptionally(e);
+						}
 					}
-					catch (InterruptedException e) {
-						Thread.currentThread().interrupt();
+
+					@Override
+					public void onFailure(String error) {
+						letGo.completeExceptionally(new IllegalStateException("The held send failed: " + error));
+						blocked.countDown();
 					}
+				});
+
+				assertTrue(blocked.await(5, TimeUnit.SECONDS), "The callback thread was not held");
+				assertTrue(disposed.await(5, TimeUnit.SECONDS), "The receiver was not disposed in its callback");
+
+				pair.close();
+				if (module != null) {
+					module.dispose();
 				}
+				own.dispose();
 
-				@Override
-				public void onFailure(String error) {
-					blocked.countDown();
-				}
-			});
+				assertFalse(letGo.isDone(), "The callback thread was let go before the factory was disposed");
 
-			assertTrue(blocked.await(5, TimeUnit.SECONDS), "The callback thread was not held");
-			assertTrue(disposed.await(5, TimeUnit.SECONDS), "The receiver was not disposed in its callback");
+				CountDownLatch released = new CountDownLatch(1);
+				marker.sender.sendAsync(binary("marker"), new RTCDataChannelSendObserver() {
+					@Override
+					public void onSuccess() {
+						released.countDown();
+					}
 
-			pair.close();
-			if (module != null) {
-				module.dispose();
+					@Override
+					public void onFailure(String error) {
+						released.countDown();
+					}
+				});
+				unblock.countDown();
+
+				assertTrue(letGo.get(5, TimeUnit.SECONDS), "The hold of the callback thread expired");
+				assertTrue(released.await(10, TimeUnit.SECONDS), "The release queued before the marker did not finish");
 			}
-			own.dispose();
-
-			CountDownLatch released = new CountDownLatch(1);
-			marker.sender.sendAsync(binary("marker"), new RTCDataChannelSendObserver() {
-				@Override
-				public void onSuccess() {
-					released.countDown();
-				}
-
-				@Override
-				public void onFailure(String error) {
-					released.countDown();
-				}
-			});
-			unblock.countDown();
-
-			assertTrue(released.await(10, TimeUnit.SECONDS), "The release queued before the marker did not finish");
-		}
-		finally {
-			unblock.countDown();
-			marker.close();
+			finally {
+				unblock.countDown();
+			}
 		}
 	}
 
