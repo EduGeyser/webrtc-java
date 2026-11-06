@@ -86,7 +86,15 @@ JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_RTCDataChannel_reg
 		jni::NativeLease<webrtc::DataChannelInterface> channel(env, caller);
 		CHECK_HANDLE(channel);
 
-		auto observer = std::make_unique<jni::RTCDataChannelObserver>(env, jni::JavaGlobalRef<jobject>(env, jObserver));
+		jni::JavaGlobalRef<jobject> observerRef(env, jObserver);
+
+		// The observer is set, so a null reference is a failed NewGlobalRef.
+		if (observerRef.get() == nullptr) {
+			ThrowJavaException(env, "java/lang/OutOfMemoryError", "No global reference for the data channel observer");
+			return;
+		}
+
+		auto observer = std::make_unique<jni::RTCDataChannelObserver>(env, std::move(observerRef));
 
 		// Thrown by the observer's isOkToCallOnTheNetworkThread().
 		if (env->ExceptionCheck()) {

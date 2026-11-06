@@ -20,6 +20,8 @@
 #include "JavaUtils.h"
 #include "JNI_WebRTC.h"
 
+#include <utility>
+
 namespace jni
 {
 	namespace
@@ -56,11 +58,11 @@ namespace jni
 		};
 	}
 
-	RTCDataChannelObserver::RTCDataChannelObserver(JNIEnv * env, const JavaGlobalRef<jobject> & observer) :
-		observer(observer),
+	RTCDataChannelObserver::RTCDataChannelObserver(JNIEnv * env, JavaGlobalRef<jobject> observer) :
+		observer(std::move(observer)),
 		bufferFactory(std::make_unique<DataBufferFactory>(env, PKG"RTCDataChannelBuffer")),
 		javaClass(JavaClasses::get<JavaRTCDataChannelObserverClass>(env)),
-		networkThread(env->CallBooleanMethod(observer, javaClass->isOkToCallOnTheNetworkThread) == JNI_TRUE)
+		networkThread(env->CallBooleanMethod(this->observer, javaClass->isOkToCallOnTheNetworkThread) == JNI_TRUE)
 	{
 	}
 

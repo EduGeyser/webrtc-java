@@ -593,8 +593,17 @@ JNIEXPORT jobject JNICALL Java_io_github_sendablemetatype_webrtc_PeerConnectionF
 		return nullptr;
 	}
 
-	jni::PeerConnectionObserver * observer = new jni::PeerConnectionObserver(env, jni::JavaGlobalRef<jobject>(env, jobserver),
-		jni::JavaGlobalRef<jobject>(env, caller));
+	jni::JavaGlobalRef<jobject> observerRef(env, jobserver);
+	jni::JavaGlobalRef<jobject> factoryRef(env, caller);
+
+	// Both objects are set, so a null reference is a failed NewGlobalRef.
+	if (observerRef.get() == nullptr || factoryRef.get() == nullptr) {
+		ThrowJavaException(env, "java/lang/OutOfMemoryError", "No global reference for the peer connection observer");
+		return nullptr;
+	}
+
+	jni::PeerConnectionObserver * observer = new jni::PeerConnectionObserver(env, std::move(observerRef),
+		std::move(factoryRef));
 	webrtc::PeerConnectionDependencies dependencies(observer);
 	dependencies.allocator = std::move(allocator);
 

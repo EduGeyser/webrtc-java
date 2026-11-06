@@ -40,10 +40,10 @@
 
 namespace jni
 {
-	PeerConnectionObserver::PeerConnectionObserver(JNIEnv * env, const JavaGlobalRef<jobject> & observer,
-		const JavaGlobalRef<jobject> & factory) :
-		observer(observer),
-		factory(factory),
+	PeerConnectionObserver::PeerConnectionObserver(JNIEnv * env, JavaGlobalRef<jobject> observer,
+		JavaGlobalRef<jobject> factory) :
+		observer(std::move(observer)),
+		factory(std::move(factory)),
 		javaClass(JavaClasses::get<JavaPeerConnectionObserverClass>(env))
 	{
 	}

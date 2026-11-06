@@ -35,10 +35,11 @@ namespace jni
 	class RTCDataChannelObserver : public webrtc::DataChannelObserver
 	{
 		public:
-			// Asks the Java observer once whether it may be called on the
-			// network thread. If that throws, the exception is left pending
-			// and the observer must not be registered.
-			explicit RTCDataChannelObserver(JNIEnv * env, const JavaGlobalRef<jobject> & observer);
+			// Takes over the reference to the Java observer, which the caller
+			// checks, and asks it once whether it may be called on the network
+			// thread. If that throws, the exception is left pending and the
+			// observer must not be registered.
+			RTCDataChannelObserver(JNIEnv * env, JavaGlobalRef<jobject> observer);
 			~RTCDataChannelObserver() = default;
 
 			// Whether the calling thread is in a callback of an observer that

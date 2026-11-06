@@ -36,8 +36,8 @@ namespace jni
 		public:
 			// The factory is the Java PeerConnectionFactory that creates the
 			// connection, which the data channels the remote peer opens get.
-			PeerConnectionObserver(JNIEnv * env, const JavaGlobalRef<jobject> & observer,
-				const JavaGlobalRef<jobject> & factory);
+			// Both references are taken over, so the caller checks them.
+			PeerConnectionObserver(JNIEnv * env, JavaGlobalRef<jobject> observer, JavaGlobalRef<jobject> factory);
 			virtual ~PeerConnectionObserver() = default;
 
 			// PeerConnectionObserver implementation.
