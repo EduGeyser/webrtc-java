@@ -99,7 +99,7 @@ Which decoder a stream uses shows in the `decoderImplementation` statistic of it
 
 | Interface | Needs |
 |---|---|
-| NVENC | NVIDIA driver 522 or newer on Windows, 520 or newer on Linux |
+| NVENC | NVIDIA driver 570.0 or newer on Windows and Linux, for the API 13.0 header the library is built with ([nv-codec-headers n13.0.19.1](https://github.com/FFmpeg/nv-codec-headers/blob/n13.0.19.1/README)) |
 | NVDEC | NVIDIA driver, which provides `libcuda.so.1` and `libnvcuvid.so.1` |
 | VA-API | libva 2, a driver such as Intel's `intel-media-va-driver` (iHD) or Mesa's `mesa-va-drivers` for AMD that encodes H.264, and access to a render node in `/dev/dri` |
 | Media Foundation | for decoding, the codec extensions above |
