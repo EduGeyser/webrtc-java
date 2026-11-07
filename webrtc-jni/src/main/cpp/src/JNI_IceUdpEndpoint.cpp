@@ -42,8 +42,10 @@ JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_IceUdpEndpoint_ini
 (JNIEnv * env, jobject caller, jint port, jobjectArray jAddresses)
 {
 	try {
-		std::vector<webrtc::IPAddress> addresses = jni::JavaArray::toNativeVector<webrtc::IPAddress>(env,
-			jni::JavaLocalRef<jobjectArray>(env, jAddresses), &jni::InetAddress::toNative);
+		std::vector<webrtc::SocketAddress> addresses = jni::JavaArray::toNativeVector<webrtc::SocketAddress>(env,
+			jni::JavaLocalRef<jobjectArray>(env, jAddresses), [](JNIEnv * env, const jni::JavaRef<jobject> & address) {
+				return jni::InetAddress::toNativeSocketAddress(env, address, 0);
+			});
 
 		auto endpoint = std::make_unique<EndpointHandle>(jni::IceUdpEndpoint::Create(static_cast<uint16_t>(port),
 			std::move(addresses)));
@@ -224,7 +226,7 @@ JNIEXPORT jlong JNICALL Java_io_github_sendablemetatype_webrtc_IceUdpEndpoint_op
 	CHECK_HANDLEV(endpoint, 0);
 
 	try {
-		webrtc::IPAddress local = jni::InetAddress::toNative(env, jni::JavaLocalRef<jobject>(env, jLocal));
+		webrtc::SocketAddress local = jni::InetAddress::toNativeSocketAddress(env, jni::JavaLocalRef<jobject>(env, jLocal), 0);
 		webrtc::SocketAddress server(jni::InetAddress::toNative(env, jni::JavaLocalRef<jobject>(env, jServer)), port);
 
 		return static_cast<jlong>((*endpoint)->OpenStunMonitor(local, server));

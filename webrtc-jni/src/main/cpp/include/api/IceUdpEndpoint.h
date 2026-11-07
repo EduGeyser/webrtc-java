@@ -149,7 +149,8 @@ namespace jni
 			};
 
 			// Starts the endpoint thread. An empty address list allows every local address.
-			static std::shared_ptr<IceUdpEndpoint> Create(uint16_t port, std::vector<webrtc::IPAddress> addresses);
+			// A listed address keeps its IPv6 scope; its port is not used.
+			static std::shared_ptr<IceUdpEndpoint> Create(uint16_t port, std::vector<webrtc::SocketAddress> addresses);
 
 			~IceUdpEndpoint();
 
@@ -164,7 +165,7 @@ namespace jni
 			bool Allows(const webrtc::IPAddress & address) const;
 
 			// Empty allows every local address.
-			const std::vector<webrtc::IPAddress> & addresses() const { return addresses_; }
+			std::vector<webrtc::IPAddress> addresses() const;
 
 			// Closes the sockets and drops all routes. Peers keep running but neither send
 			// nor receive through the endpoint any more.
@@ -227,17 +228,25 @@ namespace jni
 			// local address, so that the NAT mapping of the shared port stays open and
 			// known with no connection running: a binding request every 15 seconds,
 			// retransmitted while unanswered. 0 if the address is not allowed or cannot
-			// be bound.
-			uint64_t OpenStunMonitor(const webrtc::IPAddress & local, const webrtc::SocketAddress & server);
+			// be bound. local's port is not used; a link-local one needs its scope.
+			uint64_t OpenStunMonitor(const webrtc::SocketAddress & local, const webrtc::SocketAddress & server);
 			std::optional<StunReading> ReadStunMonitor(uint64_t monitor);
 			void CloseStunMonitor(uint64_t monitor);
 
 			Stats GetStats();
 
 		private:
-			IceUdpEndpoint(uint16_t port, std::vector<webrtc::IPAddress> addresses);
+			IceUdpEndpoint(uint16_t port, std::vector<webrtc::SocketAddress> addresses);
 
 			using RouteKey = std::pair<webrtc::SocketAddress, webrtc::SocketAddress>;
+
+			// Orders the endpoint's own addresses by their scope too, which
+			// SocketAddress leaves out: the same link-local address on two links is two
+			// sockets.
+			struct ScopedOrder
+			{
+				bool operator()(const webrtc::SocketAddress & a, const webrtc::SocketAddress & b) const;
+			};
 
 			struct RouteEntry
 			{
@@ -331,7 +340,10 @@ namespace jni
 			void RouteBindingRequest(const RouteKey & key, std::span<const uint8_t> data,
 				std::optional<webrtc::Timestamp> arrival, int64_t nowMs, const std::optional<webrtc::SocketAddress> & relay);
 			bool ClientAlive(const webrtc::SocketAddress & client) const;
-			std::optional<webrtc::SocketAddress> OpenSocketHere(const webrtc::IPAddress & address);
+			// Returns the socket's address, with the scope it is bound in. address's port
+			// is not used.
+			std::optional<webrtc::SocketAddress> OpenSocketHere(const webrtc::SocketAddress & address);
+			int ListedScope(const webrtc::IPAddress & address) const;
 			void StartMonitorTransaction(uint64_t monitor);
 			void SendMonitorRequest(uint64_t monitor, const std::string & transaction, int attempt);
 			bool OnMonitorResponse(std::span<const uint8_t> data, const webrtc::SocketAddress & from, int64_t nowMs);
@@ -356,13 +368,13 @@ namespace jni
 			void ForgetSocket(uint64_t socket);
 
 			const uint16_t port_;
-			const std::vector<webrtc::IPAddress> addresses_;
+			const std::vector<webrtc::SocketAddress> addresses_;
 			const webrtc::Environment env_;
 			std::unique_ptr<webrtc::Thread> thread_;
 			std::atomic<uint64_t> nextId_ { 1 };
 
 			bool closed_ = false;
-			std::map<webrtc::SocketAddress, std::unique_ptr<webrtc::AsyncPacketSocket>> osSockets_;
+			std::map<webrtc::SocketAddress, std::unique_ptr<webrtc::AsyncPacketSocket>, ScopedOrder> osSockets_;
 			std::map<uint64_t, PeerEntry> peers_;
 			std::map<uint64_t, SessionEntry> sessions_;
 			std::multimap<std::string, uint64_t, std::less<>> sessionsByUfrag_;

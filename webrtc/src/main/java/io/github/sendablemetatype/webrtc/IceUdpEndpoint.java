@@ -75,7 +75,9 @@ public class IceUdpEndpoint extends DisposableNativeObject {
 	 * @param addresses The local addresses to bind, or none to bind every
 	 *                  address a connection gathers on. Connections on the
 	 *                  endpoint gather on these addresses only, as with
-	 *                  {@link PortAllocatorConfig#allowedAddresses}.
+	 *                  {@link PortAllocatorConfig#allowedAddresses}. An IPv6
+	 *                  address keeps its scope, which binding a link-local
+	 *                  address needs.
 	 */
 	public IceUdpEndpoint(int port, InetAddress... addresses) {
 		if (port < 1 || port > 65535) {
@@ -289,7 +291,9 @@ public class IceUdpEndpoint extends DisposableNativeObject {
 	 * relays let it through. A server can so publish its public address before
 	 * any client connects.
 	 *
-	 * @param local  The local address to send from, one the endpoint allows.
+	 * @param local  The local address to send from, one the endpoint allows. A
+	 *               link-local one needs its scope, unless the endpoint lists
+	 *               it with one.
 	 * @param server The STUN server, resolved.
 	 *
 	 * @return The monitor, to read and to close.

@@ -39,13 +39,21 @@ namespace jni
 				jmethodID getByAddress;
 				jclass socketCls;
 				jmethodID socketCtor;
+				jclass inet6Cls;
+				jmethodID getScopeId;
+				jmethodID getScopedByAddress;
 		};
 
 		// The address of a java.net.InetAddress, from its raw bytes. An IPv6 scope is
 		// left out. Throws a NullPointerException for null.
 		webrtc::IPAddress toNative(JNIEnv * env, const JavaRef<jobject> & address);
 
-		// A java.net.InetSocketAddress, built from the raw address without a lookup.
+		// The address with the port, keeping the scope of an IPv6 address, which
+		// binding a link-local address needs.
+		webrtc::SocketAddress toNativeSocketAddress(JNIEnv * env, const JavaRef<jobject> & address, int port);
+
+		// A java.net.InetSocketAddress, built from the raw address without a lookup. An
+		// IPv6 address keeps its scope.
 		JavaLocalRef<jobject> toJavaSocketAddress(JNIEnv * env, const webrtc::SocketAddress & address);
 	}
 }

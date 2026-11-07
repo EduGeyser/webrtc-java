@@ -71,12 +71,12 @@ namespace jni
 		}
 	}
 
-	std::shared_ptr<IceUdpEndpoint> IceUdpEndpoint::Create(uint16_t port, std::vector<webrtc::IPAddress> addresses)
+	std::shared_ptr<IceUdpEndpoint> IceUdpEndpoint::Create(uint16_t port, std::vector<webrtc::SocketAddress> addresses)
 	{
 		return std::shared_ptr<IceUdpEndpoint>(new IceUdpEndpoint(port, std::move(addresses)));
 	}
 
-	IceUdpEndpoint::IceUdpEndpoint(uint16_t port, std::vector<webrtc::IPAddress> addresses) :
+	IceUdpEndpoint::IceUdpEndpoint(uint16_t port, std::vector<webrtc::SocketAddress> addresses) :
 		port_(port),
 		addresses_(std::move(addresses)),
 		env_(webrtc::CreateEnvironment()),
@@ -117,7 +117,19 @@ namespace jni
 
 	bool IceUdpEndpoint::Allows(const webrtc::IPAddress & address) const
 	{
-		return addresses_.empty() || std::find(addresses_.begin(), addresses_.end(), address) != addresses_.end();
+		return addresses_.empty() || std::any_of(addresses_.begin(), addresses_.end(),
+			[&address](const webrtc::SocketAddress & listed) { return listed.ipaddr() == address; });
+	}
+
+	std::vector<webrtc::IPAddress> IceUdpEndpoint::addresses() const
+	{
+		std::vector<webrtc::IPAddress> ips;
+
+		for (const webrtc::SocketAddress & listed : addresses_) {
+			ips.push_back(listed.ipaddr());
+		}
+
+		return ips;
 	}
 
 	void IceUdpEndpoint::Close()
@@ -254,20 +266,58 @@ namespace jni
 		}
 
 		return thread_->BlockingCall([this, &address] {
-			return OpenSocketHere(address);
+			return OpenSocketHere(webrtc::SocketAddress(address, 0));
 		});
 	}
 
-	std::optional<webrtc::SocketAddress> IceUdpEndpoint::OpenSocketHere(const webrtc::IPAddress & address)
+	bool IceUdpEndpoint::ScopedOrder::operator()(const webrtc::SocketAddress & a, const webrtc::SocketAddress & b) const
+	{
+		if (a < b) {
+			return true;
+		}
+		if (b < a) {
+			return false;
+		}
+		return a.scope_id() < b.scope_id();
+	}
+
+	// The scope of the listed address with these bytes, or 0 if none or several are.
+	int IceUdpEndpoint::ListedScope(const webrtc::IPAddress & address) const
+	{
+		std::optional<int> scope;
+
+		for (const webrtc::SocketAddress & listed : addresses_) {
+			if (listed.ipaddr() == address) {
+				if (scope) {
+					return 0;
+				}
+				scope = listed.scope_id();
+			}
+		}
+
+		return scope.value_or(0);
+	}
+
+	std::optional<webrtc::SocketAddress> IceUdpEndpoint::OpenSocketHere(const webrtc::SocketAddress & address)
 	{
 		if (closed_) {
 			return std::nullopt;
 		}
 
-		webrtc::SocketAddress local(address, port_);
+		// A link-local address is bound on the link its scope names; asked for
+		// without one, it takes the scope it is listed with. Any other address binds
+		// alike in every scope, so it keeps none: Java may give an interface's other
+		// IPv6 addresses a scope too, and they must find the socket they already have.
+		webrtc::SocketAddress local(address.ipaddr(), port_);
 
-		if (osSockets_.find(local) != osSockets_.end()) {
-			return local;
+		if (webrtc::IPIsLinkLocal(address.ipaddr())) {
+			local.SetScopeID(address.scope_id() != 0 ? address.scope_id() : ListedScope(address.ipaddr()));
+		}
+
+		auto existing = osSockets_.find(local);
+
+		if (existing != osSockets_.end()) {
+			return existing->first;
 		}
 
 		std::unique_ptr<webrtc::AsyncUDPSocket> socket = webrtc::AsyncUDPSocket::Create(env_, local, *thread_->socketserver());
@@ -1030,9 +1080,9 @@ namespace jni
 		}
 	}
 
-	uint64_t IceUdpEndpoint::OpenStunMonitor(const webrtc::IPAddress & local, const webrtc::SocketAddress & server)
+	uint64_t IceUdpEndpoint::OpenStunMonitor(const webrtc::SocketAddress & local, const webrtc::SocketAddress & server)
 	{
-		if (!Allows(local)) {
+		if (!Allows(local.ipaddr())) {
 			return 0;
 		}
 

@@ -53,6 +53,21 @@ namespace jni
 			return webrtc::IPAddress(ipv6);
 		}
 
+		webrtc::SocketAddress toNativeSocketAddress(JNIEnv * env, const JavaRef<jobject> & address, int port)
+		{
+			webrtc::SocketAddress socketAddress(toNative(env, address), port);
+			const auto javaClass = JavaClasses::get<JavaInetAddressClass>(env);
+
+			if (env->IsInstanceOf(address.get(), javaClass->inet6Cls)) {
+				jint scopeId = env->CallIntMethod(address.get(), javaClass->getScopeId);
+				ExceptionCheck(env);
+
+				socketAddress.SetScopeID(scopeId);
+			}
+
+			return socketAddress;
+		}
+
 		JavaLocalRef<jobject> toJavaSocketAddress(JNIEnv * env, const webrtc::SocketAddress & address)
 		{
 			const auto javaClass = JavaClasses::get<JavaInetAddressClass>(env);
@@ -77,7 +92,12 @@ namespace jni
 			ExceptionCheck(env);
 			env->SetByteArrayRegion(bytes.get(), 0, length, static_cast<const jbyte *>(raw));
 
-			JavaLocalRef<jobject> inetAddress(env, env->CallStaticObjectMethod(javaClass->cls, javaClass->getByAddress, bytes.get()));
+			// A scoped address keeps its scope, which a link-local one is useless without.
+			jobject created = ip.family() == AF_INET6 && address.scope_id() != 0
+				? env->CallStaticObjectMethod(javaClass->inet6Cls, javaClass->getScopedByAddress, static_cast<jstring>(nullptr),
+					bytes.get(), static_cast<jint>(address.scope_id()))
+				: env->CallStaticObjectMethod(javaClass->cls, javaClass->getByAddress, bytes.get());
+			JavaLocalRef<jobject> inetAddress(env, created);
 			ExceptionCheck(env);
 
 			JavaLocalRef<jobject> socketAddress(env, env->NewObject(javaClass->socketCls, javaClass->socketCtor,
@@ -94,6 +114,9 @@ namespace jni
 			getByAddress = GetStaticMethod(env, cls, "getByAddress", "([B)Ljava/net/InetAddress;");
 			socketCls = FindClass(env, "java/net/InetSocketAddress");
 			socketCtor = GetMethod(env, socketCls, "<init>", "(Ljava/net/InetAddress;I)V");
+			inet6Cls = FindClass(env, "java/net/Inet6Address");
+			getScopeId = GetMethod(env, inet6Cls, "getScopeId", "()I");
+			getScopedByAddress = GetStaticMethod(env, inet6Cls, "getByAddress", "(Ljava/lang/String;[BI)Ljava/net/Inet6Address;");
 		}
 	}
 }
