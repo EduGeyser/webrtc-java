@@ -365,11 +365,17 @@ namespace
 				throw;
 			}
 
-			// No call is left to fail. Closing runs on the current thread,
-			// which gives up the sockets and the request handler; only the
-			// reference stays behind.
-			(*endpoint)->Close();
-			RTC_LOG(LS_ERROR) << "No thread to release the ICE UDP endpoint on; it stays closed but allocated";
+			// No call is left to fail, and this thread may be inside the read
+			// callback of a socket, which closing here would destroy under
+			// it. The close waits for the endpoint's thread to be free, and
+			// the reference, which keeps the endpoint alive for it, stays.
+			try {
+				(*endpoint)->CloseLater();
+				RTC_LOG(LS_ERROR) << "No thread to release the ICE UDP endpoint on; it closes but stays allocated";
+			}
+			catch (...) {
+				RTC_LOG(LS_ERROR) << "No thread to release the ICE UDP endpoint on; it stays open and allocated";
+			}
 		}
 	}
 }

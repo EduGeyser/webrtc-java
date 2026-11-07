@@ -146,6 +146,11 @@ namespace jni
 		});
 	}
 
+	void IceUdpEndpoint::CloseLater()
+	{
+		thread_->PostTask([this] { Close(); });
+	}
+
 	void IceUdpEndpoint::Inject(const webrtc::SocketAddress & local, const webrtc::SocketAddress & remote,
 		std::vector<uint8_t> data)
 	{

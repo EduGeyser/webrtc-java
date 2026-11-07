@@ -170,6 +170,11 @@ namespace jni
 			// nor receive through the endpoint any more.
 			void Close();
 
+			// Close() as a task of the endpoint's thread, which runs once the current one
+			// has returned. For the endpoint's own thread, where a caller may be inside the
+			// read callback of a socket that Close() destroys.
+			void CloseLater();
+
 			// Feeds a datagram into the routing as if the socket for local had received it.
 			void Inject(const webrtc::SocketAddress & local, const webrtc::SocketAddress & remote,
 				std::vector<uint8_t> data);
