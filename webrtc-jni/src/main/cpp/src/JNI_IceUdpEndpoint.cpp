@@ -45,7 +45,13 @@ JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_IceUdpEndpoint_ini
 		std::vector<webrtc::IPAddress> addresses = jni::JavaArray::toNativeVector<webrtc::IPAddress>(env,
 			jni::JavaLocalRef<jobjectArray>(env, jAddresses), &jni::InetAddress::toNative);
 
-		SetHandle(env, caller, new EndpointHandle(jni::IceUdpEndpoint::Create(static_cast<uint16_t>(port), std::move(addresses))));
+		auto endpoint = std::make_unique<EndpointHandle>(jni::IceUdpEndpoint::Create(static_cast<uint16_t>(port),
+			std::move(addresses)));
+
+		// Owned here until the Java object has it, so that a failure stops its thread.
+		if (SetHandle(env, caller, endpoint.get())) {
+			endpoint.release();
+		}
 	}
 	catch (...) {
 		ThrowCxxJavaException(env);

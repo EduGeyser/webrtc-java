@@ -127,15 +127,18 @@ using NativeHandleHook = void (*)(JNIEnv * env, jobject obj, bool bound);
 void SetNativeHandleHook(NativeHandleHook hook);
 NativeHandleHook GetNativeHandleHook();
 
+// Returns whether the field now holds t. When the object has no such field, it
+// throws the lookup's pending exception, or else returns false, and t still
+// belongs to the caller.
 template<typename T>
-void SetHandle(JNIEnv * env, jobject obj, const std::string & handleName, T * t,
+bool SetHandle(JNIEnv * env, jobject obj, const std::string & handleName, T * t,
 	const char * declaringClass = nullptr)
 {
 	jfieldID field = GetHandleField(env, obj, handleName, declaringClass);
 
 	if (!field) {
 		ExceptionCheck(env);
-		return;
+		return false;
 	}
 
 	jlong handle = reinterpret_cast<jlong>(t);
@@ -147,12 +150,14 @@ void SetHandle(JNIEnv * env, jobject obj, const std::string & handleName, T * t,
 			hook(env, obj, handle != 0);
 		}
 	}
+
+	return true;
 }
 
 template<typename T>
-void SetHandle(JNIEnv * env, jobject obj, T * t)
+bool SetHandle(JNIEnv * env, jobject obj, T * t)
 {
-	SetHandle<T>(env, obj, "nativeHandle", t);
+	return SetHandle<T>(env, obj, "nativeHandle", t);
 }
 
 // Replaces the native observer stored in the `handleName` field on `obj`
