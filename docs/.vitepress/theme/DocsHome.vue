@@ -19,21 +19,21 @@ const platforms = [
 ]
 const platform = ref(platforms[0].classifier)
 const dependency = computed(() => `<dependency>
-    <groupId>dev.onvoid.webrtc</groupId>
+    <groupId>io.github.sendablemetatype.webrtc</groupId>
     <artifactId>webrtc-java</artifactId>
     <version>${PROJECT_VARS.VERSION}</version>
 </dependency>
 
 <dependency>
-    <groupId>dev.onvoid.webrtc</groupId>
+    <groupId>io.github.sendablemetatype.webrtc</groupId>
     <artifactId>webrtc-java</artifactId>
     <version>${PROJECT_VARS.VERSION}</version>
     <classifier>${platform.value}</classifier>
     <scope>runtime</scope>
 </dependency>`)
 const gradleDependency = computed(() => `dependencies {
-    implementation("dev.onvoid.webrtc:webrtc-java:${PROJECT_VARS.VERSION}")
-    runtimeOnly("dev.onvoid.webrtc:webrtc-java:${PROJECT_VARS.VERSION}:${platform.value}")
+    implementation("io.github.sendablemetatype.webrtc:webrtc-java:${PROJECT_VARS.VERSION}")
+    runtimeOnly("io.github.sendablemetatype.webrtc:webrtc-java:${PROJECT_VARS.VERSION}:${platform.value}")
 }`)
 const displayedDependency = computed(() => tab.value === 'gradle' ? gradleDependency.value : dependency.value)
 watch([tab, platform], () => {
@@ -125,6 +125,6 @@ const topics = [
     </section>
 
     <section class="dh-section dh-topics" aria-labelledby="topics-title"><div class="dh-section-heading"><div><h2 id="topics-title">What will you connect?</h2></div><span class="dh-muted">From the first frame to the last packet.</span></div><div class="dh-topic-grid"><a v-for="topic in topics" :key="topic.title" :href="withBase(topic.link)"><span class="dh-topic-icon"><DocsIcon :name="topic.icon" /></span><div><h3>{{ topic.title }}</h3><p>{{ topic.detail }}</p></div><DocsIcon class="dh-topic-arrow" name="arrow-up-right" /></a></div></section>
-    <footer class="dh-footer"><span>webrtc-java <span class="dh-muted">/ Real-time starts here.</span></span><div><a :href="withBase('/guide/build')">Build from source</a><a href="https://javadoc.io/doc/dev.onvoid.webrtc/webrtc-java/latest/index.html">JavaDoc <DocsIcon name="arrow-up-right" /></a></div></footer>
+    <footer class="dh-footer"><span>webrtc-java <span class="dh-muted">/ Real-time starts here.</span></span><div><a :href="withBase('/guide/build')">Build from source</a><a href="https://javadoc.io/doc/io.github.sendablemetatype.webrtc/webrtc-java/latest/index.html">JavaDoc <DocsIcon name="arrow-up-right" /></a></div></footer>
   </div>
 </template>

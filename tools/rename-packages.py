@@ -35,7 +35,7 @@ SKIPPED_DIRS = {".git", ".gradle", "build", "node_modules"}
 SKIPPED_FILES = {"CHANGELOG.md", "README.md", os.path.basename(__file__)}
 TEXT_SUFFIXES = {
     ".java", ".cpp", ".h", ".mm", ".kts", ".md", ".yml", ".yaml", ".json",
-    ".txt", ".properties", ".cmake", ".toml", ".js", ".ts", ".mts", ".html",
+    ".txt", ".properties", ".cmake", ".toml", ".js", ".ts", ".mts", ".html", ".vue",
 }
 
 
