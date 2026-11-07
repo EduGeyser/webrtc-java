@@ -142,12 +142,20 @@ runs:
       uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6.4.1
 
     # Gradle's native integration has no binaries for the 32-bit arm JDK, hence
-    # the switches.
+    # the switches. The watchdog dumps and ends a run that hangs: the slowest
+    # lane needs about 12 minutes for the whole job, and the job times out
+    # after 30.
     - name: Test
       if: inputs.jni-check != 'true'
       env:
         VERSION: ${{ inputs.version }}
-      run: ./gradlew $WEBRTC_TEST_TASKS --continue -Pnatives.dir=natives -Pwebrtc.platform=${{ inputs.classifier }} $WEBRTC_VARIANT_ARG ${VERSION:+-Pversion=$VERSION} --no-daemon -Dorg.gradle.native=false -Dorg.gradle.vfs.watch=false
+      run: |
+        bash "$GITHUB_ACTION_PATH/hang-watchdog.sh" 20 &
+        watchdog=$!
+        status=0
+        ./gradlew $WEBRTC_TEST_TASKS --continue -Pnatives.dir=natives -Pwebrtc.platform=${{ inputs.classifier }} $WEBRTC_VARIANT_ARG ${VERSION:+-Pversion=$VERSION} --no-daemon -Dorg.gradle.native=false -Dorg.gradle.vfs.watch=false || status=$?
+        kill "$watchdog" 2> /dev/null || true
+        exit $status
       shell: bash
 
     # The same tests under -Xcheck:jni, which checks every JNI call of the
@@ -175,7 +183,8 @@ runs:
       shell: bash
 
     # What failed, for runners that cannot be reproduced locally, including
-    # the report the JVM writes into the module directory when it crashes.
+    # the report the JVM writes into the module directory when it crashes and
+    # the watchdog's dumps of a hung run.
     - name: Upload test reports
       if: failure()
       uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
@@ -188,5 +197,6 @@ runs:
           */build/test-results/
           */hs_err_pid*.log
           jni-check-excerpt.txt
+          hang-dumps/
         if-no-files-found: ignore
         retention-days: 7
