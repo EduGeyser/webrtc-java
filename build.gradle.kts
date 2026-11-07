@@ -114,7 +114,7 @@ allprojects {
  */
 val platformProfiles = listOf(
 	Triple("windows-x86_64", "windows", "amd64"),
-	Triple("windows-aarch64", null, null),
+	Triple("windows-aarch64", "windows", "aarch64"),
 	Triple("linux-x86_64", "linux", "amd64"),
 	Triple("linux-aarch32", "linux", "aarch32"),
 	Triple("linux-aarch64", "linux", "aarch64"),
