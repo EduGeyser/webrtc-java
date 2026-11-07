@@ -26,6 +26,7 @@
 #include "JavaUtils.h"
 #include "JNI_WebRTC.h"
 
+#include "rtc_base/logging.h"
 #include "rtc_base/zero_memory.h"
 
 #include <memory>
@@ -337,6 +338,42 @@ JNIEXPORT jobject JNICALL Java_io_github_sendablemetatype_webrtc_IceUdpEndpoint_
 	});
 }
 
+namespace
+{
+	// Closes the endpoint and drops the Java object's reference to it. Dropping
+	// the last reference stops the endpoint's thread, which cannot stop
+	// itself, so a release on that thread, from a call of the request
+	// handler, finishes on a thread of its own. Throws only before the
+	// endpoint is touched.
+	void ReleaseEndpoint(EndpointHandle * endpoint, bool deferred)
+	{
+		if (!(*endpoint)->IsCurrent()) {
+			(*endpoint)->Close();
+			delete endpoint;
+			return;
+		}
+
+		try {
+			std::thread([endpoint]() {
+				(*endpoint)->Close();
+				delete endpoint;
+			}).detach();
+		}
+		catch (...) {
+			if (!deferred) {
+				// dispose() gives the endpoint back to the Java object.
+				throw;
+			}
+
+			// No call is left to fail. Closing runs on the current thread,
+			// which gives up the sockets and the request handler; only the
+			// reference stays behind.
+			(*endpoint)->Close();
+			RTC_LOG(LS_ERROR) << "No thread to release the ICE UDP endpoint on; it stays closed but allocated";
+		}
+	}
+}
+
 JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_IceUdpEndpoint_dispose
 (JNIEnv * env, jobject caller)
 {
@@ -347,19 +384,17 @@ JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_IceUdpEndpoint_dis
 			return;
 		}
 
-		jni::ReleaseHandle(env, endpoint, [endpoint](bool) {
-			// A call from the request handler runs on the endpoint's thread, which
-			// cannot stop itself.
-			if ((*endpoint)->IsCurrent()) {
-				std::thread([endpoint]() {
-					(*endpoint)->Close();
-					delete endpoint;
-				}).detach();
-				return;
-			}
-
-			(*endpoint)->Close();
-			delete endpoint;
-		});
+		try {
+			jni::ReleaseHandle(env, endpoint, [endpoint](bool deferred) {
+				ReleaseEndpoint(endpoint, deferred);
+			});
+		}
+		catch (...) {
+			// The release was neither stored behind a call that still uses the
+			// endpoint nor run, so the endpoint is as it was. The Java object
+			// takes it back and can be disposed again.
+			SetHandle(env, caller, endpoint);
+			throw;
+		}
 	});
 }
