@@ -225,8 +225,8 @@ namespace jni
 			// OBUs with size fields, the low overhead format WebRTC sends.
 			av1.outputAnnexBFormat = 0;
 			av1.chromaFormatIDC = 1;
-			av1.inputPixelBitDepthMinus8 = 0;
-			av1.pixelBitDepthMinus8 = 0;
+			av1.inputBitDepth = NV_ENC_BIT_DEPTH_8;
+			av1.outputBitDepth = NV_ENC_BIT_DEPTH_8;
 			av1.level = NV_ENC_LEVEL_AV1_AUTOSELECT;
 			av1.tier = NV_ENC_TIER_AV1_0;
 			return;
@@ -245,7 +245,8 @@ namespace jni
 			hevc.sliceMode = 0;
 			hevc.sliceModeData = 0;
 			hevc.chromaFormatIDC = 1;
-			hevc.pixelBitDepthMinus8 = 0;
+			hevc.inputBitDepth = NV_ENC_BIT_DEPTH_8;
+			hevc.outputBitDepth = NV_ENC_BIT_DEPTH_8;
 			hevc.level = NV_ENC_LEVEL_AUTOSELECT;
 			hevc.tier = NV_ENC_TIER_HEVC_MAIN;
 			return;
@@ -261,6 +262,8 @@ namespace jni
 		h264.sliceMode = 0;
 		h264.sliceModeData = 0;
 		h264.chromaFormatIDC = 1;
+		h264.inputBitDepth = NV_ENC_BIT_DEPTH_8;
+		h264.outputBitDepth = NV_ENC_BIT_DEPTH_8;
 		h264.level = NV_ENC_LEVEL_AUTOSELECT;
 		// Baseline has no CABAC.
 		h264.entropyCodingMode = NV_ENC_H264_ENTROPY_CODING_MODE_CAVLC;
