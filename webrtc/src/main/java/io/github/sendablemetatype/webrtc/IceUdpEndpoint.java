@@ -211,7 +211,10 @@ public class IceUdpEndpoint extends DisposableNativeObject {
 
 	/**
 	 * Stops passing on failed binds. Once this returns, the handler is not
-	 * passed further failures.
+	 * passed further failures: failures still queued on its executor are
+	 * dropped, and only a call the handler is already in may still complete.
+	 * Setting another handler drops the queued failures of the previous one
+	 * the same way.
 	 */
 	public void clearBindFailureHandler() {
 		enableBindFailures(false);
@@ -419,7 +422,12 @@ public class IceUdpEndpoint extends DisposableNativeObject {
 		BindFailure failure = bindFailure(address, reason);
 
 		try {
-			dispatch.executor.execute(() -> dispatch.handler.accept(failure));
+			dispatch.executor.execute(() -> {
+				// Cleared or replaced while queued: that handler takes no more failures.
+				if (bindFailureDispatch == dispatch) {
+					dispatch.handler.accept(failure);
+				}
+			});
 		}
 		catch (RejectedExecutionException e) {
 			// getSockets() still has it.

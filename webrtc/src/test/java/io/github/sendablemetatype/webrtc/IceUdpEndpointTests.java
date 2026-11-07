@@ -171,6 +171,44 @@ class IceUdpEndpointTests extends TestBase {
 	}
 
 	@Test
+	void clearingTheBindFailureHandlerDropsFailuresStillQueued() throws Exception {
+		InetSocketAddress taken = new InetSocketAddress(gatheredAddresses().get(0), endpoint.getPort());
+		List<IceUdpEndpoint.BindFailure> handled = new CopyOnWriteArrayList<>();
+		CountDownLatch gate = new CountDownLatch(1);
+		ExecutorService handlerThread = Executors.newSingleThreadExecutor();
+
+		try {
+			// Holds the handler's thread, so the failure waits in its queue.
+			handlerThread.execute(() -> {
+				try {
+					gate.await();
+				}
+				catch (InterruptedException e) {
+					Thread.currentThread().interrupt();
+				}
+			});
+			endpoint.setBindFailureHandler(handled::add, handlerThread);
+
+			try (DatagramSocket holder = new DatagramSocket(taken)) {
+				hostsGatheredOn(endpoint);
+			}
+
+			assertTrue(endpoint.getSockets().failed().stream().anyMatch(failure -> failure.address().equals(taken)),
+					"The failure was not recorded, so it was not queued either");
+
+			endpoint.clearBindFailureHandler();
+			gate.countDown();
+			// The thread runs its tasks in order: once this one ran, the queued failure was handled or dropped.
+			handlerThread.submit(() -> { }).get(10, TimeUnit.SECONDS);
+
+			assertTrue(handled.isEmpty(), "Passed on after clearing: " + handled);
+		}
+		finally {
+			handlerThread.shutdownNow();
+		}
+	}
+
+	@Test
 	void listedLinkLocalAddressIsBoundInItsScope() throws Exception {
 		Inet6Address linkLocal = bindableLinkLocalAddress();
 
@@ -184,7 +222,7 @@ class IceUdpEndpointTests extends TestBase {
 		endpoint.dispose();
 		endpoint = new IceUdpEndpoint(port, linkLocal);
 
-		try (DatagramSocket server = new DatagramSocket(new InetSocketAddress(linkLocal, 0));
+		try (DatagramSocket server = linkLocalServer(linkLocal);
 				IceUdpEndpoint.StunMonitor monitor = endpoint.monitorStun(unscoped,
 						(InetSocketAddress) server.getLocalSocketAddress())) {
 			IceUdpEndpoint.Sockets sockets = endpoint.getSockets();
@@ -213,7 +251,7 @@ class IceUdpEndpointTests extends TestBase {
 
 		endpoint.setBindFailureHandler(failures::add, requestExecutor);
 
-		try (DatagramSocket server = new DatagramSocket(new InetSocketAddress(linkLocal, 0));
+		try (DatagramSocket server = linkLocalServer(linkLocal);
 				IceUdpEndpoint.StunMonitor monitor = endpoint.monitorStun(linkLocal,
 						(InetSocketAddress) server.getLocalSocketAddress())) {
 			InetSocketAddress serverAddress = (InetSocketAddress) server.getLocalSocketAddress();
@@ -567,6 +605,23 @@ class IceUdpEndpointTests extends TestBase {
 	private static void assertUnavailable(IceUdpEndpoint.BindFailure failure) {
 		assertThrows(SocketException.class, () -> new DatagramSocket(failure.address()).close(),
 				failure.address() + " can be bound, yet the endpoint failed: " + failure.failure().getMessage());
+	}
+
+	/*
+	 * A socket on the link-local address, on a port other than the endpoint's:
+	 * the endpoint binds its port only when it needs it, so an ephemeral port
+	 * could otherwise be that very port.
+	 */
+	private DatagramSocket linkLocalServer(Inet6Address linkLocal) throws SocketException {
+		while (true) {
+			DatagramSocket server = new DatagramSocket(new InetSocketAddress(linkLocal, 0));
+
+			if (server.getLocalPort() != endpoint.getPort()) {
+				return server;
+			}
+
+			server.close();
+		}
 	}
 
 	/*
