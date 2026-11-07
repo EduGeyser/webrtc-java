@@ -94,6 +94,9 @@ val cmakeGenerate = tasks.register<Exec>("cmakeGenerate") {
 	dependsOn(":webrtc-jni:cmakeBuild")
 
 	inputs.files(fileTree(cmakeSourceDir)).withPropertyName("sources")
+	// The configuration checks the FFmpeg libraries it packages against it.
+	inputs.file("src/main/resources/io/github/sendablemetatype/webrtc/media/player/ffmpeg-libraries.properties")
+		.withPropertyName("ffmpegLibraries")
 	inputs.property("platform", platformClassifier)
 	inputs.property("ffmpegVersion", ffmpegVersion)
 	inputs.property("ffmpegInstallDir", ffmpegInstallDir)

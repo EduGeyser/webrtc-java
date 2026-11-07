@@ -18,6 +18,10 @@ package io.github.sendablemetatype.webrtc.media.player;
 
 import io.github.sendablemetatype.webrtc.internal.NativeLoader;
 
+import java.io.IOException;
+import java.io.InputStream;
+import java.util.Properties;
+
 /**
  * Loads this module's native library and reports what it was built against.
  * <p>
@@ -33,6 +37,9 @@ public final class FFmpeg {
 
 	/** The name of this module's native library, without platform decoration. */
 	private static final String LIBRARY = "webrtc-java-media";
+
+	/** The FFmpeg libraries to load first, per operating system. */
+	private static final String LIBRARIES = "ffmpeg-libraries.properties";
 
 
 	static {
@@ -80,38 +87,35 @@ public final class FFmpeg {
 	/**
 	 * Returns the shared libraries to load before this module's own, in the
 	 * order they depend on each other, named as they are in the platform jar.
+	 * They are listed in {@value #LIBRARIES}, which the native build checks
+	 * against the FFmpeg libraries it packages.
 	 *
 	 * @return The file names of the FFmpeg libraries for this platform.
+	 *
+	 * @throws IOException if the list cannot be read or has no entry for this
+	 *                     platform.
 	 */
-	private static String[] dependencies() {
+	private static String[] dependencies() throws IOException {
 		String osName = System.getProperty("os.name").toLowerCase();
+		String os = osName.startsWith("windows") ? "windows" : osName.startsWith("mac os") ? "macos" : "linux";
 
-		if (osName.startsWith("windows")) {
-			return new String[] {
-					"avutil-61.dll",
-					"swresample-7.dll",
-					"swscale-10.dll",
-					"avcodec-63.dll",
-					"avformat-63.dll"
-			};
-		}
-		if (osName.startsWith("mac os")) {
-			return new String[] {
-					"libavutil.61.dylib",
-					"libswresample.7.dylib",
-					"libswscale.10.dylib",
-					"libavcodec.63.dylib",
-					"libavformat.63.dylib"
-			};
+		Properties libraries = new Properties();
+
+		try (InputStream input = FFmpeg.class.getResourceAsStream(LIBRARIES)) {
+			if (input == null) {
+				throw new IOException("Missing resource " + LIBRARIES);
+			}
+
+			libraries.load(input);
 		}
 
-		return new String[] {
-				"libavutil.so.61",
-				"libswresample.so.7",
-				"libswscale.so.10",
-				"libavcodec.so.63",
-				"libavformat.so.63"
-		};
+		String names = libraries.getProperty(os, "").trim();
+
+		if (names.isEmpty()) {
+			throw new IOException("No FFmpeg libraries for " + os + " in " + LIBRARIES);
+		}
+
+		return names.split("[ \t]+");
 	}
 
 }

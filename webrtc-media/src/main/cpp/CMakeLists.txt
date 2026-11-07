@@ -152,31 +152,50 @@ foreach(RUNTIME_LIB ${FFMPEG_RUNTIME_LIBS})
         COMMENT "Collecting ${RUNTIME_LIB} for the platform jar")
 endforeach()
 
-# FFmpeg.java loads the FFmpeg libraries by the file names that carry their
-# major versions, such as libavcodec.so.63, and those change with every major
-# FFmpeg release. Each such library this build ships has to be named there, or
-# the platform jar cannot be loaded.
-set(FFMPEG_JAVA_FILE "${CMAKE_CURRENT_SOURCE_DIR}/../java/io/github/sendablemetatype/webrtc/media/player/FFmpeg.java")
-file(READ "${FFMPEG_JAVA_FILE}" FFMPEG_JAVA_SOURCE)
-set(FFMPEG_MAJOR_LIBS "")
+# FFmpeg.java loads the FFmpeg libraries that ffmpeg-libraries.properties lists
+# for its operating system, by the file names that carry their major versions,
+# such as libavcodec.so.63. Those change with every major FFmpeg release. The
+# list of this build's target has to name exactly the FFmpeg libraries the
+# platform jar ships, or the jar cannot be loaded.
+set(FFMPEG_LIBRARIES_FILE "${CMAKE_CURRENT_SOURCE_DIR}/../resources/io/github/sendablemetatype/webrtc/media/player/ffmpeg-libraries.properties")
+
+if(WIN32)
+    set(FFMPEG_LIBRARIES_OS windows)
+elseif(APPLE)
+    set(FFMPEG_LIBRARIES_OS macos)
+else()
+    set(FFMPEG_LIBRARIES_OS linux)
+endif()
+
+file(STRINGS "${FFMPEG_LIBRARIES_FILE}" FFMPEG_LIBRARIES_LINE REGEX "^${FFMPEG_LIBRARIES_OS}=")
+list(LENGTH FFMPEG_LIBRARIES_LINE FFMPEG_LIBRARIES_LINE_COUNT)
+
+if(NOT FFMPEG_LIBRARIES_LINE_COUNT EQUAL 1)
+    message(FATAL_ERROR "${FFMPEG_LIBRARIES_FILE} needs exactly one line starting with ${FFMPEG_LIBRARIES_OS}=")
+endif()
+
+string(REGEX REPLACE "^${FFMPEG_LIBRARIES_OS}=" "" FFMPEG_LIBRARIES_LINE "${FFMPEG_LIBRARIES_LINE}")
+string(REGEX MATCHALL "[^ \t\r]+" FFMPEG_LISTED_LIBS "${FFMPEG_LIBRARIES_LINE}")
+set(FFMPEG_SHIPPED_LIBS "")
 
 foreach(RUNTIME_LIB ${FFMPEG_RUNTIME_LIBS})
     get_filename_component(RUNTIME_LIB_NAME "${RUNTIME_LIB}" NAME)
 
     if(RUNTIME_LIB_NAME MATCHES "^(lib)?(av|sw)[a-z]+(-[0-9]+\\.dll|\\.[0-9]+\\.dylib|\\.so\\.[0-9]+)$")
-        list(APPEND FFMPEG_MAJOR_LIBS "${RUNTIME_LIB_NAME}")
-        string(FIND "${FFMPEG_JAVA_SOURCE}" "\"${RUNTIME_LIB_NAME}\"" FFMPEG_JAVA_NAME_AT)
-
-        if(FFMPEG_JAVA_NAME_AT EQUAL -1)
-            message(FATAL_ERROR
-                "FFmpeg ${FFMPEG_VERSION} installs ${RUNTIME_LIB_NAME}, which ${FFMPEG_JAVA_FILE} "
-                "does not load. Update the library names there to the major versions of this release.")
-        endif()
+        list(APPEND FFMPEG_SHIPPED_LIBS "${RUNTIME_LIB_NAME}")
     endif()
 endforeach()
 
-if(NOT FFMPEG_MAJOR_LIBS)
-    message(FATAL_ERROR "No FFmpeg library with a major version in its name among: ${FFMPEG_RUNTIME_LIBS}")
+set(FFMPEG_LISTED_SORTED ${FFMPEG_LISTED_LIBS})
+set(FFMPEG_SHIPPED_SORTED ${FFMPEG_SHIPPED_LIBS})
+list(SORT FFMPEG_LISTED_SORTED)
+list(SORT FFMPEG_SHIPPED_SORTED)
+
+if(NOT FFMPEG_SHIPPED_SORTED OR NOT FFMPEG_LISTED_SORTED STREQUAL FFMPEG_SHIPPED_SORTED)
+    message(FATAL_ERROR
+        "${FFMPEG_LIBRARIES_FILE} lists \"${FFMPEG_LISTED_LIBS}\" for ${FFMPEG_LIBRARIES_OS}, but FFmpeg "
+        "${FFMPEG_VERSION} installs \"${FFMPEG_SHIPPED_LIBS}\". List exactly these, in the order they "
+        "depend on each other.")
 endif()
 
 # The project's own license and notice go along as well, at the top of
