@@ -84,7 +84,9 @@ namespace jni
 	// One UDP port shared by many peer connections. The endpoint owns an OS socket per
 	// local address, all on the same port, and routes each datagram to the ICE port it
 	// belongs to. Peers use it through EndpointPortAllocator, whose ICE ports get
-	// virtual sockets on these sockets.
+	// virtual sockets on these sockets. A socket is bound when the first peer gathers
+	// on its address, or a STUN monitor needs it, and stays until Close. GetSockets
+	// tells which addresses are bound so far and why others could not be.
 	//
 	// libwebrtc gives every ICE session its own UDP port, so a port only ever sees the
 	// checks of its own session. Here all sessions share one port, so the endpoint
@@ -148,8 +150,25 @@ namespace jni
 				uint64_t pending = 0;
 			};
 
+			struct BindFailure
+			{
+				webrtc::SocketAddress local;
+				std::string reason;
+			};
+
+			struct Sockets
+			{
+				std::vector<webrtc::SocketAddress> bound;
+				// Addresses not bound, each with why its latest attempt failed.
+				std::vector<BindFailure> failed;
+			};
+
+			// Called on the endpoint thread. Must not block.
+			using BindFailureHandler = std::function<void(const BindFailure &)>;
+
 			// Starts the endpoint thread. An empty address list allows every local address.
-			static std::shared_ptr<IceUdpEndpoint> Create(uint16_t port, std::vector<webrtc::IPAddress> addresses);
+			// A listed address keeps its IPv6 scope; its port is not used.
+			static std::shared_ptr<IceUdpEndpoint> Create(uint16_t port, std::vector<webrtc::SocketAddress> addresses);
 
 			~IceUdpEndpoint();
 
@@ -164,7 +183,7 @@ namespace jni
 			bool Allows(const webrtc::IPAddress & address) const;
 
 			// Empty allows every local address.
-			const std::vector<webrtc::IPAddress> & addresses() const { return addresses_; }
+			std::vector<webrtc::IPAddress> addresses() const;
 
 			// Closes the sockets and drops all routes. Peers keep running but neither send
 			// nor receive through the endpoint any more.
@@ -194,6 +213,14 @@ namespace jni
 			// or nothing when the address is not allowed, cannot be bound or the endpoint
 			// is closed. Blocks on the endpoint thread.
 			std::optional<webrtc::SocketAddress> OpenSocket(const webrtc::IPAddress & address);
+
+			// The sockets bound so far, and the addresses that could not be bound. Empty
+			// once closed.
+			Sockets GetSockets();
+
+			// Told of every bind that fails, for a peer or a STUN monitor. Blocks until
+			// the previous handler is no longer called.
+			void SetBindFailureHandler(BindFailureHandler handler);
 
 			uint64_t AddVirtualSocket(uint64_t peer, uint64_t session, const webrtc::SocketAddress & local,
 				std::shared_ptr<EndpointLink> link);
@@ -232,17 +259,25 @@ namespace jni
 			// local address, so that the NAT mapping of the shared port stays open and
 			// known with no connection running: a binding request every 15 seconds,
 			// retransmitted while unanswered. 0 if the address is not allowed or cannot
-			// be bound.
-			uint64_t OpenStunMonitor(const webrtc::IPAddress & local, const webrtc::SocketAddress & server);
+			// be bound. local's port is not used; a link-local one needs its scope.
+			uint64_t OpenStunMonitor(const webrtc::SocketAddress & local, const webrtc::SocketAddress & server);
 			std::optional<StunReading> ReadStunMonitor(uint64_t monitor);
 			void CloseStunMonitor(uint64_t monitor);
 
 			Stats GetStats();
 
 		private:
-			IceUdpEndpoint(uint16_t port, std::vector<webrtc::IPAddress> addresses);
+			IceUdpEndpoint(uint16_t port, std::vector<webrtc::SocketAddress> addresses);
 
 			using RouteKey = std::pair<webrtc::SocketAddress, webrtc::SocketAddress>;
+
+			// Orders the endpoint's own addresses by their scope too, which
+			// SocketAddress leaves out: the same link-local address on two links is two
+			// sockets.
+			struct ScopedOrder
+			{
+				bool operator()(const webrtc::SocketAddress & a, const webrtc::SocketAddress & b) const;
+			};
 
 			struct RouteEntry
 			{
@@ -336,7 +371,10 @@ namespace jni
 			void RouteBindingRequest(const RouteKey & key, std::span<const uint8_t> data,
 				std::optional<webrtc::Timestamp> arrival, int64_t nowMs, const std::optional<webrtc::SocketAddress> & relay);
 			bool ClientAlive(const webrtc::SocketAddress & client) const;
-			std::optional<webrtc::SocketAddress> OpenSocketHere(const webrtc::IPAddress & address);
+			// Returns the socket's address, with the scope it is bound in. address's port
+			// is not used.
+			std::optional<webrtc::SocketAddress> OpenSocketHere(const webrtc::SocketAddress & address);
+			int ListedScope(const webrtc::IPAddress & address) const;
 			void StartMonitorTransaction(uint64_t monitor);
 			void SendMonitorRequest(uint64_t monitor, const std::string & transaction, int attempt);
 			bool OnMonitorResponse(std::span<const uint8_t> data, const webrtc::SocketAddress & from, int64_t nowMs);
@@ -361,13 +399,15 @@ namespace jni
 			void ForgetSocket(uint64_t socket);
 
 			const uint16_t port_;
-			const std::vector<webrtc::IPAddress> addresses_;
+			const std::vector<webrtc::SocketAddress> addresses_;
 			const webrtc::Environment env_;
 			std::unique_ptr<webrtc::Thread> thread_;
 			std::atomic<uint64_t> nextId_ { 1 };
 
 			bool closed_ = false;
-			std::map<webrtc::SocketAddress, std::unique_ptr<webrtc::AsyncPacketSocket>> osSockets_;
+			std::map<webrtc::SocketAddress, std::unique_ptr<webrtc::AsyncPacketSocket>, ScopedOrder> osSockets_;
+			// Why each address without a socket could not be bound, the last time.
+			std::map<webrtc::SocketAddress, std::string, ScopedOrder> bindFailures_;
 			std::map<uint64_t, PeerEntry> peers_;
 			std::map<uint64_t, SessionEntry> sessions_;
 			std::multimap<std::string, uint64_t, std::less<>> sessionsByUfrag_;
@@ -379,6 +419,7 @@ namespace jni
 			size_t maxPending_ = 1024;
 			int64_t pendingTimeoutMs_ = 15000;
 			PendingRequestHandler handler_;
+			BindFailureHandler bindFailureHandler_;
 			std::string derivedContext_;
 			std::vector<std::pair<std::string, std::string>> derivedKeys_;
 			std::map<uint64_t, PendingRequest> pending_;

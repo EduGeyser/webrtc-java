@@ -57,6 +57,14 @@ JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_IceUdpEndpoint_ena
 
 /*
  * Class:     io_github_sendablemetatype_webrtc_IceUdpEndpoint
+ * Method:    enableBindFailures
+ * Signature: (Z)V
+ */
+JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_IceUdpEndpoint_enableBindFailures
+  (JNIEnv *, jobject, jboolean);
+
+/*
+ * Class:     io_github_sendablemetatype_webrtc_IceUdpEndpoint
  * Method:    setDerivedPasswords
  * Signature: ([B[Ljava/lang/String;[[B)V
  */
@@ -110,6 +118,14 @@ JNIEXPORT jobject JNICALL Java_io_github_sendablemetatype_webrtc_IceUdpEndpoint_
  */
 JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_IceUdpEndpoint_closeStunMonitor
   (JNIEnv *, jobject, jlong);
+
+/*
+ * Class:     io_github_sendablemetatype_webrtc_IceUdpEndpoint
+ * Method:    getSockets
+ * Signature: ()Lio/github/sendablemetatype/webrtc/IceUdpEndpoint$Sockets;
+ */
+JNIEXPORT jobject JNICALL Java_io_github_sendablemetatype_webrtc_IceUdpEndpoint_getSockets
+  (JNIEnv *, jobject);
 
 /*
  * Class:     io_github_sendablemetatype_webrtc_IceUdpEndpoint

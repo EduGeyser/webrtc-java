@@ -25,10 +25,12 @@
 #include "rtc_base/crypto_random.h"
 #include "rtc_base/logging.h"
 #include "rtc_base/message_digest.h"
+#include "rtc_base/socket.h"
 #include "rtc_base/time_utils.h"
 #include "rtc_base/zero_memory.h"
 
 #include <algorithm>
+#include <cerrno>
 
 namespace jni
 {
@@ -69,14 +71,34 @@ namespace jni
 		{
 			return std::string(reinterpret_cast<const char *>(data.data() + 8), webrtc::kStunTransactionIdLength);
 		}
+
+		// The same text on every platform, as Java's own BindException gives for the
+		// usual causes.
+		std::string BindError(int error)
+		{
+			switch (error) {
+				case EADDRINUSE:
+					return "Address already in use";
+				case EADDRNOTAVAIL:
+					return "Cannot assign requested address";
+#if defined(WEBRTC_WIN)
+				case SOCKET_EACCES:
+#else
+				case EACCES:
+#endif
+					return "Permission denied";
+				default:
+					return "Socket error " + std::to_string(error);
+			}
+		}
 	}
 
-	std::shared_ptr<IceUdpEndpoint> IceUdpEndpoint::Create(uint16_t port, std::vector<webrtc::IPAddress> addresses)
+	std::shared_ptr<IceUdpEndpoint> IceUdpEndpoint::Create(uint16_t port, std::vector<webrtc::SocketAddress> addresses)
 	{
 		return std::shared_ptr<IceUdpEndpoint>(new IceUdpEndpoint(port, std::move(addresses)));
 	}
 
-	IceUdpEndpoint::IceUdpEndpoint(uint16_t port, std::vector<webrtc::IPAddress> addresses) :
+	IceUdpEndpoint::IceUdpEndpoint(uint16_t port, std::vector<webrtc::SocketAddress> addresses) :
 		port_(port),
 		addresses_(std::move(addresses)),
 		env_(webrtc::CreateEnvironment()),
@@ -96,6 +118,7 @@ namespace jni
 		thread_->BlockingCall([this] {
 			closed_ = true;
 			osSockets_.clear();
+			bindFailures_.clear();
 			routes_.clear();
 			sockets_.clear();
 			sessionsByUfrag_.clear();
@@ -107,6 +130,7 @@ namespace jni
 			pendingByKey_.clear();
 			pendingByUfrag_.clear();
 			handler_ = nullptr;
+			bindFailureHandler_ = nullptr;
 			ClearDerivedPasswords();
 			proxy_.reset();
 			monitors_.clear();
@@ -117,7 +141,19 @@ namespace jni
 
 	bool IceUdpEndpoint::Allows(const webrtc::IPAddress & address) const
 	{
-		return addresses_.empty() || std::find(addresses_.begin(), addresses_.end(), address) != addresses_.end();
+		return addresses_.empty() || std::any_of(addresses_.begin(), addresses_.end(),
+			[&address](const webrtc::SocketAddress & listed) { return listed.ipaddr() == address; });
+	}
+
+	std::vector<webrtc::IPAddress> IceUdpEndpoint::addresses() const
+	{
+		std::vector<webrtc::IPAddress> ips;
+
+		for (const webrtc::SocketAddress & listed : addresses_) {
+			ips.push_back(listed.ipaddr());
+		}
+
+		return ips;
 	}
 
 	void IceUdpEndpoint::Close()
@@ -125,6 +161,7 @@ namespace jni
 		thread_->BlockingCall([this] {
 			closed_ = true;
 			osSockets_.clear();
+			bindFailures_.clear();
 			routes_.clear();
 			transactions_.clear();
 			transactionOrder_.clear();
@@ -132,6 +169,7 @@ namespace jni
 			pendingByKey_.clear();
 			pendingByUfrag_.clear();
 			handler_ = nullptr;
+			bindFailureHandler_ = nullptr;
 			ClearDerivedPasswords();
 			proxy_.reset();
 			monitors_.clear();
@@ -259,34 +297,92 @@ namespace jni
 		}
 
 		return thread_->BlockingCall([this, &address] {
-			return OpenSocketHere(address);
+			return OpenSocketHere(webrtc::SocketAddress(address, 0));
 		});
 	}
 
-	std::optional<webrtc::SocketAddress> IceUdpEndpoint::OpenSocketHere(const webrtc::IPAddress & address)
+	bool IceUdpEndpoint::ScopedOrder::operator()(const webrtc::SocketAddress & a, const webrtc::SocketAddress & b) const
+	{
+		if (a < b) {
+			return true;
+		}
+		if (b < a) {
+			return false;
+		}
+		return a.scope_id() < b.scope_id();
+	}
+
+	// The scope of the listed address with these bytes, or 0 if none or several are.
+	int IceUdpEndpoint::ListedScope(const webrtc::IPAddress & address) const
+	{
+		std::optional<int> scope;
+
+		for (const webrtc::SocketAddress & listed : addresses_) {
+			if (listed.ipaddr() == address) {
+				if (scope) {
+					return 0;
+				}
+				scope = listed.scope_id();
+			}
+		}
+
+		return scope.value_or(0);
+	}
+
+	std::optional<webrtc::SocketAddress> IceUdpEndpoint::OpenSocketHere(const webrtc::SocketAddress & address)
 	{
 		if (closed_) {
 			return std::nullopt;
 		}
 
-		webrtc::SocketAddress local(address, port_);
+		// A link-local address is bound on the link its scope names; asked for
+		// without one, it takes the scope it is listed with. Any other address binds
+		// alike in every scope, so it keeps none: Java may give an interface's other
+		// IPv6 addresses a scope too, and they must find the socket they already have.
+		webrtc::SocketAddress local(address.ipaddr(), port_);
 
-		if (osSockets_.find(local) != osSockets_.end()) {
-			return local;
+		if (webrtc::IPIsLinkLocal(address.ipaddr())) {
+			local.SetScopeID(address.scope_id() != 0 ? address.scope_id() : ListedScope(address.ipaddr()));
 		}
 
-		std::unique_ptr<webrtc::AsyncUDPSocket> socket = webrtc::AsyncUDPSocket::Create(env_, local, *thread_->socketserver());
+		auto existing = osSockets_.find(local);
 
-		if (!socket) {
-			RTC_LOG(LS_WARNING) << "ICE UDP endpoint cannot bind " << local.ToString();
+		if (existing != osSockets_.end()) {
+			return existing->first;
+		}
+
+		// Bound here rather than by AsyncUDPSocket::Create, which keeps the error to itself.
+		std::unique_ptr<webrtc::Socket> bound = thread_->socketserver()->Create(local.family(), SOCK_DGRAM);
+		std::optional<std::string> failure;
+
+		if (!bound) {
+			failure = "Cannot create a socket";
+		}
+		else if (bound->Bind(local) < 0) {
+			failure = BindError(bound->GetError());
+		}
+
+		if (failure) {
+			RTC_LOG(LS_WARNING) << "ICE UDP endpoint cannot bind " << local.ToString() << ": " << *failure;
+			bindFailures_[local] = *failure;
+
+			if (bindFailureHandler_) {
+				// A copy, since the handler may replace itself while it runs.
+				BindFailureHandler handler = bindFailureHandler_;
+
+				handler(BindFailure { local, *failure });
+			}
 			return std::nullopt;
 		}
+
+		auto socket = std::make_unique<webrtc::AsyncUDPSocket>(env_, std::move(bound));
 
 		socket->RegisterReceivedPacketCallback([this, local](webrtc::AsyncPacketSocket *, const webrtc::ReceivedIpPacket & packet) {
 			Receive(local, packet.payload(), packet.source_address(), packet.arrival_time());
 		});
 
 		osSockets_.emplace(local, std::move(socket));
+		bindFailures_.erase(local);
 
 		return local;
 	}
@@ -836,6 +932,13 @@ namespace jni
 		});
 	}
 
+	void IceUdpEndpoint::SetBindFailureHandler(BindFailureHandler handler)
+	{
+		thread_->BlockingCall([this, &handler] {
+			std::swap(bindFailureHandler_, handler);
+		});
+	}
+
 	void IceUdpEndpoint::SetDerivedPasswords(std::string context, std::vector<std::pair<std::string, std::string>> keys)
 	{
 		thread_->BlockingCall([this, &context, &keys] {
@@ -1035,9 +1138,9 @@ namespace jni
 		}
 	}
 
-	uint64_t IceUdpEndpoint::OpenStunMonitor(const webrtc::IPAddress & local, const webrtc::SocketAddress & server)
+	uint64_t IceUdpEndpoint::OpenStunMonitor(const webrtc::SocketAddress & local, const webrtc::SocketAddress & server)
 	{
-		if (!Allows(local)) {
+		if (!Allows(local.ipaddr())) {
 			return 0;
 		}
 
@@ -1077,6 +1180,22 @@ namespace jni
 			}
 
 			return StunReading { m.server, m.local, m.mapped, m.state, m.successes, m.failures, m.revision, age };
+		});
+	}
+
+	IceUdpEndpoint::Sockets IceUdpEndpoint::GetSockets()
+	{
+		return thread_->BlockingCall([this] {
+			Sockets sockets;
+
+			for (const auto & [local, socket] : osSockets_) {
+				sockets.bound.push_back(local);
+			}
+			for (const auto & [local, reason] : bindFailures_) {
+				sockets.failed.push_back(BindFailure { local, reason });
+			}
+
+			return sockets;
 		});
 	}
 

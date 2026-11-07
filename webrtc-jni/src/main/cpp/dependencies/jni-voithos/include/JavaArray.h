@@ -11,6 +11,7 @@
 #include "Exception.h"
 #include "JavaClass.h"
 #include "JavaRef.h"
+#include "JavaUtils.h"
 
 #include <jni.h>
 #include <vector>
@@ -27,15 +28,21 @@ namespace jni
 			JavaLocalRef<jobjectArray> objectArray(env, env->NewObjectArray(vectorSize, cls, nullptr));
 
 			if (objectArray.get() == nullptr) {
+				// Throws the pending OutOfMemoryError, if there is one.
+				ExceptionCheck(env);
 				throw Exception("Create object array of type [%s] failed", typeid(T).name());
 			}
 
 			for (jsize i = 0; i < vectorSize; i++) {
 				const T & item = vector[i];
 
-				JavaLocalRef<jobject> obj = static_java_ref_cast<jobject>(env, convert(env, item));
+				// Takes the converter's reference over rather than making another. A
+				// converter may fail the JNI way, with null and a pending exception.
+				JavaLocalRef<jobject> obj = convert(env, item);
+				ExceptionCheck(env);
 
 				env->SetObjectArrayElement(objectArray.get(), i, obj.get());
+				ExceptionCheck(env);
 			}
 
 			return objectArray;

@@ -21,6 +21,7 @@
 #include "rtc/InetAddress.h"
 #include "JavaArray.h"
 #include "JavaBoundary.h"
+#include "JavaClasses.h"
 #include "JavaRef.h"
 #include "JavaString.h"
 #include "JavaUtils.h"
@@ -44,10 +45,18 @@ JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_IceUdpEndpoint_ini
 (JNIEnv * env, jobject caller, jint port, jobjectArray jAddresses)
 {
 	try {
-		std::vector<webrtc::IPAddress> addresses = jni::JavaArray::toNativeVector<webrtc::IPAddress>(env,
-			jni::JavaLocalRef<jobjectArray>(env, jAddresses), &jni::InetAddress::toNative);
+		std::vector<webrtc::SocketAddress> addresses = jni::JavaArray::toNativeVector<webrtc::SocketAddress>(env,
+			jni::JavaLocalRef<jobjectArray>(env, jAddresses), [](JNIEnv * env, const jni::JavaRef<jobject> & address) {
+				return jni::InetAddress::toNativeSocketAddress(env, address, 0);
+			});
 
-		SetHandle(env, caller, new EndpointHandle(jni::IceUdpEndpoint::Create(static_cast<uint16_t>(port), std::move(addresses))));
+		auto endpoint = std::make_unique<EndpointHandle>(jni::IceUdpEndpoint::Create(static_cast<uint16_t>(port),
+			std::move(addresses)));
+
+		// Owned here until the Java object has it, so that a failure stops its thread.
+		if (SetHandle(env, caller, endpoint.get())) {
+			endpoint.release();
+		}
 	}
 	catch (...) {
 		ThrowCxxJavaException(env);
@@ -156,6 +165,59 @@ JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_IceUdpEndpoint_ena
 	});
 }
 
+JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_IceUdpEndpoint_enableBindFailures
+(JNIEnv * env, jobject caller, jboolean enabled)
+{
+	jni::CallFromJava(env, [&]() {
+		jni::NativeLease<EndpointHandle> endpoint(env, caller);
+		CHECK_HANDLE(endpoint);
+
+		if (!enabled) {
+			(*endpoint)->SetBindFailureHandler(nullptr);
+			return;
+		}
+
+		jclass cls = env->GetObjectClass(caller);
+		jmethodID method = env->GetMethodID(cls, "onBindFailure", "(Ljava/net/InetSocketAddress;Ljava/lang/String;)V");
+		env->DeleteLocalRef(cls);
+
+		if (method == nullptr) {
+			return;
+		}
+
+		jni::JavaGlobalRef<jobject> targetRef(env, caller);
+
+		// The caller is set, so a null reference is a failed NewGlobalRef.
+		if (targetRef.get() == nullptr) {
+			ThrowJavaException(env, "java/lang/OutOfMemoryError", "No global reference for the bind failure handler");
+			return;
+		}
+
+		auto target = std::make_shared<jni::JavaGlobalRef<jobject>>(std::move(targetRef));
+
+		(*endpoint)->SetBindFailureHandler([target, method](const jni::IceUdpEndpoint::BindFailure & failure) {
+			JNIEnv * env = AttachCurrentThread();
+
+			if (env == nullptr) {
+				return;
+			}
+
+			try {
+				jni::JavaLocalRef<jobject> local = jni::InetAddress::toJavaSocketAddress(env, failure.local);
+				jni::JavaLocalRef<jstring> reason = jni::JavaString::toJava(env, failure.reason);
+				ExceptionCheck(env);
+
+				env->CallVoidMethod(target->get(), method, local.get(), reason.get());
+			}
+			catch (...) {
+				ThrowCxxJavaException(env);
+			}
+
+			jni::ReportPendingException(env);
+		});
+	});
+}
+
 JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_IceUdpEndpoint_setDerivedPasswords
 (JNIEnv * env, jobject caller, jbyteArray jContext, jobjectArray jPrefixes, jobjectArray jKeys)
 {
@@ -237,7 +299,7 @@ JNIEXPORT jlong JNICALL Java_io_github_sendablemetatype_webrtc_IceUdpEndpoint_op
 		CHECK_HANDLEV(endpoint, 0);
 
 		try {
-			webrtc::IPAddress local = jni::InetAddress::toNative(env, jni::JavaLocalRef<jobject>(env, jLocal));
+			webrtc::SocketAddress local = jni::InetAddress::toNativeSocketAddress(env, jni::JavaLocalRef<jobject>(env, jLocal), 0);
 			webrtc::SocketAddress server(jni::InetAddress::toNative(env, jni::JavaLocalRef<jobject>(env, jServer)), port);
 
 			return static_cast<jlong>((*endpoint)->OpenStunMonitor(local, server));
@@ -304,6 +366,55 @@ JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_IceUdpEndpoint_clo
 		CHECK_HANDLE(endpoint);
 
 		(*endpoint)->CloseStunMonitor(static_cast<uint64_t>(monitor));
+	});
+}
+
+JNIEXPORT jobject JNICALL Java_io_github_sendablemetatype_webrtc_IceUdpEndpoint_getSockets
+(JNIEnv * env, jobject caller)
+{
+	return jni::CallFromJava(env, [&]() -> jobject {
+		jni::NativeLease<EndpointHandle> endpoint(env, caller);
+		CHECK_HANDLEV(endpoint, nullptr);
+
+		jni::IceUdpEndpoint::Sockets sockets = (*endpoint)->GetSockets();
+
+		jclass cls = env->GetObjectClass(caller);
+		jmethodID factory = env->GetStaticMethodID(cls, "sockets",
+			"([Ljava/net/InetSocketAddress;[Ljava/net/InetSocketAddress;[Ljava/lang/String;)L" PKG "IceUdpEndpoint$Sockets;");
+
+		if (factory == nullptr) {
+			env->DeleteLocalRef(cls);
+			return nullptr;
+		}
+
+		try {
+			jclass socketCls = jni::JavaClasses::get<jni::InetAddress::JavaInetAddressClass>(env)->socketCls;
+			auto toJava = [](JNIEnv * env, const webrtc::SocketAddress & address) {
+				return jni::InetAddress::toJavaSocketAddress(env, address);
+			};
+
+			std::vector<webrtc::SocketAddress> failed;
+			std::vector<std::string> reasons;
+
+			for (const jni::IceUdpEndpoint::BindFailure & failure : sockets.failed) {
+				failed.push_back(failure.local);
+				reasons.push_back(failure.reason);
+			}
+
+			jni::JavaLocalRef<jobjectArray> jBound = jni::JavaArray::createObjectArray(env, sockets.bound, socketCls, toJava);
+			jni::JavaLocalRef<jobjectArray> jFailed = jni::JavaArray::createObjectArray(env, failed, socketCls, toJava);
+			jni::JavaLocalRef<jobjectArray> jReasons = jni::JavaString::createArray(env, reasons);
+
+			jobject result = env->CallStaticObjectMethod(cls, factory, jBound.get(), jFailed.get(), jReasons.get());
+
+			env->DeleteLocalRef(cls);
+			return result;
+		}
+		catch (...) {
+			env->DeleteLocalRef(cls);
+			ThrowCxxJavaException(env);
+			return nullptr;
+		}
 	});
 }
 
