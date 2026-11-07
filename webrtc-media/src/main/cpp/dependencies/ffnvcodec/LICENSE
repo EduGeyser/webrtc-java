@@ -1,4 +1,4 @@
-The headers in include/ffnvcodec come from FFmpeg's nv-codec-headers, tag n12.0.16.1, and are
+The headers in include/ffnvcodec come from FFmpeg's nv-codec-headers, tag n13.0.19.1, and are
 compile-time only: FFmpeg builds against them and loads the NVIDIA driver's libraries at run time.
 Each file carries its own license, which applies to that file only, and they are reproduced here
 as they stand at the head of each file.
@@ -36,7 +36,7 @@ dynlink_cuviddec.h
 ==============================================================================
 This copyright notice applies to this header file only:
 
-Copyright (c) 2010-2022 NVIDIA Corporation
+Copyright (c) 2010-2024 NVIDIA Corporation
 
 Permission is hereby granted, free of charge, to any person
 obtaining a copy of this software and associated documentation
@@ -64,7 +64,7 @@ dynlink_nvcuvid.h
 ==============================================================================
 This copyright notice applies to this header file only:
 
-Copyright (c) 2010-2022 NVIDIA Corporation
+Copyright (c) 2010-2024 NVIDIA Corporation
 
 Permission is hereby granted, free of charge, to any person
 obtaining a copy of this software and associated documentation
@@ -119,9 +119,9 @@ OTHER DEALINGS IN THE SOFTWARE.
 nvEncodeAPI.h
 ==============================================================================
 nvEncodeAPI.h, the NVIDIA Video Codec SDK header this library is built with
-(API version 12.0), is licensed as follows:
+(API version 13.0), is licensed as follows:
 
-Copyright (c) 2010-2022 NVIDIA Corporation
+Copyright (c) 2010-2024 NVIDIA Corporation
 
 Permission is hereby granted, free of charge, to any person
 obtaining a copy of this software and associated documentation
