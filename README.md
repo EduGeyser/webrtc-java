@@ -1,6 +1,6 @@
 # webrtc-java, data channels only
 
-A fork of [devopvoid/webrtc-java](https://github.com/devopvoid/webrtc-java), the Java wrapper for the [WebRTC Native API](https://webrtc.github.io/webrtc-org/native-code/native-apis), built for applications that only exchange data. The native library carries no codecs, audio processing, audio devices, cameras or desktop capture, which makes it a fraction of the size of the full one. The Java API is the one of upstream; the audio and video classes throw an `UnsatisfiedLinkError` with this library.
+A fork of [devopvoid/webrtc-java](https://github.com/devopvoid/webrtc-java), the Java wrapper for the [WebRTC Native API](https://webrtc.github.io/webrtc-org/native-code/native-apis), built for applications that only exchange data. The native library carries no codecs, audio processing, audio devices, cameras or desktop capture, which makes it a fraction of the size of the full one. The Java API is upstream's with additions of the fork's own, such as `IceUdpEndpoint`, one UDP port that many peer connections share. The audio and video classes throw an `UnsatisfiedLinkError` with this library.
 
 The fork follows upstream closely: it is upstream's `main` with the [data channels only variant](docs/guide/build.md#data-channels-only) selected, its own package and coordinates, and WebRTC built from a commit on its `main` branch instead of a release branch.
 
