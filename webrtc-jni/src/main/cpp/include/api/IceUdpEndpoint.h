@@ -84,7 +84,9 @@ namespace jni
 	// One UDP port shared by many peer connections. The endpoint owns an OS socket per
 	// local address, all on the same port, and routes each datagram to the ICE port it
 	// belongs to. Peers use it through EndpointPortAllocator, whose ICE ports get
-	// virtual sockets on these sockets.
+	// virtual sockets on these sockets. A socket is bound when the first peer gathers
+	// on its address, or a STUN monitor needs it, and stays until Close. GetSockets
+	// tells which addresses are bound so far and why others could not be.
 	//
 	// libwebrtc gives every ICE session its own UDP port, so a port only ever sees the
 	// checks of its own session. Here all sessions share one port, so the endpoint
@@ -148,6 +150,19 @@ namespace jni
 				uint64_t pending = 0;
 			};
 
+			struct BindFailure
+			{
+				webrtc::SocketAddress local;
+				std::string reason;
+			};
+
+			struct Sockets
+			{
+				std::vector<webrtc::SocketAddress> bound;
+				// Addresses not bound, each with why its latest attempt failed.
+				std::vector<BindFailure> failed;
+			};
+
 			// Starts the endpoint thread. An empty address list allows every local address.
 			// A listed address keeps its IPv6 scope; its port is not used.
 			static std::shared_ptr<IceUdpEndpoint> Create(uint16_t port, std::vector<webrtc::SocketAddress> addresses);
@@ -190,6 +205,10 @@ namespace jni
 			// or nothing when the address is not allowed, cannot be bound or the endpoint
 			// is closed. Blocks on the endpoint thread.
 			std::optional<webrtc::SocketAddress> OpenSocket(const webrtc::IPAddress & address);
+
+			// The sockets bound so far, and the addresses that could not be bound. Empty
+			// once closed.
+			Sockets GetSockets();
 
 			uint64_t AddVirtualSocket(uint64_t peer, uint64_t session, const webrtc::SocketAddress & local,
 				std::shared_ptr<EndpointLink> link);
@@ -375,6 +394,8 @@ namespace jni
 
 			bool closed_ = false;
 			std::map<webrtc::SocketAddress, std::unique_ptr<webrtc::AsyncPacketSocket>, ScopedOrder> osSockets_;
+			// Why each address without a socket could not be bound, the last time.
+			std::map<webrtc::SocketAddress, std::string, ScopedOrder> bindFailures_;
 			std::map<uint64_t, PeerEntry> peers_;
 			std::map<uint64_t, SessionEntry> sessions_;
 			std::multimap<std::string, uint64_t, std::less<>> sessionsByUfrag_;

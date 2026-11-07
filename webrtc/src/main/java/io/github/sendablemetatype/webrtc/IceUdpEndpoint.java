@@ -19,12 +19,15 @@ package io.github.sendablemetatype.webrtc;
 import io.github.sendablemetatype.webrtc.internal.DisposableNativeObject;
 
 import java.io.UncheckedIOException;
+import java.net.BindException;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.SocketException;
 import java.nio.ByteBuffer;
 import java.time.Duration;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -42,7 +45,10 @@ import java.util.function.Consumer;
  * in native code.
  * <p>
  * The endpoint binds one socket per local address, on the same port, when the
- * first connection gathers on that address. One endpoint can serve the
+ * first connection gathers on that address or a {@linkplain #monitorStun STUN
+ * monitor} needs it, and keeps it until it is disposed. {@link #getSockets()}
+ * tells which addresses it holds and why it could not bind others, for example
+ * because another process has the port there. One endpoint can serve the
  * connections of several {@link PeerConnectionFactory} instances. Close the
  * connections before disposing the endpoint, or they stop sending and receiving.
  * <p>
@@ -97,6 +103,18 @@ public class IceUdpEndpoint extends DisposableNativeObject {
 	 * @return The UDP port.
 	 */
 	public native int getPort();
+
+	/**
+	 * Returns the local addresses the endpoint holds a socket on so far, and
+	 * those it tried to bind and could not, as they are when this is called.
+	 * The result is a snapshot that later changes leave alone; each call takes
+	 * a new one.
+	 *
+	 * @return A snapshot of the endpoint's sockets.
+	 *
+	 * @throws IllegalStateException if the endpoint is disposed.
+	 */
+	public native Sockets getSockets();
 
 	/**
 	 * Feeds a datagram into the endpoint's routing as if the socket for the
@@ -386,6 +404,26 @@ public class IceUdpEndpoint extends DisposableNativeObject {
 	}
 
 	/*
+	 * Called from native code. reasons[i] is why failed[i] could not be bound.
+	 */
+	@SuppressWarnings("unused")
+	private static Sockets sockets(InetSocketAddress[] bound, InetSocketAddress[] failed, String[] reasons) {
+		List<BindFailure> failures = new ArrayList<>(failed.length);
+
+		for (int i = 0; i < failed.length; i++) {
+			failures.add(bindFailure(failed[i], reasons[i]));
+		}
+
+		return new Sockets(List.of(bound), failures);
+	}
+
+	private static BindFailure bindFailure(InetSocketAddress address, String reason) {
+		// The host address names the scope, as in fe80:0:0:0:0:0:0:1%7.
+		return new BindFailure(address, new BindException("Cannot bind " + address.getAddress().getHostAddress()
+				+ " port " + address.getPort() + ": " + reason));
+	}
+
+	/*
 	 * Called from native code.
 	 */
 	@SuppressWarnings("unused")
@@ -526,6 +564,43 @@ public class IceUdpEndpoint extends DisposableNativeObject {
 			SUCCEEDED,
 			/** The server answered with an error, or not in time. */
 			FAILED
+		}
+	}
+
+
+
+	/**
+	 * A local address the endpoint could not bind.
+	 *
+	 * @param address The address, with its scope, and the endpoint's port.
+	 * @param failure Why the system refused it.
+	 */
+	public record BindFailure(InetSocketAddress address, BindException failure) {
+
+	}
+
+
+
+	/**
+	 * The sockets of an endpoint, all on its port, as {@link #getSockets()}
+	 * found them. Both lists are unmodifiable copies.
+	 *
+	 * @param bound  The addresses the endpoint held a socket on.
+	 * @param failed The addresses it had tried to bind and held no socket on,
+	 *               each with the failure of its latest attempt. Java's
+	 *               address equality leaves the scope out, so the same
+	 *               link-local address may appear once per scope. The
+	 *               endpoint tries such an address again when a connection
+	 *               gathers on it.
+	 */
+	public record Sockets(List<InetSocketAddress> bound, List<BindFailure> failed) {
+
+		/**
+		 * Copies the lists, keeping their order.
+		 */
+		public Sockets {
+			bound = List.copyOf(bound);
+			failed = List.copyOf(failed);
 		}
 	}
 

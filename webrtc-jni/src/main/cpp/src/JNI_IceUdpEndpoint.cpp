@@ -20,6 +20,7 @@
 #include "api/WebRTCUtils.h"
 #include "rtc/InetAddress.h"
 #include "JavaArray.h"
+#include "JavaClasses.h"
 #include "JavaRef.h"
 #include "JavaString.h"
 #include "JavaUtils.h"
@@ -289,6 +290,53 @@ JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_IceUdpEndpoint_clo
 	CHECK_HANDLE(endpoint);
 
 	(*endpoint)->CloseStunMonitor(static_cast<uint64_t>(monitor));
+}
+
+JNIEXPORT jobject JNICALL Java_io_github_sendablemetatype_webrtc_IceUdpEndpoint_getSockets
+(JNIEnv * env, jobject caller)
+{
+	jni::NativeLease<EndpointHandle> endpoint(env, caller);
+	CHECK_HANDLEV(endpoint, nullptr);
+
+	jni::IceUdpEndpoint::Sockets sockets = (*endpoint)->GetSockets();
+
+	jclass cls = env->GetObjectClass(caller);
+	jmethodID factory = env->GetStaticMethodID(cls, "sockets",
+		"([Ljava/net/InetSocketAddress;[Ljava/net/InetSocketAddress;[Ljava/lang/String;)L" PKG "IceUdpEndpoint$Sockets;");
+
+	if (factory == nullptr) {
+		env->DeleteLocalRef(cls);
+		return nullptr;
+	}
+
+	try {
+		jclass socketCls = jni::JavaClasses::get<jni::InetAddress::JavaInetAddressClass>(env)->socketCls;
+		auto toJava = [](JNIEnv * env, const webrtc::SocketAddress & address) {
+			return jni::InetAddress::toJavaSocketAddress(env, address);
+		};
+
+		std::vector<webrtc::SocketAddress> failed;
+		std::vector<std::string> reasons;
+
+		for (const jni::IceUdpEndpoint::BindFailure & failure : sockets.failed) {
+			failed.push_back(failure.local);
+			reasons.push_back(failure.reason);
+		}
+
+		jni::JavaLocalRef<jobjectArray> jBound = jni::JavaArray::createObjectArray(env, sockets.bound, socketCls, toJava);
+		jni::JavaLocalRef<jobjectArray> jFailed = jni::JavaArray::createObjectArray(env, failed, socketCls, toJava);
+		jni::JavaLocalRef<jobjectArray> jReasons = jni::JavaString::createArray(env, reasons);
+
+		jobject result = env->CallStaticObjectMethod(cls, factory, jBound.get(), jFailed.get(), jReasons.get());
+
+		env->DeleteLocalRef(cls);
+		return result;
+	}
+	catch (...) {
+		env->DeleteLocalRef(cls);
+		ThrowCxxJavaException(env);
+		return nullptr;
+	}
 }
 
 JNIEXPORT jobject JNICALL Java_io_github_sendablemetatype_webrtc_IceUdpEndpoint_getStats

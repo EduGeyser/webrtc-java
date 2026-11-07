@@ -25,10 +25,12 @@
 #include "rtc_base/crypto_random.h"
 #include "rtc_base/logging.h"
 #include "rtc_base/message_digest.h"
+#include "rtc_base/socket.h"
 #include "rtc_base/time_utils.h"
 #include "rtc_base/zero_memory.h"
 
 #include <algorithm>
+#include <cerrno>
 
 namespace jni
 {
@@ -69,6 +71,26 @@ namespace jni
 		{
 			return std::string(reinterpret_cast<const char *>(data.data() + 8), webrtc::kStunTransactionIdLength);
 		}
+
+		// The same text on every platform, as Java's own BindException gives for the
+		// usual causes.
+		std::string BindError(int error)
+		{
+			switch (error) {
+				case EADDRINUSE:
+					return "Address already in use";
+				case EADDRNOTAVAIL:
+					return "Cannot assign requested address";
+#if defined(WEBRTC_WIN)
+				case SOCKET_EACCES:
+#else
+				case EACCES:
+#endif
+					return "Permission denied";
+				default:
+					return "Socket error " + std::to_string(error);
+			}
+		}
 	}
 
 	std::shared_ptr<IceUdpEndpoint> IceUdpEndpoint::Create(uint16_t port, std::vector<webrtc::SocketAddress> addresses)
@@ -96,6 +118,7 @@ namespace jni
 		thread_->BlockingCall([this] {
 			closed_ = true;
 			osSockets_.clear();
+			bindFailures_.clear();
 			routes_.clear();
 			sockets_.clear();
 			sessionsByUfrag_.clear();
@@ -137,6 +160,7 @@ namespace jni
 		thread_->BlockingCall([this] {
 			closed_ = true;
 			osSockets_.clear();
+			bindFailures_.clear();
 			routes_.clear();
 			transactions_.clear();
 			transactionOrder_.clear();
@@ -320,18 +344,31 @@ namespace jni
 			return existing->first;
 		}
 
-		std::unique_ptr<webrtc::AsyncUDPSocket> socket = webrtc::AsyncUDPSocket::Create(env_, local, *thread_->socketserver());
+		// Bound here rather than by AsyncUDPSocket::Create, which keeps the error to itself.
+		std::unique_ptr<webrtc::Socket> bound = thread_->socketserver()->Create(local.family(), SOCK_DGRAM);
+		std::optional<std::string> failure;
 
-		if (!socket) {
-			RTC_LOG(LS_WARNING) << "ICE UDP endpoint cannot bind " << local.ToString();
+		if (!bound) {
+			failure = "Cannot create a socket";
+		}
+		else if (bound->Bind(local) < 0) {
+			failure = BindError(bound->GetError());
+		}
+
+		if (failure) {
+			RTC_LOG(LS_WARNING) << "ICE UDP endpoint cannot bind " << local.ToString() << ": " << *failure;
+			bindFailures_[local] = *failure;
 			return std::nullopt;
 		}
+
+		auto socket = std::make_unique<webrtc::AsyncUDPSocket>(env_, std::move(bound));
 
 		socket->RegisterReceivedPacketCallback([this, local](webrtc::AsyncPacketSocket *, const webrtc::ReceivedIpPacket & packet) {
 			Receive(local, packet.payload(), packet.source_address(), packet.arrival_time());
 		});
 
 		osSockets_.emplace(local, std::move(socket));
+		bindFailures_.erase(local);
 
 		return local;
 	}
@@ -1122,6 +1159,22 @@ namespace jni
 			}
 
 			return StunReading { m.server, m.local, m.mapped, m.state, m.successes, m.failures, m.revision, age };
+		});
+	}
+
+	IceUdpEndpoint::Sockets IceUdpEndpoint::GetSockets()
+	{
+		return thread_->BlockingCall([this] {
+			Sockets sockets;
+
+			for (const auto & [local, socket] : osSockets_) {
+				sockets.bound.push_back(local);
+			}
+			for (const auto & [local, reason] : bindFailures_) {
+				sockets.failed.push_back(BindFailure { local, reason });
+			}
+
+			return sockets;
 		});
 	}
 

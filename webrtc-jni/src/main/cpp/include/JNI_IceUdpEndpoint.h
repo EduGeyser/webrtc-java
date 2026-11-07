@@ -113,6 +113,14 @@ JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_IceUdpEndpoint_clo
 
 /*
  * Class:     io_github_sendablemetatype_webrtc_IceUdpEndpoint
+ * Method:    getSockets
+ * Signature: ()Lio/github/sendablemetatype/webrtc/IceUdpEndpoint$Sockets;
+ */
+JNIEXPORT jobject JNICALL Java_io_github_sendablemetatype_webrtc_IceUdpEndpoint_getSockets
+  (JNIEnv *, jobject);
+
+/*
+ * Class:     io_github_sendablemetatype_webrtc_IceUdpEndpoint
  * Method:    getStats
  * Signature: ()Lio/github/sendablemetatype/webrtc/IceUdpEndpoint$Stats;
  */
