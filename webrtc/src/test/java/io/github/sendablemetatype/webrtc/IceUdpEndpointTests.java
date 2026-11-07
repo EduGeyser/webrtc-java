@@ -16,26 +16,34 @@
 
 package io.github.sendablemetatype.webrtc;
 
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.Inet4Address;
+import java.net.Inet6Address;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
+import java.net.NetworkInterface;
+import java.net.SocketException;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.security.SecureRandom;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Base64;
+import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -75,10 +83,7 @@ class IceUdpEndpointTests extends TestBase {
 	@BeforeEach
 	void createEndpoint() throws Exception {
 		requestExecutor = Executors.newSingleThreadExecutor();
-
-		try (DatagramSocket socket = new DatagramSocket(0)) {
-			endpoint = new IceUdpEndpoint(socket.getLocalPort());
-		}
+		endpoint = new IceUdpEndpoint(freePort());
 	}
 
 	@AfterEach
@@ -88,6 +93,143 @@ class IceUdpEndpointTests extends TestBase {
 		requests.clear();
 		endpoint.dispose();
 		requestExecutor.shutdownNow();
+	}
+
+	@Test
+	void socketsAreBoundAsConnectionsGatherAndFreedOnDispose() throws Exception {
+		IceUdpEndpoint.Sockets before = endpoint.getSockets();
+
+		assertTrue(before.bound().isEmpty(), before.toString());
+		assertTrue(before.failed().isEmpty(), before.toString());
+
+		// The connection holds the native endpoint past its dispose.
+		List<InetAddress> hosts = endpointHostAddresses();
+		IceUdpEndpoint.Sockets after = endpoint.getSockets();
+
+		for (InetAddress host : hosts) {
+			assertTrue(after.bound().contains(new InetSocketAddress(host, endpoint.getPort())), host + ": " + after);
+		}
+		for (InetSocketAddress local : after.bound()) {
+			assertThrows(SocketException.class, () -> new DatagramSocket(local).close(), local + " is free");
+		}
+		after.failed().forEach(IceUdpEndpointTests::assertUnavailable);
+
+		endpoint.dispose();
+
+		assertThrows(IllegalStateException.class, endpoint::getSockets);
+
+		for (InetSocketAddress local : after.bound()) {
+			assertDoesNotThrow(() -> new DatagramSocket(local).close(), local + " is still bound");
+		}
+	}
+
+	@Test
+	void portTakenOnAnAddressIsReportedWhenAConnectionGathersThere() throws Exception {
+		int port = endpoint.getPort();
+		List<InetAddress> hosts = gatheredAddresses();
+		// The first address connections gather on, whatever its family.
+		InetSocketAddress taken = new InetSocketAddress(hosts.get(0), port);
+		BlockingQueue<IceUdpEndpoint.BindFailure> failures = new LinkedBlockingQueue<>();
+
+		endpoint.setBindFailureHandler(failures::add, requestExecutor);
+
+		try (DatagramSocket holder = new DatagramSocket(taken)) {
+			// None, when the taken address is the runner's only one.
+			List<InetAddress> gathered = toAddresses(hostsGatheredOn(endpoint));
+			IceUdpEndpoint.BindFailure reported = awaitFailure(failures, taken);
+			IceUdpEndpoint.Sockets sockets = endpoint.getSockets();
+
+			assertFalse(gathered.contains(taken.getAddress()), "Gathered on " + taken);
+			assertTrue(reported.failure().getMessage().startsWith("Cannot bind "), reported.toString());
+			assertTrue(sockets.failed().stream().anyMatch(failure -> failure.address().equals(taken)), sockets.toString());
+			assertFalse(sockets.bound().contains(taken), sockets.toString());
+
+			// The other addresses are bound as ever, unless the runner keeps one from it.
+			for (InetAddress host : hosts.subList(1, hosts.size())) {
+				InetSocketAddress local = new InetSocketAddress(host, port);
+
+				if (sockets.bound().contains(local)) {
+					assertTrue(gathered.contains(host), "No candidate on " + local);
+				}
+				else {
+					sockets.failed().stream()
+							.filter(failure -> failure.address().equals(local))
+							.findFirst()
+							.ifPresentOrElse(IceUdpEndpointTests::assertUnavailable,
+									() -> fail(local + " was not tried: " + sockets));
+				}
+			}
+		}
+
+		// Free now, so the next connection that gathers there binds it.
+		assertTrue(endpointHostAddresses().contains(taken.getAddress()), "No candidate on " + taken);
+
+		IceUdpEndpoint.Sockets sockets = endpoint.getSockets();
+
+		assertTrue(sockets.bound().contains(taken), sockets.toString());
+		assertTrue(sockets.failed().stream().noneMatch(failure -> failure.address().equals(taken)), sockets.toString());
+	}
+
+	@Test
+	void listedLinkLocalAddressIsBoundInItsScope() throws Exception {
+		Inet6Address linkLocal = bindableLinkLocalAddress();
+
+		assumeTrue(linkLocal != null, "No bindable link-local IPv6 address with a scope");
+
+		int port = endpoint.getPort();
+		InetSocketAddress local = new InetSocketAddress(linkLocal, port);
+		// Without a scope, the address takes the one it is listed with.
+		InetAddress unscoped = InetAddress.getByAddress(linkLocal.getAddress());
+
+		endpoint.dispose();
+		endpoint = new IceUdpEndpoint(port, linkLocal);
+
+		try (DatagramSocket server = new DatagramSocket(new InetSocketAddress(linkLocal, 0));
+				IceUdpEndpoint.StunMonitor monitor = endpoint.monitorStun(unscoped,
+						(InetSocketAddress) server.getLocalSocketAddress())) {
+			IceUdpEndpoint.Sockets sockets = endpoint.getSockets();
+
+			// Addresses are equal whatever their scope, so the scope is compared apart.
+			assertEquals(List.of(local), sockets.bound(), sockets.toString());
+			assertEquals(List.of(linkLocal.getScopeId()), scopes(sockets.bound()), sockets.toString());
+			assertEquals(List.of(linkLocal.getScopeId()), scopes(List.of(monitor.read().local())));
+			assertThrows(SocketException.class, () -> new DatagramSocket(local).close(), local + " is free");
+		}
+	}
+
+	@Test
+	void sameLinkLocalAddressInTwoScopesIsTwoSockets() throws Exception {
+		Inet6Address linkLocal = bindableLinkLocalAddress();
+
+		assumeTrue(linkLocal != null, "No bindable link-local IPv6 address with a scope");
+
+		// No interface has this index, so nothing binds in that scope.
+		int missingScope = Collections.list(NetworkInterface.getNetworkInterfaces()).stream()
+				.mapToInt(NetworkInterface::getIndex)
+				.max()
+				.orElse(0) + 1;
+		Inet6Address elsewhere = Inet6Address.getByAddress(null, linkLocal.getAddress(), missingScope);
+		BlockingQueue<IceUdpEndpoint.BindFailure> failures = new LinkedBlockingQueue<>();
+
+		endpoint.setBindFailureHandler(failures::add, requestExecutor);
+
+		try (DatagramSocket server = new DatagramSocket(new InetSocketAddress(linkLocal, 0));
+				IceUdpEndpoint.StunMonitor monitor = endpoint.monitorStun(linkLocal,
+						(InetSocketAddress) server.getLocalSocketAddress())) {
+			InetSocketAddress serverAddress = (InetSocketAddress) server.getLocalSocketAddress();
+
+			assertThrows(IllegalStateException.class, () -> endpoint.monitorStun(elsewhere, serverAddress));
+
+			IceUdpEndpoint.Sockets sockets = endpoint.getSockets();
+			IceUdpEndpoint.BindFailure reported = failures.poll(10, TimeUnit.SECONDS);
+
+			assertEquals(List.of(linkLocal.getScopeId()), scopes(sockets.bound()), sockets.toString());
+			assertEquals(List.of(missingScope),
+					scopes(sockets.failed().stream().map(IceUdpEndpoint.BindFailure::address).toList()),
+					sockets.toString());
+			assertNotNull(reported, "No failure reported");
+			assertEquals(List.of(missingScope), scopes(List.of(reported.address())));
+		}
 	}
 
 	@Test
@@ -301,18 +443,26 @@ class IceUdpEndpointTests extends TestBase {
 	 * publish them.
 	 */
 	private List<String> endpointHosts() throws Exception {
-		Peer probe = new Peer(serverConfig());
-		probe.connection.createDataChannel("data", new RTCDataChannelInit());
-		setLocal(probe);
-
-		List<String> hosts = probe.awaitCandidates().stream()
-				.map(candidate -> candidate.sdp.split(" ")[4])
-				.distinct()
-				.toList();
+		List<String> hosts = hostsGatheredOn(endpoint);
 
 		assertFalse(hosts.isEmpty(), "No host candidates on the endpoint");
 
 		return hosts;
+	}
+
+	/*
+	 * The host addresses a new connection gathers on an endpoint; none if it
+	 * cannot bind any.
+	 */
+	private List<String> hostsGatheredOn(IceUdpEndpoint on) throws Exception {
+		Peer probe = new Peer(serverConfig(on));
+		probe.connection.createDataChannel("data", new RTCDataChannelInit());
+		setLocal(probe);
+
+		return probe.awaitCandidates().stream()
+				.map(candidate -> candidate.sdp.split(" ")[4])
+				.distinct()
+				.toList();
 	}
 
 	/*
@@ -357,6 +507,109 @@ class IceUdpEndpointTests extends TestBase {
 		return new Client(client, server, answer, clientUfrag);
 	}
 
+	private List<InetAddress> endpointHostAddresses() throws Exception {
+		return toAddresses(endpointHosts());
+	}
+
+	/*
+	 * The addresses connections gather on, learned on an endpoint of their own,
+	 * so that the test's endpoint has bound none of them yet.
+	 */
+	private List<InetAddress> gatheredAddresses() throws Exception {
+		IceUdpEndpoint probe = new IceUdpEndpoint(freePort());
+
+		try {
+			List<String> hosts = hostsGatheredOn(probe);
+
+			assertFalse(hosts.isEmpty(), "No host candidates on the probe endpoint");
+
+			return toAddresses(hosts);
+		}
+		finally {
+			probe.dispose();
+		}
+	}
+
+	private static List<InetAddress> toAddresses(List<String> hosts) throws IOException {
+		List<InetAddress> addresses = new ArrayList<>();
+
+		for (String host : hosts) {
+			addresses.add(InetAddress.getByName(host));
+		}
+
+		return addresses;
+	}
+
+	/*
+	 * Waits for the failure of one address. Any other one passes only as the
+	 * runner's, see assertUnavailable.
+	 */
+	private static IceUdpEndpoint.BindFailure awaitFailure(BlockingQueue<IceUdpEndpoint.BindFailure> failures,
+			InetSocketAddress local) throws InterruptedException {
+		IceUdpEndpoint.BindFailure failure;
+
+		while ((failure = failures.poll(10, TimeUnit.SECONDS)) != null) {
+			if (failure.address().equals(local)) {
+				return failure;
+			}
+
+			assertUnavailable(failure);
+		}
+
+		throw new AssertionError("No failure reported for " + local);
+	}
+
+	/*
+	 * Passes for an address the endpoint could not bind only if a socket of the
+	 * test's own cannot bind it either: the cause is then the runner's, such as
+	 * another process on the port, and not the endpoint's.
+	 */
+	private static void assertUnavailable(IceUdpEndpoint.BindFailure failure) {
+		assertThrows(SocketException.class, () -> new DatagramSocket(failure.address()).close(),
+				failure.address() + " can be bound, yet the endpoint failed: " + failure.failure().getMessage());
+	}
+
+	/*
+	 * A port that is free on every address, as far as a wildcard bind can tell.
+	 */
+	private static int freePort() throws IOException {
+		try (DatagramSocket probe = new DatagramSocket(0)) {
+			return probe.getLocalPort();
+		}
+	}
+
+	/*
+	 * A link-local IPv6 address with its scope, on an interface that is up, that
+	 * a socket of the test's own can bind; null if there is none.
+	 */
+	private static Inet6Address bindableLinkLocalAddress() throws SocketException {
+		for (NetworkInterface face : Collections.list(NetworkInterface.getNetworkInterfaces())) {
+			if (!face.isUp()) {
+				continue;
+			}
+
+			for (InetAddress address : Collections.list(face.getInetAddresses())) {
+				if (address instanceof Inet6Address linkLocal && linkLocal.isLinkLocalAddress()
+						&& linkLocal.getScopeId() != 0) {
+					try (DatagramSocket probe = new DatagramSocket(new InetSocketAddress(linkLocal, 0))) {
+						return linkLocal;
+					}
+					catch (SocketException e) {
+						// Not usable here, such as an address still in duplicate detection.
+					}
+				}
+			}
+		}
+
+		return null;
+	}
+
+	private static List<Integer> scopes(Collection<InetSocketAddress> addresses) {
+		return addresses.stream()
+				.map(local -> ((Inet6Address) local.getAddress()).getScopeId())
+				.toList();
+	}
+
 	private static String derivedPassword(byte[] key, byte[] context, String ufrag) throws Exception {
 		Mac mac = Mac.getInstance("HmacSHA256");
 		mac.init(new SecretKeySpec(key, "HmacSHA256"));
@@ -379,8 +632,12 @@ class IceUdpEndpointTests extends TestBase {
 	}
 
 	private RTCConfiguration serverConfig() {
+		return serverConfig(endpoint);
+	}
+
+	private static RTCConfiguration serverConfig(IceUdpEndpoint on) {
 		RTCConfiguration config = new RTCConfiguration();
-		config.iceEndpoint = endpoint;
+		config.iceEndpoint = on;
 		config.portAllocatorConfig.setDisableTcp(true);
 
 		return config;
