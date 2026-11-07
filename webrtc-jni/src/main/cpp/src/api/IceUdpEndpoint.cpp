@@ -130,6 +130,7 @@ namespace jni
 			pendingByKey_.clear();
 			pendingByUfrag_.clear();
 			handler_ = nullptr;
+			bindFailureHandler_ = nullptr;
 			ClearDerivedPasswords();
 			proxy_.reset();
 			monitors_.clear();
@@ -168,6 +169,7 @@ namespace jni
 			pendingByKey_.clear();
 			pendingByUfrag_.clear();
 			handler_ = nullptr;
+			bindFailureHandler_ = nullptr;
 			ClearDerivedPasswords();
 			proxy_.reset();
 			monitors_.clear();
@@ -358,6 +360,13 @@ namespace jni
 		if (failure) {
 			RTC_LOG(LS_WARNING) << "ICE UDP endpoint cannot bind " << local.ToString() << ": " << *failure;
 			bindFailures_[local] = *failure;
+
+			if (bindFailureHandler_) {
+				// A copy, since the handler may replace itself while it runs.
+				BindFailureHandler handler = bindFailureHandler_;
+
+				handler(BindFailure { local, *failure });
+			}
 			return std::nullopt;
 		}
 
@@ -915,6 +924,13 @@ namespace jni
 	{
 		thread_->BlockingCall([this, &handler] {
 			std::swap(handler_, handler);
+		});
+	}
+
+	void IceUdpEndpoint::SetBindFailureHandler(BindFailureHandler handler)
+	{
+		thread_->BlockingCall([this, &handler] {
+			std::swap(bindFailureHandler_, handler);
 		});
 	}
 

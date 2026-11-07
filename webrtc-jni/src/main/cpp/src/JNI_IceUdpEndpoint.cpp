@@ -155,6 +155,57 @@ JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_IceUdpEndpoint_ena
 	});
 }
 
+JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_IceUdpEndpoint_enableBindFailures
+(JNIEnv * env, jobject caller, jboolean enabled)
+{
+	jni::NativeLease<EndpointHandle> endpoint(env, caller);
+	CHECK_HANDLE(endpoint);
+
+	if (!enabled) {
+		(*endpoint)->SetBindFailureHandler(nullptr);
+		return;
+	}
+
+	jclass cls = env->GetObjectClass(caller);
+	jmethodID method = env->GetMethodID(cls, "onBindFailure", "(Ljava/net/InetSocketAddress;Ljava/lang/String;)V");
+	env->DeleteLocalRef(cls);
+
+	if (method == nullptr) {
+		return;
+	}
+
+	jni::JavaGlobalRef<jobject> targetRef(env, caller);
+
+	// The caller is set, so a null reference is a failed NewGlobalRef.
+	if (targetRef.get() == nullptr) {
+		ThrowJavaException(env, "java/lang/OutOfMemoryError", "No global reference for the bind failure handler");
+		return;
+	}
+
+	auto target = std::make_shared<jni::JavaGlobalRef<jobject>>(std::move(targetRef));
+
+	(*endpoint)->SetBindFailureHandler([target, method](const jni::IceUdpEndpoint::BindFailure & failure) {
+		JNIEnv * env = AttachCurrentThread();
+
+		if (env == nullptr) {
+			return;
+		}
+
+		try {
+			jni::JavaLocalRef<jobject> local = jni::InetAddress::toJavaSocketAddress(env, failure.local);
+			jni::JavaLocalRef<jstring> reason = jni::JavaString::toJava(env, failure.reason);
+			ExceptionCheck(env);
+
+			env->CallVoidMethod(target->get(), method, local.get(), reason.get());
+		}
+		catch (...) {
+			ThrowCxxJavaException(env);
+		}
+
+		jni::ReportPendingException(env);
+	});
+}
+
 JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_IceUdpEndpoint_setDerivedPasswords
 (JNIEnv * env, jobject caller, jbyteArray jContext, jobjectArray jPrefixes, jobjectArray jKeys)
 {

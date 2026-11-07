@@ -163,6 +163,9 @@ namespace jni
 				std::vector<BindFailure> failed;
 			};
 
+			// Called on the endpoint thread. Must not block.
+			using BindFailureHandler = std::function<void(const BindFailure &)>;
+
 			// Starts the endpoint thread. An empty address list allows every local address.
 			// A listed address keeps its IPv6 scope; its port is not used.
 			static std::shared_ptr<IceUdpEndpoint> Create(uint16_t port, std::vector<webrtc::SocketAddress> addresses);
@@ -209,6 +212,10 @@ namespace jni
 			// The sockets bound so far, and the addresses that could not be bound. Empty
 			// once closed.
 			Sockets GetSockets();
+
+			// Told of every bind that fails, for a peer or a STUN monitor. Blocks until
+			// the previous handler is no longer called.
+			void SetBindFailureHandler(BindFailureHandler handler);
 
 			uint64_t AddVirtualSocket(uint64_t peer, uint64_t session, const webrtc::SocketAddress & local,
 				std::shared_ptr<EndpointLink> link);
@@ -407,6 +414,7 @@ namespace jni
 			size_t maxPending_ = 1024;
 			int64_t pendingTimeoutMs_ = 15000;
 			PendingRequestHandler handler_;
+			BindFailureHandler bindFailureHandler_;
 			std::string derivedContext_;
 			std::vector<std::pair<std::string, std::string>> derivedKeys_;
 			std::map<uint64_t, PendingRequest> pending_;

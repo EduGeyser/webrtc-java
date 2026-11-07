@@ -48,9 +48,11 @@ import java.util.function.Consumer;
  * first connection gathers on that address or a {@linkplain #monitorStun STUN
  * monitor} needs it, and keeps it until it is disposed. {@link #getSockets()}
  * tells which addresses it holds and why it could not bind others, for example
- * because another process has the port there. One endpoint can serve the
- * connections of several {@link PeerConnectionFactory} instances. Close the
- * connections before disposing the endpoint, or they stop sending and receiving.
+ * because another process has the port there, and a
+ * {@linkplain #setBindFailureHandler handler} learns of each such failure as
+ * it happens. One endpoint can serve the connections of several
+ * {@link PeerConnectionFactory} instances. Close the connections before
+ * disposing the endpoint, or they stop sending and receiving.
  * <p>
  * A connectivity check that no connection can take yet is held, packet and
  * all, and answered once one can. With a {@linkplain #setPendingRequestHandler
@@ -71,7 +73,9 @@ import java.util.function.Consumer;
  */
 public class IceUdpEndpoint extends DisposableNativeObject {
 
-	private volatile RequestDispatch requestDispatch;
+	private volatile Dispatch<PendingRequest> requestDispatch;
+
+	private volatile Dispatch<BindFailure> bindFailureDispatch;
 
 	/**
 	 * Creates an endpoint on the given port.
@@ -169,7 +173,7 @@ public class IceUdpEndpoint extends DisposableNativeObject {
 	 * @param executor Runs the handler, off the endpoint's thread.
 	 */
 	public void setPendingRequestHandler(Consumer<PendingRequest> handler, Executor executor) {
-		requestDispatch = new RequestDispatch(Objects.requireNonNull(handler, "handler"),
+		requestDispatch = new Dispatch<>(Objects.requireNonNull(handler, "handler"),
 				Objects.requireNonNull(executor, "executor"));
 
 		enablePendingRequests(true);
@@ -183,6 +187,36 @@ public class IceUdpEndpoint extends DisposableNativeObject {
 		enablePendingRequests(false);
 
 		requestDispatch = null;
+	}
+
+	/**
+	 * Passes each failed bind of the endpoint's port to the handler on the
+	 * executor: when a connection gathers on a local address, or a STUN monitor
+	 * needs one, that the endpoint cannot bind, for example because another
+	 * process has the port there. A connection then gathers no host candidate
+	 * on that address. Every attempt is passed on, so an address that stays
+	 * unavailable is reported once for each connection that gathers on it.
+	 * {@link #getSockets()} keeps the latest failure of each address. A failure
+	 * the executor rejects is not passed on.
+	 *
+	 * @param handler  Receives the failures.
+	 * @param executor Runs the handler, off the endpoint's thread.
+	 */
+	public void setBindFailureHandler(Consumer<BindFailure> handler, Executor executor) {
+		bindFailureDispatch = new Dispatch<>(Objects.requireNonNull(handler, "handler"),
+				Objects.requireNonNull(executor, "executor"));
+
+		enableBindFailures(true);
+	}
+
+	/**
+	 * Stops passing on failed binds. Once this returns, the handler is not
+	 * passed further failures.
+	 */
+	public void clearBindFailureHandler() {
+		enableBindFailures(false);
+
+		bindFailureDispatch = null;
 	}
 
 	/**
@@ -354,7 +388,7 @@ public class IceUdpEndpoint extends DisposableNativeObject {
 	@SuppressWarnings("unused")
 	private void onPendingRequest(long id, InetSocketAddress localAddress, InetSocketAddress remoteAddress,
 			String localUfrag, String remoteUfrag) {
-		RequestDispatch dispatch = requestDispatch;
+		Dispatch<PendingRequest> dispatch = requestDispatch;
 		PendingRequest request = new PendingRequest(this, id, localAddress, remoteAddress, localUfrag, remoteUfrag);
 
 		if (dispatch == null) {
@@ -370,11 +404,35 @@ public class IceUdpEndpoint extends DisposableNativeObject {
 		}
 	}
 
+	/*
+	 * Called from native code on the endpoint's thread, which must not wait for
+	 * the handler.
+	 */
+	@SuppressWarnings("unused")
+	private void onBindFailure(InetSocketAddress address, String reason) {
+		Dispatch<BindFailure> dispatch = bindFailureDispatch;
+
+		if (dispatch == null) {
+			return;
+		}
+
+		BindFailure failure = bindFailure(address, reason);
+
+		try {
+			dispatch.executor.execute(() -> dispatch.handler.accept(failure));
+		}
+		catch (RejectedExecutionException e) {
+			// getSockets() still has it.
+		}
+	}
+
 	private native void initialize(int port, InetAddress[] addresses);
 
 	private native void setPendingLimits(int maxPending, long timeoutMs);
 
 	private native void enablePendingRequests(boolean enabled);
+
+	private native void enableBindFailures(boolean enabled);
 
 	private native void setDerivedPasswords(byte[] context, String[] prefixes, byte[][] keys);
 
@@ -641,7 +699,7 @@ public class IceUdpEndpoint extends DisposableNativeObject {
 
 
 
-	private record RequestDispatch(Consumer<PendingRequest> handler, Executor executor) {
+	private record Dispatch<T>(Consumer<T> handler, Executor executor) {
 
 	}
 

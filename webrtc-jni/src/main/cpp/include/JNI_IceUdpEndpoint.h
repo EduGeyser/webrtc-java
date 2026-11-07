@@ -57,6 +57,14 @@ JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_IceUdpEndpoint_ena
 
 /*
  * Class:     io_github_sendablemetatype_webrtc_IceUdpEndpoint
+ * Method:    enableBindFailures
+ * Signature: (Z)V
+ */
+JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_IceUdpEndpoint_enableBindFailures
+  (JNIEnv *, jobject, jboolean);
+
+/*
+ * Class:     io_github_sendablemetatype_webrtc_IceUdpEndpoint
  * Method:    setDerivedPasswords
  * Signature: ([B[Ljava/lang/String;[[B)V
  */
