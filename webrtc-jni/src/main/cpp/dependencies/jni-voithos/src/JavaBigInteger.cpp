@@ -25,9 +25,14 @@ namespace jni
 	{
 		const auto javaClass = JavaClasses::get<JavaBigInteger>(env);
 
-		jobject object = env->NewObject(javaClass->cls, javaClass->ctor, JavaString::toJava(env, val).get());
+		// toJava fails the JNI way, with null and a pending exception.
+		JavaLocalRef<jstring> value = JavaString::toJava(env, val);
+		ExceptionCheck(env);
 
-		return JavaLocalRef<jobject>(env, object);
+		JavaLocalRef<jobject> object(env, env->NewObject(javaClass->cls, javaClass->ctor, value.get()));
+		ExceptionCheck(env);
+
+		return object;
 	}
 
 	JavaLocalRef<jobjectArray> JavaBigInteger::createArray(JNIEnv * env, const std::vector<std::string> & vector)

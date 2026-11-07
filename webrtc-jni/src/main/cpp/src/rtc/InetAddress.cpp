@@ -37,6 +37,7 @@ namespace jni
 			const auto javaClass = JavaClasses::get<JavaInetAddressClass>(env);
 
 			JavaLocalRef<jbyteArray> bytes(env, static_cast<jbyteArray>(env->CallObjectMethod(address.get(), javaClass->getAddress)));
+			ExceptionCheck(env);
 
 			jsize length = env->GetArrayLength(bytes.get());
 
@@ -71,13 +72,19 @@ namespace jni
 				ipv6 = ip.ipv6_address();
 			}
 
+			// Each step stops at a pending exception, which ExceptionCheck throws on.
 			JavaLocalRef<jbyteArray> bytes(env, env->NewByteArray(length));
+			ExceptionCheck(env);
 			env->SetByteArrayRegion(bytes.get(), 0, length, static_cast<const jbyte *>(raw));
 
 			JavaLocalRef<jobject> inetAddress(env, env->CallStaticObjectMethod(javaClass->cls, javaClass->getByAddress, bytes.get()));
+			ExceptionCheck(env);
 
-			return JavaLocalRef<jobject>(env, env->NewObject(javaClass->socketCls, javaClass->socketCtor,
+			JavaLocalRef<jobject> socketAddress(env, env->NewObject(javaClass->socketCls, javaClass->socketCtor,
 				inetAddress.get(), static_cast<jint>(address.port())));
+			ExceptionCheck(env);
+
+			return socketAddress;
 		}
 
 		JavaInetAddressClass::JavaInetAddressClass(JNIEnv * env)
