@@ -13,7 +13,7 @@ the same. Distributions ship older headers than FFmpeg wants (Ubuntu 24.04 has 1
 why they are here.
 
 `vulkan.pc.in` is the pkg-config file FFmpeg's configure looks for; CMake fills in the path and puts
-the result where configure finds it. Version 1.4.317 is the lowest FFmpeg n8.1 takes for VP9
+the result where configure finds it. Version 1.4.317 is the lowest FFmpeg n9.0 takes for VP9
 (`vulkan >= 1.4.317`; the others need 1.3.277).
 
 `LICENSE.md` and `LICENSES` are those of the repository: the headers are under the Apache License

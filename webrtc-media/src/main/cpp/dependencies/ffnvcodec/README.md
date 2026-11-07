@@ -14,7 +14,7 @@ https://github.com/FFmpeg/nv-codec-headers/tree/n12.0.16.1/include/ffnvcodec
   too, so it is part of the set.
 
 `ffnvcodec.pc.in` is the pkg-config file FFmpeg's configure looks for; CMake fills in the path and
-puts the result where configure finds it. Version 12.0.16.1 is one of those FFmpeg n8.1 accepts
+puts the result where configure finds it. Version 12.0.16.1 is one of those FFmpeg n9.0 accepts
 (`ffnvcodec >= 12.0.16.1 ffnvcodec < 12.1`), and the one the NVENC header comes from.
 
 `LICENSE` gathers the notices at the head of the files. It is installed into the Linux platform
