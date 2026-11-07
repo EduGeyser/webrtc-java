@@ -30,8 +30,10 @@ import io.github.sendablemetatype.webrtc.media.Device;
 import io.github.sendablemetatype.webrtc.media.DeviceChangeListener;
 import io.github.sendablemetatype.webrtc.media.MediaDevices;
 
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
+@Tag("media")
 class DeviceBackendTests {
 
 	@Test

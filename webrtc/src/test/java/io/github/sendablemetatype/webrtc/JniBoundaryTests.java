@@ -19,10 +19,12 @@ package io.github.sendablemetatype.webrtc;
 import static org.junit.jupiter.api.Assertions.*;
 
 import io.github.sendablemetatype.webrtc.internal.AllocationFault;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.parallel.Execution;
 import org.junit.jupiter.api.parallel.ExecutionMode;
 
+@Tag("media")
 @Execution(ExecutionMode.SAME_THREAD)
 class JniBoundaryTests extends TestBase {
 

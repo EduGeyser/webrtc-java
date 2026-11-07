@@ -30,9 +30,11 @@ import io.github.sendablemetatype.webrtc.TestBase;
 import io.github.sendablemetatype.webrtc.media.FourCC;
 
 import org.junit.jupiter.api.DynamicTest;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestFactory;
 
+@Tag("media")
 class I420PlaneValidationTest extends TestBase {
 
 	@TestFactory

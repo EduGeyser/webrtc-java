@@ -18,6 +18,7 @@ package io.github.sendablemetatype.webrtc.media.audio;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 class AudioSampleRateTests {
@@ -34,6 +35,7 @@ class AudioSampleRateTests {
 		}
 	}
 
+	@Tag("media")
 	@Test
 	void acceptsIntegralFrames() {
 		for (int rate : new int[] { 100, 8000, 44100, 48000, 384000 }) {

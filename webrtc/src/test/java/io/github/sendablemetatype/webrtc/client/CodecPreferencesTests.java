@@ -31,8 +31,10 @@ import io.github.sendablemetatype.webrtc.RTCRtpTransceiver;
 import io.github.sendablemetatype.webrtc.RTCRtpTransceiverInit;
 import io.github.sendablemetatype.webrtc.media.MediaType;
 
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
+@Tag("media")
 class CodecPreferencesTests extends ClientTestBase {
 
 	@Test
