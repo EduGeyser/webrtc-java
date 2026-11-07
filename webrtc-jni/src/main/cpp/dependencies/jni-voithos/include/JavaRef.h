@@ -214,6 +214,10 @@ namespace jni
 			}
 
 		private:
+			// The converting move constructor takes env from a reference of another type.
+			template <class, typename>
+			friend class JavaLocalRef;
+
 			JNIEnv * env;
 	};
 
