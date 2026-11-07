@@ -29,6 +29,11 @@ namespace jni
 		// object: it has been disposed or closed, or it never owned one, such
 		// as a view of a track owned elsewhere. Keeps a pending exception.
 		void Released(JNIEnv * env, jobject object) noexcept;
+
+		// Tells the leak detector that the NativeObject owns a native object
+		// again, after its handle was taken and given back. Keeps a pending
+		// exception.
+		void Bound(JNIEnv * env, jobject object) noexcept;
 	}
 }
 

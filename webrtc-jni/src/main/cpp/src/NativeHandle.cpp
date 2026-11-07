@@ -262,6 +262,24 @@ namespace jni
 			release(false);
 		}
 
+		void Restore(JNIEnv * env, jobject object, jlong handle)
+		{
+			jfieldID field = HandleField(env);
+
+			if (field == nullptr) {
+				return;
+			}
+
+			LeakDetection::Bound(env, object);
+
+			// Published where Take() reads it, so that a Take() that finds the
+			// handle comes after the notice above.
+			Stripe & stripe = StripeOf(handle);
+			std::lock_guard<std::mutex> lock(stripe.mutex);
+
+			env->SetLongField(object, field, handle);
+		}
+
 		void ThrowDisposed(JNIEnv * env, jobject object) noexcept
 		{
 			if (env->ExceptionCheck()) {

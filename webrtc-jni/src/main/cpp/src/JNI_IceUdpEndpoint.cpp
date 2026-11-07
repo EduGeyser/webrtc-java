@@ -399,7 +399,7 @@ JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_IceUdpEndpoint_dis
 			// The release was neither stored behind a call that still uses the
 			// endpoint nor run, so the endpoint is as it was. The Java object
 			// takes it back and can be disposed again.
-			SetHandle(env, caller, endpoint);
+			jni::NativeHandle::Restore(env, caller, reinterpret_cast<jlong>(endpoint));
 			throw;
 		}
 	});

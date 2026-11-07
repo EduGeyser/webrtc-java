@@ -76,6 +76,13 @@ namespace jni
 				Notify(env, object, releasedMethod);
 			}
 		}
+
+		void Bound(JNIEnv * env, jobject object) noexcept
+		{
+			if (enabled.load(std::memory_order_acquire)) {
+				Notify(env, object, boundMethod);
+			}
+		}
 	}
 }
 

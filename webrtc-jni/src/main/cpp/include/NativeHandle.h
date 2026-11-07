@@ -62,6 +62,12 @@ namespace jni
 		// object of the call that took the handle.
 		void Release(JNIEnv * env, jlong handle, std::function<void(bool deferred)> release);
 
+		// Binds a handle taken with Take() to its object again, for a dispose
+		// that could not set up the release and leaves the object as it was.
+		// The leak detector learns of it before another thread can take the
+		// handle, so that a release by that thread is the last it hears of.
+		void Restore(JNIEnv * env, jobject object, jlong handle);
+
 		// Throws the IllegalStateException of a disposed object, unless an
 		// exception is pending already.
 		void ThrowDisposed(JNIEnv * env, jobject object) noexcept;
