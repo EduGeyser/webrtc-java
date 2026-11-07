@@ -36,7 +36,7 @@ What the client API takes care of:
 - **Lifetime**: everything belongs to the runtime that created it and is closed with it. Senders, receivers and transceivers stay inside the library.
 - **Futures**: operations return `CompletableFuture`s that fail with typed exceptions, instead of taking observers.
 
-The client API is plain Java on top of the classes the other guides describe, and it does not replace them. Its peers, tracks and channels are the same native objects, and [Using the Low-Level API](#using-the-low-level-api) shows how to reach them for anything it does not cover.
+The client API is plain Java on top of the classes the other guides describe, and it does not replace them. Its peers, tracks and channels are the same native objects, and [Using the Low-Level API](#using-the-low-level-api) shows how to reach them for anything it does not cover. [Client API Design](/guide/client-api-design) explains the decisions behind it.
 
 ## The Runtime
 
@@ -215,11 +215,11 @@ peer.whenClosed().thenRun(() -> System.out.println("Closed"));
 
 ## Threads
 
-Every method of the client API may be called from any thread, including from inside a handler. None of them waits for a WebRTC thread: methods that change a peer return at once and take effect in the order they were called.
+Every method of the client API may be called from any thread, including from inside a handler. Methods that change a peer return at once and take effect in the order they were called.
 
 | Code | Runs on | May it block? |
 |---|---|---|
-| Your calls into the API | your thread | They don't block. The exceptions are `WebRtc.createPeer`, which waits briefly for the connection, and `WebRtc.close()`, which waits up to the close timeout. |
+| Your calls into the API | your thread | They don't block, with these exceptions. `WebRtc.createPeer`, the `LocalMedia` methods that make a track and `LocalTrack.setEnabled` wait briefly for WebRTC. `camera()` and `screen()` also open their capture on your thread, which can take longer, so a UI thread should leave them to another thread. The first `media.devices()`, `screens()` and `windows()` ask the system on your thread. `WebRtc.close()` waits up to the close timeout. |
 | Peer, track and channel handlers, future callbacks, `Signaling.send` | the peer's event thread | Yes, but that delays only the events of this peer. They must not wait for a future of this API, see below. |
 | `onFrame` and `onAudio` handlers | a thread of each subscription | Better not. A slow video handler gets the newest frame next, and the frames in between are dropped; a slow audio handler loses the oldest audio beyond its buffer. |
 | [Encoded transforms](#encoded-transforms) | a thread of each sender and receiver | Better not. A slow transform delays only its own frames, and one that falls several seconds behind has frames dropped. |
@@ -317,6 +317,18 @@ frame.add(remoteView, BorderLayout.CENTER);
 ```
 
 `snapshot()` returns a copy of the picture shown, for saving a still or for tests.
+
+Both views support resolutions such as 8K without a fixed pixel limit. They reject
+nonpositive dimensions and frames whose four-byte pixel data cannot fit in a Java
+buffer, using overflow-safe arithmetic. Conversion buffers allocate on demand,
+grow geometrically when necessary, and retain their capacity across smaller frames
+and `clear()`. Swing reuses one direct buffer; JavaFX reuses up to two.
+JavaFX reserves a buffer only while copying it into the displayed image; a waiting
+frame may be replaced by a newer frame to avoid building a queue. Buffer
+memory is released when the view becomes unreachable. Memory usage follows the
+largest frames received and includes displayed images, conversion buffers, and
+replacement allocations awaiting garbage collection. Snapshots, input frames and
+toolkit rendering resources use additional memory.
 
 For JavaFX, the `webrtc-java-javafx` module has a `VideoView` node in `io.github.sendablemetatype.webrtc.client.javafx` that works the same way. It needs Java 11 and the JavaFX your application already uses:
 
@@ -496,7 +508,7 @@ The new camera keeps the resolution and frame rate of the old one, as far as it 
 
 ### Devices
 
-`media.devices()` returns the cameras, microphones and speakers. The first call reads them from the system; after that, the lists are snapshots kept current in the background, so reading them is cheap on any thread. `screens()` and `windows()` ask the system on each call. A kind of device the system cannot list, such as audio devices on a machine without an audio system, comes back as an empty list; a query that fails otherwise throws a `MediaException`, so an empty list means there are no such devices.
+`media.devices()` returns the cameras, microphones and speakers. The first call reads them from the system; after that, the lists are snapshots kept current in the background, so reading them is cheap on any thread. Where the system reports no device changes, as on a Linux machine without PulseAudio, they are read on each call instead. `screens()` and `windows()` ask the system on each call. A query that fails, including an unavailable audio backend, throws a `MediaException`, so an empty list means there are no such devices. Its cause is an `AudioBackendUnavailableException` when the audio backend is missing or unreachable, or a `DeviceException` for other native device failures.
 
 ```java
 Devices devices = media.devices();
@@ -507,6 +519,8 @@ devices.useSpeaker(devices.speakers().get(0));
 ```
 
 `useMicrophone` and `useSpeaker` switch devices also for tracks that are sent or played now. A device that was disconnected since the list was read fails the returned future, and the device in use stays as it was. On Linux, where WebRTC's audio device module cannot tell devices apart, the default device is used whichever is given.
+
+A track does not end by itself when its device is disconnected or a captured window closes. `LocalTrack.onEnded` follows only from closing the track, or from a camera switch that can open neither camera. `onChange` tells of a device that went away; closing the track, or switching a camera to another device, is up to you. Nothing tells of a captured window that closes.
 
 ## Receiving Media
 
@@ -637,6 +651,13 @@ peer.onChannel(channel -> {                  // channels the remote peer opens
 });
 ```
 
+`Message.toString()` reports only the message type and byte length. Access content
+explicitly with `text()` or `bytes()`. For diagnostics, `message.preview(64)` inspects
+at most 64 payload bytes and escapes control characters. Binary previews use hex.
+Use `message.preview(64, prefix -> redact(prefix))` to apply your own masking before
+escaping; the masking function must handle secrets truncated at the prefix boundary.
+The preview marks truncated content and also limits the masking function's output.
+
 - A channel may be used right away: messages sent before it opens are held until it does.
 - Messages that arrive while a channel has no `onMessage` handler are kept for the next one, so none are lost while a handler is being set up.
 - `send` takes a `String`, a `byte[]` or a `ByteBuffer`, and copies the data before it returns.
@@ -662,6 +683,8 @@ DataChannel positions = peer.createChannel("positions", ChannelOptions.builder()
         .maxRetransmits(0)
         .build());
 ```
+
+`maxRetransmits(int)` accepts 0 to 65535 retransmissions. `maxPacketLifeTime(Duration)` accepts nonnegative durations up to 65535 milliseconds; positive fractions of a millisecond are rounded down, so a duration below one millisecond becomes zero. The two limits exclude each other. Values outside these ranges are rejected before native processing.
 
 `negotiatedId(int)` creates a channel both peers set up themselves with the same id, without announcing it; such a channel never shows up in `onChannel`. The [Data Channels](/guide/data/data-channels) guide explains the options in detail.
 

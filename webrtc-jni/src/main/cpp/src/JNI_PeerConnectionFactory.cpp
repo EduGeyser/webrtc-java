@@ -15,6 +15,7 @@
  */
 
 #include "JNI_PeerConnectionFactory.h"
+#include "JavaBoundary.h"
 #include "NativeHandle.h"
 #include "api/CreateSessionDescriptionObserver.h"
 #include "api/EndpointPortAllocator.h"
@@ -122,258 +123,262 @@ JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_PeerConnectionFact
 	jobject jVideoEncoderFactory, jobject jVideoDecoderFactory, jobject jAudioEncoderFactory,
 	jobject jAudioDecoderFactory, jboolean hardwareEncoders, jboolean hardwareDecoders)
 {
+	jni::CallFromJava(env, [&]() {
 #ifndef WEBRTC_DATA_CHANNELS_ONLY
-	webrtc::AudioDeviceModule * audioDevModule = (audioModule != nullptr)
-		? GetHandle<webrtc::AudioDeviceModule>(env, audioModule)
-		: nullptr;
+		webrtc::AudioDeviceModule * audioDevModule = (audioModule != nullptr)
+			? GetHandle<webrtc::AudioDeviceModule>(env, audioModule)
+			: nullptr;
 #endif
 
-	try {
-		std::map<std::string, std::string> fieldTrialsMap;
+		try {
+			std::map<std::string, std::string> fieldTrialsMap;
 
-		if (jFieldTrials != nullptr) {
-			for (const auto & entry : jni::JavaHashMap(env, jni::JavaLocalRef<jobject>(env, jFieldTrials))) {
-				std::string key = jni::JavaString::toNative(env, jni::static_java_ref_cast<jstring>(env, entry.first));
-				std::string value = jni::JavaString::toNative(env, jni::static_java_ref_cast<jstring>(env, entry.second));
+			if (jFieldTrials != nullptr) {
+				for (const auto & entry : jni::JavaHashMap(env, jni::JavaLocalRef<jobject>(env, jFieldTrials))) {
+					std::string key = jni::JavaString::toNative(env, jni::static_java_ref_cast<jstring>(env, entry.first));
+					std::string value = jni::JavaString::toNative(env, jni::static_java_ref_cast<jstring>(env, entry.second));
 
-				if (key.empty() || value.empty()) {
-					throw jni::Exception("Invalid field trial entry: key and value must not be empty");
+					if (key.empty() || value.empty()) {
+						throw jni::Exception("Invalid field trial entry: key and value must not be empty");
+					}
+
+					fieldTrialsMap.emplace(std::move(key), std::move(value));
 				}
-
-				fieldTrialsMap.emplace(std::move(key), std::move(value));
 			}
-		}
 
-		// Connections with a port allocator of their own see the same field trials.
-		std::map<std::string, std::string> networkFieldTrials = fieldTrialsMap;
+			// Connections with a port allocator of their own see the same field trials.
+			std::map<std::string, std::string> networkFieldTrials = fieldTrialsMap;
 
-		std::unique_ptr<webrtc::FieldTrialsView> fieldTrials = fieldTrialsMap.empty()
-			? nullptr
-			: std::make_unique<jni::FieldTrialsView>(std::move(fieldTrialsMap));
+			std::unique_ptr<webrtc::FieldTrialsView> fieldTrials = fieldTrialsMap.empty()
+				? nullptr
+				: std::make_unique<jni::FieldTrialsView>(std::move(fieldTrialsMap));
 
 #ifndef WEBRTC_DATA_CHANNELS_ONLY
-		// Asks the Java factories for their codecs, which is where a broken
-		// factory surfaces, before anything else is set up. Without a Java
-		// factory, the built-in codecs are used directly.
-		std::unique_ptr<webrtc::VideoEncoderFactory> videoEncoderFactory = (jVideoEncoderFactory != nullptr)
-			? std::make_unique<jni::VideoEncoderFactoryWrapper>(env, jVideoEncoderFactory)
-			: hardwareEncoders
-				? jni::CreateHardwareVideoEncoderFactory()
-				: jni::CreateDefaultVideoEncoderFactory();
-		std::unique_ptr<webrtc::VideoDecoderFactory> videoDecoderFactory = (jVideoDecoderFactory != nullptr)
-			? std::make_unique<jni::VideoDecoderFactoryWrapper>(env, jVideoDecoderFactory)
-			: hardwareDecoders
-				? jni::CreateHardwareVideoDecoderFactory()
-				: jni::CreateDefaultVideoDecoderFactory();
+			// Asks the Java factories for their codecs, which is where a broken
+			// factory surfaces, before anything else is set up. Without a Java
+			// factory, the built-in codecs are used directly.
+			std::unique_ptr<webrtc::VideoEncoderFactory> videoEncoderFactory = (jVideoEncoderFactory != nullptr)
+				? std::make_unique<jni::VideoEncoderFactoryWrapper>(env, jVideoEncoderFactory)
+				: hardwareEncoders
+					? jni::CreateHardwareVideoEncoderFactory()
+					: jni::CreateDefaultVideoEncoderFactory();
+			std::unique_ptr<webrtc::VideoDecoderFactory> videoDecoderFactory = (jVideoDecoderFactory != nullptr)
+				? std::make_unique<jni::VideoDecoderFactoryWrapper>(env, jVideoDecoderFactory)
+				: hardwareDecoders
+					? jni::CreateHardwareVideoDecoderFactory()
+					: jni::CreateDefaultVideoDecoderFactory();
 
-		webrtc::scoped_refptr<webrtc::AudioEncoderFactory> audioEncoderFactory =
-			jni::CreateAudioEncoderFactory(env, jni::JavaLocalRef<jobject>(env, jAudioEncoderFactory));
-		webrtc::scoped_refptr<webrtc::AudioDecoderFactory> audioDecoderFactory =
-			jni::CreateAudioDecoderFactory(env, jni::JavaLocalRef<jobject>(env, jAudioDecoderFactory));
+			webrtc::scoped_refptr<webrtc::AudioEncoderFactory> audioEncoderFactory =
+				jni::CreateAudioEncoderFactory(env, jni::JavaLocalRef<jobject>(env, jAudioEncoderFactory));
+			webrtc::scoped_refptr<webrtc::AudioDecoderFactory> audioDecoderFactory =
+				jni::CreateAudioDecoderFactory(env, jni::JavaLocalRef<jobject>(env, jAudioDecoderFactory));
 #endif
 
-		auto networkThread = webrtc::Thread::CreateWithSocketServer();
-		networkThread->SetName("webrtc_jni_network_thread", nullptr);
+			auto networkThread = webrtc::Thread::CreateWithSocketServer();
+			networkThread->SetName("webrtc_jni_network_thread", nullptr);
 
-		auto signalingThread = webrtc::Thread::Create();
-		signalingThread->SetName("webrtc_jni_signaling_thread", nullptr);
+			auto signalingThread = webrtc::Thread::Create();
+			signalingThread->SetName("webrtc_jni_signaling_thread", nullptr);
 
-		if (!networkThread->Start()) {
-			throw jni::Exception("Start network thread failed");
-		}
-		if (!signalingThread->Start()) {
-			throw jni::Exception("Start signaling thread failed");
-		}
+			if (!networkThread->Start()) {
+				throw jni::Exception("Start network thread failed");
+			}
+			if (!signalingThread->Start()) {
+				throw jni::Exception("Start signaling thread failed");
+			}
 
 #ifdef WEBRTC_DATA_CHANNELS_ONLY
-		// No media engine: the audio module, the audio processing and the video
-		// codec factories are not used. As with media, no worker thread is
-		// supplied, so the factory uses the network thread as its worker thread.
-		webrtc::PeerConnectionFactoryDependencies dependencies;
-		dependencies.network_thread = networkThread.get();
-		dependencies.signaling_thread = signalingThread.get();
-		dependencies.env = webrtc::CreateEnvironment(std::move(fieldTrials));
+			// No media engine: the audio module, the audio processing and the video
+			// codec factories are not used. As with media, no worker thread is
+			// supplied, so the factory uses the network thread as its worker thread.
+			webrtc::PeerConnectionFactoryDependencies dependencies;
+			dependencies.network_thread = networkThread.get();
+			dependencies.signaling_thread = signalingThread.get();
+			dependencies.env = webrtc::CreateEnvironment(std::move(fieldTrials));
 #else
-		webrtc::AudioProcessing * processing = (audioProcessing != nullptr)
-			? GetHandle<webrtc::AudioProcessing>(env, audioProcessing)
-			: nullptr;
-		webrtc::scoped_refptr<webrtc::AudioDeviceModule> adm(audioDevModule);
-
-		if (!adm) {
-			// Without a module, the factory would create the platform default itself
-			// and abort the process when it fails to initialize, which happens on
-			// hosts without an audio system. Create it here instead, the same way
-			// AudioDeviceModule does, so a failure becomes an exception that the
-			// application can handle, for example by passing a module created
-			// with AudioLayer.kDummyAudio.
-			jni::WebRTCContext * context = static_cast<jni::WebRTCContext *>(javaContext);
-
-			adm = webrtc::CreateAudioDeviceModule(context->webrtcEnv, webrtc::AudioDeviceModule::kPlatformDefaultAudio);
+			webrtc::AudioProcessing * processing = (audioProcessing != nullptr)
+				? GetHandle<webrtc::AudioProcessing>(env, audioProcessing)
+				: nullptr;
+			webrtc::scoped_refptr<webrtc::AudioDeviceModule> adm(audioDevModule);
 
 			if (!adm) {
-				throw jni::Exception("Create the default AudioDeviceModule failed");
-			}
-			if (adm->Init() != 0) {
-				throw jni::Exception("Initialize the default AudioDeviceModule failed. On a host without an audio system, pass an AudioDeviceModule created with AudioLayer.kDummyAudio.");
-			}
-		}
+				// Without a module, the factory would create the platform default itself
+				// and abort the process when it fails to initialize, which happens on
+				// hosts without an audio system. Create it here instead, the same way
+				// AudioDeviceModule does, so a failure becomes an exception that the
+				// application can handle, for example by passing a module created
+				// with AudioLayer.kDummyAudio.
+				jni::WebRTCContext * context = static_cast<jni::WebRTCContext *>(javaContext);
 
-		// Hand WebRTC a proxy of the module so the device capture path can be
-		// switched off once this factory sends audio from sink-fed sources. See
-		// ProxyAudioDeviceModule for why both paths must never feed the same
-		// send stream.
-		auto proxy = jni::ProxyAudioDeviceModule::Create(adm);
+				adm = webrtc::CreateAudioDeviceModule(context->webrtcEnv, webrtc::AudioDeviceModule::kPlatformDefaultAudio);
 
-		// No worker thread is supplied: WebRTC is removing support for one that
-		// is distinct from the network thread, and without one the factory
-		// uses the network thread as its worker thread.
-		webrtc::PeerConnectionFactoryDependencies dependencies;
-		dependencies.network_thread = networkThread.get();
-		dependencies.signaling_thread = signalingThread.get();
-		dependencies.socket_factory = networkThread->socketserver();
-		dependencies.event_log_factory = std::make_unique<webrtc::RtcEventLogFactory>();
-		dependencies.env = webrtc::CreateEnvironment(std::move(fieldTrials));
-		dependencies.adm = proxy;
-		dependencies.audio_encoder_factory = audioEncoderFactory;
-		dependencies.audio_decoder_factory = audioDecoderFactory;
-		// The tap of the module that processes the captured audio: that of the
-		// application's module, or of the one built here.
-		std::shared_ptr<jni::AudioCaptureTap> tap;
-
-		if (processing != nullptr) {
-			auto moduleTap = GetHandle<std::shared_ptr<jni::AudioCaptureTap>>(env, audioProcessing, "captureTapHandle");
-
-			if (moduleTap == nullptr) {
-				throw jni::Exception("The AudioProcessing was disposed");
+				if (!adm) {
+					throw jni::Exception("Create the default AudioDeviceModule failed");
+				}
+				if (adm->Init() != 0) {
+					throw jni::Exception("Initialize the default AudioDeviceModule failed. On a host without an audio system, pass an AudioDeviceModule created with AudioLayer.kDummyAudio.");
+				}
 			}
 
-			tap = *moduleTap;
-			dependencies.audio_processing_builder = webrtc::CustomAudioProcessing(
-				webrtc::scoped_refptr<webrtc::AudioProcessing>(processing));
-		}
-		else {
-			tap = std::make_shared<jni::AudioCaptureTap>();
+			// Hand WebRTC a proxy of the module so the device capture path can be
+			// switched off once this factory sends audio from sink-fed sources. See
+			// ProxyAudioDeviceModule for why both paths must never feed the same
+			// send stream.
+			auto proxy = jni::ProxyAudioDeviceModule::Create(adm);
 
-			auto builder = std::make_unique<webrtc::BuiltinAudioProcessingBuilder>();
-			builder->SetCapturePostProcessing(jni::AudioCaptureTap::CreateProcessing(tap));
+			// No worker thread is supplied: WebRTC is removing support for one that
+			// is distinct from the network thread, and without one the factory
+			// uses the network thread as its worker thread.
+			webrtc::PeerConnectionFactoryDependencies dependencies;
+			dependencies.network_thread = networkThread.get();
+			dependencies.signaling_thread = signalingThread.get();
+			dependencies.socket_factory = networkThread->socketserver();
+			dependencies.event_log_factory = std::make_unique<webrtc::RtcEventLogFactory>();
+			dependencies.env = webrtc::CreateEnvironment(std::move(fieldTrials));
+			dependencies.adm = proxy;
+			dependencies.audio_encoder_factory = audioEncoderFactory;
+			dependencies.audio_decoder_factory = audioDecoderFactory;
+			// The tap of the module that processes the captured audio: that of the
+			// application's module, or of the one built here.
+			std::shared_ptr<jni::AudioCaptureTap> tap;
 
-			dependencies.audio_processing_builder = std::move(builder);
-		}
-		dependencies.video_encoder_factory = std::move(videoEncoderFactory);
-		dependencies.video_decoder_factory = std::move(videoDecoderFactory);
+			if (processing != nullptr) {
+				auto moduleTap = GetHandle<std::shared_ptr<jni::AudioCaptureTap>>(env, audioProcessing, "captureTapHandle");
 
-		webrtc::EnableMedia(dependencies);
+				if (moduleTap == nullptr) {
+					throw jni::Exception("The AudioProcessing was disposed");
+				}
+
+				tap = *moduleTap;
+				dependencies.audio_processing_builder = webrtc::CustomAudioProcessing(
+					webrtc::scoped_refptr<webrtc::AudioProcessing>(processing));
+			}
+			else {
+				tap = std::make_shared<jni::AudioCaptureTap>();
+
+				auto builder = std::make_unique<webrtc::BuiltinAudioProcessingBuilder>();
+				builder->SetCapturePostProcessing(jni::AudioCaptureTap::CreateProcessing(tap));
+
+				dependencies.audio_processing_builder = std::move(builder);
+			}
+			dependencies.video_encoder_factory = std::move(videoEncoderFactory);
+			dependencies.video_decoder_factory = std::move(videoDecoderFactory);
+
+			webrtc::EnableMedia(dependencies);
 #endif
 
-		// libwebrtc's SCTP transport, with its association metrics in reach.
-		dependencies.sctp_factory = std::make_unique<jni::MetricsSctpTransportFactory>(networkThread.get());
+			// libwebrtc's SCTP transport, with its association metrics in reach.
+			dependencies.sctp_factory = std::make_unique<jni::MetricsSctpTransportFactory>(networkThread.get());
 
-		auto factory = webrtc::CreateModularPeerConnectionFactory(std::move(dependencies));
+			auto factory = webrtc::CreateModularPeerConnectionFactory(std::move(dependencies));
 
-		if (factory != nullptr) {
-			auto networkContext = std::make_unique<jni::NetworkContext>(networkThread.get(), std::move(networkFieldTrials));
+			if (factory != nullptr) {
+				auto networkContext = std::make_unique<jni::NetworkContext>(networkThread.get(), std::move(networkFieldTrials));
 
-			SetHandle(env, caller, factory.release());
-			SetHandle(env, caller, "networkContextHandle", networkContext.release());
-			SetHandle(env, caller, "networkThreadHandle", networkThread.release());
-			SetHandle(env, caller, "signalingThreadHandle", signalingThread.release());
+				SetHandle(env, caller, factory.release());
+				SetHandle(env, caller, "networkContextHandle", networkContext.release());
+				SetHandle(env, caller, "networkThreadHandle", networkThread.release());
+				SetHandle(env, caller, "signalingThreadHandle", signalingThread.release());
 #ifndef WEBRTC_DATA_CHANNELS_ONLY
-			SetHandle(env, caller, "audioModuleHandle", proxy.release());
-			SetHandle(env, caller, "captureTapHandle", new std::shared_ptr<jni::AudioCaptureTap>(std::move(tap)));
+				SetHandle(env, caller, "audioModuleHandle", proxy.release());
+				SetHandle(env, caller, "captureTapHandle", new std::shared_ptr<jni::AudioCaptureTap>(std::move(tap)));
 #endif
+			}
+			else {
+				throw jni::Exception("Create PeerConnectionFactory failed");
+			}
 		}
-		else {
-			throw jni::Exception("Create PeerConnectionFactory failed");
+		catch (...) {
+			ThrowCxxJavaException(env);
 		}
-	}
-	catch (...) {
-		ThrowCxxJavaException(env);
-	}
+	});
 }
 
 JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_PeerConnectionFactory_disposeInternal
 (JNIEnv * env, jobject caller)
 {
-	webrtc::PeerConnectionFactoryInterface * factory = jni::TakeHandle<webrtc::PeerConnectionFactoryInterface>(env, caller);
+	jni::CallFromJava(env, [&]() {
+		webrtc::PeerConnectionFactoryInterface * factory = jni::TakeHandle<webrtc::PeerConnectionFactoryInterface>(env, caller);
 
-	if (factory == nullptr) {
-		return;
-	}
+		if (factory == nullptr) {
+			return;
+		}
 
-	jni::NetworkContext * networkContext = GetHandle<jni::NetworkContext>(env, caller, "networkContextHandle");
-	webrtc::Thread * networkThread = GetHandle<webrtc::Thread>(env, caller, "networkThreadHandle");
-	webrtc::Thread * signalingThread = GetHandle<webrtc::Thread>(env, caller, "signalingThreadHandle");
+		jni::NetworkContext * networkContext = GetHandle<jni::NetworkContext>(env, caller, "networkContextHandle");
+		webrtc::Thread * networkThread = GetHandle<webrtc::Thread>(env, caller, "networkThreadHandle");
+		webrtc::Thread * signalingThread = GetHandle<webrtc::Thread>(env, caller, "signalingThreadHandle");
 #ifndef WEBRTC_DATA_CHANNELS_ONLY
-	jni::ProxyAudioDeviceModule * audioModule = GetHandle<jni::ProxyAudioDeviceModule>(env, caller, "audioModuleHandle");
-	auto tap = GetHandle<std::shared_ptr<jni::AudioCaptureTap>>(env, caller, "captureTapHandle");
+		jni::ProxyAudioDeviceModule * audioModule = GetHandle<jni::ProxyAudioDeviceModule>(env, caller, "audioModuleHandle");
+		auto tap = GetHandle<std::shared_ptr<jni::AudioCaptureTap>>(env, caller, "captureTapHandle");
 #endif
 
-	// The calls that use them hold the factory's handle, so they are freed
-	// with it.
-	SetHandle<std::nullptr_t>(env, caller, "networkContextHandle", nullptr);
-	SetHandle<std::nullptr_t>(env, caller, "networkThreadHandle", nullptr);
-	SetHandle<std::nullptr_t>(env, caller, "signalingThreadHandle", nullptr);
+		// The calls that use them hold the factory's handle, so they are freed
+		// with it.
+		SetHandle<std::nullptr_t>(env, caller, "networkContextHandle", nullptr);
+		SetHandle<std::nullptr_t>(env, caller, "networkThreadHandle", nullptr);
+		SetHandle<std::nullptr_t>(env, caller, "signalingThreadHandle", nullptr);
 #ifndef WEBRTC_DATA_CHANNELS_ONLY
-	SetHandle<std::nullptr_t>(env, caller, "audioModuleHandle", nullptr);
-	SetHandle<std::nullptr_t>(env, caller, "captureTapHandle", nullptr);
+		SetHandle<std::nullptr_t>(env, caller, "audioModuleHandle", nullptr);
+		SetHandle<std::nullptr_t>(env, caller, "captureTapHandle", nullptr);
 #endif
 
 #ifdef WEBRTC_DATA_CHANNELS_ONLY
-	auto release = [factory, networkContext, networkThread, signalingThread](bool deferred) {
+		auto release = [factory, networkContext, networkThread, signalingThread](bool deferred) {
 #else
-	auto release = [factory, networkContext, networkThread, signalingThread, audioModule, tap](bool deferred) {
+		auto release = [factory, networkContext, networkThread, signalingThread, audioModule, tap](bool deferred) {
 #endif
-		if (factory->Release() != webrtc::RefCountReleaseStatus::kDroppedLastRef) {
-			jni::NativeHandle::ReportNotDeleted(deferred);
-		}
+			if (factory->Release() != webrtc::RefCountReleaseStatus::kDroppedLastRef) {
+				jni::NativeHandle::ReportNotDeleted(deferred);
+			}
 
-		if (networkContext) {
-			// Its network manager and socket factory go on the network thread, which
-			// has to be running for that.
-			delete networkContext;
-		}
-		if (networkThread) {
-			networkThread->Stop();
-			delete networkThread;
-		}
-		if (signalingThread) {
-			signalingThread->Stop();
-			delete signalingThread;
-		}
+			if (networkContext) {
+				// Its network manager and socket factory go on the network thread, which
+				// has to be running for that.
+				delete networkContext;
+			}
+			if (networkThread) {
+				networkThread->Stop();
+				delete networkThread;
+			}
+			if (signalingThread) {
+				signalingThread->Stop();
+				delete signalingThread;
+			}
 #ifndef WEBRTC_DATA_CHANNELS_ONLY
-		if (audioModule) {
-			// The factory dropped its reference above; this releases the last one
-			// and, with it, the proxy's reference on the wrapped module.
-			webrtc::RefCountReleaseStatus admStatus = audioModule->Release();
+			if (audioModule) {
+				// The factory dropped its reference above; this releases the last one
+				// and, with it, the proxy's reference on the wrapped module.
+				webrtc::RefCountReleaseStatus admStatus = audioModule->Release();
 
-			if (admStatus != webrtc::RefCountReleaseStatus::kDroppedLastRef) {
-				RTC_LOG(LS_WARNING) << "ProxyAudioDeviceModule was not deleted. A reference is still around somewhere.";
+				if (admStatus != webrtc::RefCountReleaseStatus::kDroppedLastRef) {
+					RTC_LOG(LS_WARNING) << "ProxyAudioDeviceModule was not deleted. A reference is still around somewhere.";
+				}
 			}
-		}
 
-		// The module, if anything still holds it, keeps a share of the tap.
-		delete tap;
+			// The module, if anything still holds it, keeps a share of the tap.
+			delete tap;
 #endif
-	};
+		};
 
-	try {
-		jni::ReleaseHandle(env, factory, [release, networkThread, signalingThread](bool deferred) {
-			// A call that held the factory may have run on one of its threads,
-			// which cannot stop itself.
-			bool onOwnThread = (networkThread && networkThread->IsCurrent()) ||
-				(signalingThread && signalingThread->IsCurrent());
+		try {
+			jni::ReleaseHandle(env, factory, [release, networkThread, signalingThread](bool deferred) {
+				// A call that held the factory may have run on one of its threads,
+				// which cannot stop itself.
+				bool onOwnThread = (networkThread && networkThread->IsCurrent()) ||
+					(signalingThread && signalingThread->IsCurrent());
 
-			if (onOwnThread) {
-				std::thread([release]() { release(true); }).detach();
-			}
-			else {
-				release(deferred);
-			}
-		});
-	}
-	catch (...) {
-		ThrowCxxJavaException(env);
-	}
+				if (onOwnThread) {
+					std::thread([release]() { release(true); }).detach();
+				}
+				else {
+					release(deferred);
+				}
+			});
+		}
+		catch (...) {
+			ThrowCxxJavaException(env);
+		}
+	});
 }
 
 #ifndef WEBRTC_DATA_CHANNELS_ONLY
@@ -420,27 +425,29 @@ JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_PeerConnectionFact
 JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_PeerConnectionFactory_setDeviceCaptureEnabled
 (JNIEnv * env, jobject caller, jboolean enabled)
 {
-	// Keeps the module, which a dispose releases with the factory.
-	jni::NativeLease<webrtc::PeerConnectionFactoryInterface> factory(env, caller);
-	CHECK_HANDLE(factory);
+	jni::CallFromJava(env, [&]() {
+		// Keeps the module, which a dispose releases with the factory.
+		jni::NativeLease<webrtc::PeerConnectionFactoryInterface> factory(env, caller);
+		CHECK_HANDLE(factory);
 
-	jni::ProxyAudioDeviceModule * audioModule = GetHandle<jni::ProxyAudioDeviceModule>(env, caller, "audioModuleHandle");
-	CHECK_HANDLE(audioModule);
+		jni::ProxyAudioDeviceModule * audioModule = GetHandle<jni::ProxyAudioDeviceModule>(env, caller, "audioModuleHandle");
+		CHECK_HANDLE(audioModule);
 
-	webrtc::Thread * networkThread = GetHandle<webrtc::Thread>(env, caller, "networkThreadHandle");
-	CHECK_HANDLE(networkThread);
+		webrtc::Thread * networkThread = GetHandle<webrtc::Thread>(env, caller, "networkThreadHandle");
+		CHECK_HANDLE(networkThread);
 
-	try {
-		// AudioState starts and stops the module's recording on the worker thread,
-		// which is the network thread. Switching the capture path there keeps the
-		// two from interleaving.
-		networkThread->BlockingCall([audioModule, enabled]() {
-			audioModule->SetCaptureEnabled(enabled == JNI_TRUE);
-		});
-	}
-	catch (...) {
-		ThrowCxxJavaException(env);
-	}
+		try {
+			// AudioState starts and stops the module's recording on the worker thread,
+			// which is the network thread. Switching the capture path there keeps the
+			// two from interleaving.
+			networkThread->BlockingCall([audioModule, enabled]() {
+				audioModule->SetCaptureEnabled(enabled == JNI_TRUE);
+			});
+		}
+		catch (...) {
+			ThrowCxxJavaException(env);
+		}
+	});
 }
 
 JNIEXPORT jobject JNICALL Java_io_github_sendablemetatype_webrtc_PeerConnectionFactory_createAudioSourceInternal
@@ -506,29 +513,31 @@ JNIEXPORT jobject JNICALL Java_io_github_sendablemetatype_webrtc_PeerConnectionF
 JNIEXPORT jboolean JNICALL Java_io_github_sendablemetatype_webrtc_PeerConnectionFactory_isSinkFedAudioTrack
 (JNIEnv * env, jobject caller, jobject jTrack)
 {
-	if (jTrack == nullptr) {
-		return JNI_FALSE;
-	}
+	return jni::CallFromJava(env, [&]() -> jboolean {
+		if (jTrack == nullptr) {
+			return JNI_FALSE;
+		}
 
-	jni::NativeLease<webrtc::MediaStreamTrackInterface> track(env, jTrack);
+		jni::NativeLease<webrtc::MediaStreamTrackInterface> track(env, jTrack);
 
-	if (track == nullptr || track->kind() != webrtc::MediaStreamTrackInterface::kAudioKind) {
-		return JNI_FALSE;
-	}
+		if (track == nullptr || track->kind() != webrtc::MediaStreamTrackInterface::kAudioKind) {
+			return JNI_FALSE;
+		}
 
-	webrtc::AudioSourceInterface * source = static_cast<webrtc::AudioTrackInterface *>(track.get())->GetSource();
+		webrtc::AudioSourceInterface * source = static_cast<webrtc::AudioTrackInterface *>(track.get())->GetSource();
 
-	if (source == nullptr) {
-		return JNI_FALSE;
-	}
+		if (source == nullptr) {
+			return JNI_FALSE;
+		}
 
-	// A remote source hands the track's sinks the audio it decodes, and a
-	// CustomAudioSource hands them the audio the application pushes. Either way
-	// a sender of that track is fed through the track rather than by the audio
-	// device module.
-	bool sinkFed = source->remote() || dynamic_cast<jni::CustomAudioSource *>(source) != nullptr;
+		// A remote source hands the track's sinks the audio it decodes, and a
+		// CustomAudioSource hands them the audio the application pushes. Either way
+		// a sender of that track is fed through the track rather than by the audio
+		// device module.
+		bool sinkFed = source->remote() || dynamic_cast<jni::CustomAudioSource *>(source) != nullptr;
 
-	return sinkFed ? JNI_TRUE : JNI_FALSE;
+		return sinkFed ? JNI_TRUE : JNI_FALSE;
+	});
 }
 
 JNIEXPORT jobject JNICALL Java_io_github_sendablemetatype_webrtc_PeerConnectionFactory_createVideoTrack
@@ -568,88 +577,90 @@ JNIEXPORT jobject JNICALL Java_io_github_sendablemetatype_webrtc_PeerConnectionF
 JNIEXPORT jobject JNICALL Java_io_github_sendablemetatype_webrtc_PeerConnectionFactory_createPeerConnectionInternal
 (JNIEnv * env, jobject caller, jobject jConfig, jobject jobserver)
 {
-	if (jConfig == nullptr) {
-		env->Throw(jni::JavaNullPointerException(env, "RTCConfiguration is null"));
-		return nullptr;
-	}
-	if (jobserver == nullptr) {
-		env->Throw(jni::JavaNullPointerException(env, "PeerConnectionObserver is null"));
-		return nullptr;
-	}
+	return jni::CallFromJava(env, [&]() -> jobject {
+		if (jConfig == nullptr) {
+			env->Throw(jni::JavaNullPointerException(env, "RTCConfiguration is null"));
+			return nullptr;
+		}
+		if (jobserver == nullptr) {
+			env->Throw(jni::JavaNullPointerException(env, "PeerConnectionObserver is null"));
+			return nullptr;
+		}
 
-	jni::NativeLease<webrtc::PeerConnectionFactoryInterface> factory(env, caller);
-	CHECK_HANDLEV(factory, nullptr);
+		jni::NativeLease<webrtc::PeerConnectionFactoryInterface> factory(env, caller);
+		CHECK_HANDLEV(factory, nullptr);
 
-	jni::JavaLocalRef<jobject> config(env, jConfig);
-	webrtc::PeerConnectionInterface::RTCConfiguration configuration;
-	std::unique_ptr<webrtc::PortAllocator> allocator;
+		jni::JavaLocalRef<jobject> config(env, jConfig);
+		webrtc::PeerConnectionInterface::RTCConfiguration configuration;
+		std::unique_ptr<webrtc::PortAllocator> allocator;
 
-	try {
-		configuration = jni::RTCConfiguration::toNative(env, config);
-		allocator = CreatePortAllocator(env, caller, config, configuration);
-	}
-	catch (...) {
-		ThrowCxxJavaException(env);
-		return nullptr;
-	}
+		try {
+			configuration = jni::RTCConfiguration::toNative(env, config);
+			allocator = CreatePortAllocator(env, caller, config, configuration);
+		}
+		catch (...) {
+			ThrowCxxJavaException(env);
+			return nullptr;
+		}
 
-	jni::JavaGlobalRef<jobject> observerRef(env, jobserver);
-	jni::JavaGlobalRef<jobject> factoryRef(env, caller);
+		jni::JavaGlobalRef<jobject> observerRef(env, jobserver);
+		jni::JavaGlobalRef<jobject> factoryRef(env, caller);
 
-	// Both objects are set, so a null reference is a failed NewGlobalRef.
-	if (observerRef.get() == nullptr || factoryRef.get() == nullptr) {
-		ThrowJavaException(env, "java/lang/OutOfMemoryError", "No global reference for the peer connection observer");
-		return nullptr;
-	}
+		// Both objects are set, so a null reference is a failed NewGlobalRef.
+		if (observerRef.get() == nullptr || factoryRef.get() == nullptr) {
+			ThrowJavaException(env, "java/lang/OutOfMemoryError", "No global reference for the peer connection observer");
+			return nullptr;
+		}
 
-	jni::PeerConnectionObserver * observer = new jni::PeerConnectionObserver(env, std::move(observerRef),
-		std::move(factoryRef));
-	webrtc::PeerConnectionDependencies dependencies(observer);
-	dependencies.allocator = std::move(allocator);
+		jni::PeerConnectionObserver * observer = new jni::PeerConnectionObserver(env, std::move(observerRef),
+			std::move(factoryRef));
+		webrtc::PeerConnectionDependencies dependencies(observer);
+		dependencies.allocator = std::move(allocator);
 
-	auto result = factory->CreatePeerConnectionOrError(configuration, std::move(dependencies));
+		auto result = factory->CreatePeerConnectionOrError(configuration, std::move(dependencies));
 
-	if (!result.ok()) {
-		// No peer connection took the observer.
-		delete observer;
+		if (!result.ok()) {
+			// No peer connection took the observer.
+			delete observer;
 
-		// The type is a string_view, which is not terminated and cannot be
-		// passed through varargs as it is.
-		const std::string type(ToString(result.error().type()));
+			// The type is a string_view, which is not terminated and cannot be
+			// passed through varargs as it is.
+			const std::string type(ToString(result.error().type()));
 
-		env->Throw(jni::JavaRuntimeException(env, "Create PeerConnection failed: %s %s",
-			type.c_str(), result.error().message()));
+			env->Throw(jni::JavaRuntimeException(env, "Create PeerConnection failed: %s %s",
+				type.c_str(), result.error().message()));
 
-		return nullptr;
-	}
+			return nullptr;
+		}
 
-	auto pc = result.MoveValue();
+		auto pc = result.MoveValue();
 
-	if (pc == nullptr) {
-		delete observer;
-		return nullptr;
-	}
+		if (pc == nullptr) {
+			delete observer;
+			return nullptr;
+		}
 
-	observer->setPeerConnection(pc.get(), GetHandle<webrtc::Thread>(env, caller, "networkThreadHandle"));
+		observer->setPeerConnection(pc.get(), GetHandle<webrtc::Thread>(env, caller, "networkThreadHandle"));
 
-	try {
-		// The observer is bound before the Java object takes the connection, so
-		// that it ends up with both of them or with neither.
-		auto javaPeerConnection = jni::JavaFactories::createOwning(env, std::move(pc), [&](jobject object) {
-			SetHandle(env, object, "observerHandle", observer);
-		});
+		try {
+			// The observer is bound before the Java object takes the connection, so
+			// that it ends up with both of them or with neither.
+			auto javaPeerConnection = jni::JavaFactories::createOwning(env, std::move(pc), [&](jobject object) {
+				SetHandle(env, object, "observerHandle", observer);
+			});
 
-		return javaPeerConnection.release();
-	}
-	catch (...) {
-		// The connection is still ours. It calls the observer while it closes,
-		// so it goes first.
-		pc = nullptr;
-		delete observer;
+			return javaPeerConnection.release();
+		}
+		catch (...) {
+			// The connection is still ours. It calls the observer while it closes,
+			// so it goes first.
+			pc = nullptr;
+			delete observer;
 
-		ThrowCxxJavaException(env);
-		return nullptr;
-	}
+			ThrowCxxJavaException(env);
+			return nullptr;
+		}
+	});
 }
 
 #ifndef WEBRTC_DATA_CHANNELS_ONLY

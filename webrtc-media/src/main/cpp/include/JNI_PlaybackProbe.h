@@ -38,6 +38,14 @@ extern "C" {
 	JNIEXPORT jint JNICALL Java_io_github_sendablemetatype_webrtc_media_player_PlaybackProbe_waitingPushes
 	(JNIEnv *, jclass);
 
+	/*
+	 * Class:     io_github_sendablemetatype_webrtc_media_player_PlaybackProbe
+	 * Method:    waitingPlayers
+	 * Signature: ()I
+	 */
+	JNIEXPORT jint JNICALL Java_io_github_sendablemetatype_webrtc_media_player_PlaybackProbe_waitingPlayers
+	(JNIEnv *, jclass);
+
 #ifdef __cplusplus
 }
 #endif

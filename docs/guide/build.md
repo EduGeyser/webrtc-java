@@ -170,7 +170,7 @@ caches, so a native rebuild also includes the updated patches.
 
 ## Release Workflow
 
-Maintainers start **Prepare release** (`release.yml`) from `main`, with the next development version, such as `0.22.0-sm.1-SNAPSHOT`. Preparation commits the changelog and the version changes, and pushes `main` and the release tag in one atomic push. It then starts **Publish release** (`release-publish.yml`) on that tag. A tag that `GITHUB_TOKEN` pushes starts no workflow on its own, but `GITHUB_TOKEN` can dispatch one, so no other token is needed.
+Maintainers start **Prepare release** (`release.yml`) from `main`, with the next development version, such as `0.22.0-sm.1-SNAPSHOT`, and optionally the version to release, such as `0.21.0-sm.2`. Without one, the release takes the version of `gradle.properties` without `-SNAPSHOT`. Preparation commits the changelog and the version changes, and pushes `main` and the release tag in one atomic push. It then starts **Publish release** (`release-publish.yml`) on that tag. A tag that `GITHUB_TOKEN` pushes starts no workflow on its own, but `GITHUB_TOKEN` can dispatch one, so no other token is needed.
 
 Publication requires a `vX.Y.Z-sm.N` tag whose commit is on `main` and whose version matches `gradle.properties`. Every build, test and publication job checks out the commit of the tag. After the tests pass on every platform, the workflow publishes one Maven Central bundle and creates a draft GitHub release.
 

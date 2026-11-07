@@ -31,3 +31,9 @@ JNIEXPORT jint JNICALL Java_io_github_sendablemetatype_webrtc_media_player_Playb
 {
 	return static_cast<jint>(ffmpeg::PlaybackProbe::WaitingPushes());
 }
+
+JNIEXPORT jint JNICALL Java_io_github_sendablemetatype_webrtc_media_player_PlaybackProbe_waitingPlayers
+(JNIEnv * env, jclass caller)
+{
+	return static_cast<jint>(ffmpeg::PlaybackProbe::WaitingPlayers());
+}

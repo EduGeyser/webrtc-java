@@ -3,8 +3,12 @@ name: Prepare release
 on:
   workflow_dispatch:
     inputs:
+      releaseVersion:
+        description: "Version to release, such as 1.2.3-sm.4. Leave empty to release the version of gradle.properties without -SNAPSHOT."
+        required: false
+        default: ""
       developmentVersion:
-        description: "Default version to use for new local working copy."
+        description: "Next development version, set on main after the release, such as 1.2.3-sm.5-SNAPSHOT."
         required: true
         default: "X.Y.Z-sm.N-SNAPSHOT"
       dryRun:
@@ -51,22 +55,24 @@ jobs:
           git config --global user.name "${{ github.actor }}"
           git config --global user.email "${{ github.actor_id }}+${{ github.actor }}@users.noreply.github.com"
 
-      # The release version is the one gradle.properties carries without
-      # -SNAPSHOT, not one derived from the commits, so that the changelog, the
-      # tag and the GitHub release always agree.
+      # The release version is the releaseVersion input, or else the one
+      # gradle.properties carries without -SNAPSHOT, not one derived from the
+      # commits, so that the changelog, the tag and the GitHub release always
+      # agree.
       - name: Determine and check the versions
         id: release-version
         env:
+          RELEASE_VERSION: ${{ inputs.releaseVersion }}
           DEVELOPMENT_VERSION: ${{ inputs.developmentVersion }}
         run: |
           current=$(sed -n 's/^version=//p' gradle.properties)
-          version="${current%-SNAPSHOT}"
-          echo "Release version: $version, next development version: $DEVELOPMENT_VERSION"
-
-          if [ "$current" == "$version" ]; then
+          if [ "$current" == "${current%-SNAPSHOT}" ]; then
             echo "::error::gradle.properties has $current, which is not a snapshot"
             exit 1
           fi
+          version="${RELEASE_VERSION:-${current%-SNAPSHOT}}"
+          echo "Release version: $version, next development version: $DEVELOPMENT_VERSION"
+
           if ! [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+-sm\.[0-9]+$ ]]; then
             echo "::error::The release version must look like 1.2.3-sm.4, got '$version'"
             exit 1
