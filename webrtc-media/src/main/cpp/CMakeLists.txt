@@ -152,6 +152,33 @@ foreach(RUNTIME_LIB ${FFMPEG_RUNTIME_LIBS})
         COMMENT "Collecting ${RUNTIME_LIB} for the platform jar")
 endforeach()
 
+# FFmpeg.java loads the FFmpeg libraries by the file names that carry their
+# major versions, such as libavcodec.so.63, and those change with every major
+# FFmpeg release. Each such library this build ships has to be named there, or
+# the platform jar cannot be loaded.
+set(FFMPEG_JAVA_FILE "${CMAKE_CURRENT_SOURCE_DIR}/../java/io/github/sendablemetatype/webrtc/media/player/FFmpeg.java")
+file(READ "${FFMPEG_JAVA_FILE}" FFMPEG_JAVA_SOURCE)
+set(FFMPEG_MAJOR_LIBS "")
+
+foreach(RUNTIME_LIB ${FFMPEG_RUNTIME_LIBS})
+    get_filename_component(RUNTIME_LIB_NAME "${RUNTIME_LIB}" NAME)
+
+    if(RUNTIME_LIB_NAME MATCHES "^(lib)?(av|sw)[a-z]+(-[0-9]+\\.dll|\\.[0-9]+\\.dylib|\\.so\\.[0-9]+)$")
+        list(APPEND FFMPEG_MAJOR_LIBS "${RUNTIME_LIB_NAME}")
+        string(FIND "${FFMPEG_JAVA_SOURCE}" "\"${RUNTIME_LIB_NAME}\"" FFMPEG_JAVA_NAME_AT)
+
+        if(FFMPEG_JAVA_NAME_AT EQUAL -1)
+            message(FATAL_ERROR
+                "FFmpeg ${FFMPEG_VERSION} installs ${RUNTIME_LIB_NAME}, which ${FFMPEG_JAVA_FILE} "
+                "does not load. Update the library names there to the major versions of this release.")
+        endif()
+    endif()
+endforeach()
+
+if(NOT FFMPEG_MAJOR_LIBS)
+    message(FATAL_ERROR "No FFmpeg library with a major version in its name among: ${FFMPEG_RUNTIME_LIBS}")
+endif()
+
 # The project's own license and notice go along as well, at the top of
 # META-INF as in the Java jars.
 add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD

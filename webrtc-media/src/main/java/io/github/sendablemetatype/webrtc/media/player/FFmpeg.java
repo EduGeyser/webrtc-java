@@ -88,29 +88,29 @@ public final class FFmpeg {
 
 		if (osName.startsWith("windows")) {
 			return new String[] {
-					"avutil-60.dll",
-					"swresample-6.dll",
-					"swscale-9.dll",
-					"avcodec-62.dll",
-					"avformat-62.dll"
+					"avutil-61.dll",
+					"swresample-7.dll",
+					"swscale-10.dll",
+					"avcodec-63.dll",
+					"avformat-63.dll"
 			};
 		}
 		if (osName.startsWith("mac os")) {
 			return new String[] {
-					"libavutil.60.dylib",
-					"libswresample.6.dylib",
-					"libswscale.9.dylib",
-					"libavcodec.62.dylib",
-					"libavformat.62.dylib"
+					"libavutil.61.dylib",
+					"libswresample.7.dylib",
+					"libswscale.10.dylib",
+					"libavcodec.63.dylib",
+					"libavformat.63.dylib"
 			};
 		}
 
 		return new String[] {
-				"libavutil.so.60",
-				"libswresample.so.6",
-				"libswscale.so.9",
-				"libavcodec.so.62",
-				"libavformat.so.62"
+				"libavutil.so.61",
+				"libswresample.so.7",
+				"libswscale.so.10",
+				"libavcodec.so.63",
+				"libavformat.so.63"
 		};
 	}
 

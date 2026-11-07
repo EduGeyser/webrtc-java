@@ -99,7 +99,7 @@ java -Dio.github.sendablemetatype.webrtc.library.dir=/opt/myapp/lib -jar myapp.j
 java -Dio.github.sendablemetatype.webrtc.extract.dir=/var/lib/myapp/natives -jar myapp.jar
 ```
 
-A library loaded from a directory keeps the file name it has in the native JAR, for example `libwebrtc-java-linux-x86_64.so`. The media module's library is found the same way; its FFmpeg libraries go next to it under their names in its native JAR (`libavcodec.so.62` and so on). If the library is found nowhere, the `UnsatisfiedLinkError` lists every place that was tried.
+A library loaded from a directory keeps the file name it has in the native JAR, for example `libwebrtc-java-linux-x86_64.so`. The media module's library is found the same way; its FFmpeg libraries go next to it under their names in its native JAR (`libavcodec.so.63` and so on). If the library is found nowhere, the `UnsatisfiedLinkError` lists every place that was tried.
 
 The Linux libraries are built against glibc. They do not load on a system with the musl C library, such as Alpine Linux; the error says so when it finds one.
 
