@@ -197,7 +197,9 @@ public class IceUdpEndpoint extends DisposableNativeObject {
 	 * on that address. Every attempt is passed on, so an address that stays
 	 * unavailable is reported once for each connection that gathers on it.
 	 * {@link #getSockets()} keeps the latest failure of each address. A failure
-	 * the executor rejects is not passed on.
+	 * the executor rejects is not passed on. While a handler is set, the native
+	 * log records each failure at INFO rather than WARNING, since reporting it
+	 * is up to the handler.
 	 *
 	 * @param handler  Receives the failures.
 	 * @param executor Runs the handler, off the endpoint's thread.

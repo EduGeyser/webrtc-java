@@ -363,14 +363,19 @@ namespace jni
 		}
 
 		if (failure) {
-			RTC_LOG(LS_WARNING) << "ICE UDP endpoint cannot bind " << local.ToString() << ": " << *failure;
 			bindFailures_[local] = *failure;
 
 			if (bindFailureHandler_) {
+				// The handler's owner reports the failure; a warning here would repeat it for every gather.
+				RTC_LOG(LS_INFO) << "ICE UDP endpoint cannot bind " << local.ToString() << ": " << *failure;
+
 				// A copy, since the handler may replace itself while it runs.
 				BindFailureHandler handler = bindFailureHandler_;
 
 				handler(BindFailure { local, *failure });
+			}
+			else {
+				RTC_LOG(LS_WARNING) << "ICE UDP endpoint cannot bind " << local.ToString() << ": " << *failure;
 			}
 			return std::nullopt;
 		}
