@@ -654,6 +654,8 @@ class RTCPeerConnectionTests extends TestBase {
 			assertNull(failure.get());
 		}
 		finally {
+			// The callback closed the caller's connection already; this ends its candidate forwarding.
+			caller.close();
 			callee.close();
 		}
 

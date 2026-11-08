@@ -21,6 +21,8 @@ import static java.util.Objects.nonNull;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.RejectedExecutionException;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Convenience test class implementing the basic {@link RTCPeerConnection}
@@ -41,9 +43,14 @@ class TestPeerConnection implements PeerConnectionObserver {
 	private final ExecutorService candidateForwarder =
 			Executors.newSingleThreadExecutor(Thread.ofPlatform().daemon().factory());
 
+	// Cleared once this peer or its remote peer closes; later candidates are dropped.
+	private volatile boolean forwarding = true;
+
 	private RTCPeerConnection localPeerConnection;
 
 	private RTCPeerConnection remotePeerConnection;
+
+	private TestPeerConnection remotePeer;
 
 
 	TestPeerConnection(PeerConnectionFactory factory) {
@@ -59,7 +66,20 @@ class TestPeerConnection implements PeerConnectionObserver {
 	public void onIceCandidate(RTCIceCandidate candidate) {
 		RTCPeerConnection remote = remotePeerConnection;
 
-		candidateForwarder.execute(() -> remote.addIceCandidate(candidate));
+		if (!forwarding || remote == null) {
+			return;
+		}
+
+		try {
+			candidateForwarder.execute(() -> {
+				if (forwarding) {
+					remote.addIceCandidate(candidate);
+				}
+			});
+		}
+		catch (RejectedExecutionException e) {
+			// Closing: the remote peer no longer needs the candidate.
+		}
 	}
 
 	@Override
@@ -102,6 +122,7 @@ class TestPeerConnection implements PeerConnectionObserver {
 	}
 
 	void setRemotePeerConnection(TestPeerConnection connection) {
+		this.remotePeer = connection;
 		this.remotePeerConnection = connection.localPeerConnection;
 	}
 
@@ -116,8 +137,29 @@ class TestPeerConnection implements PeerConnectionObserver {
 		return localPeerConnection;
 	}
 
+	/**
+	 * Stops handing candidates to the remote peer and waits for a hand-off
+	 * already running, so that once one peer of a pair closes, neither calls
+	 * into the other's connection.
+	 */
+	private void stopForwarding() {
+		forwarding = false;
+		candidateForwarder.shutdown();
+
+		try {
+			candidateForwarder.awaitTermination(10, TimeUnit.SECONDS);
+		}
+		catch (InterruptedException e) {
+			Thread.currentThread().interrupt();
+		}
+	}
+
 	void close() {
-		candidateForwarder.shutdownNow();
+		stopForwarding();
+
+		if (nonNull(remotePeer)) {
+			remotePeer.stopForwarding();
+		}
 
 		if (nonNull(localPeerConnection)) {
 			localPeerConnection.close();
