@@ -205,20 +205,33 @@ install(TARGETS ${PROJECT_NAME}
 # binary, so it goes into the platform jar, under META-INF where it cannot
 # collide with anything on a classpath.
 #
-# LICENSE.md is generated from the WebRTC build rather than written by hand,
-# so that it lists exactly what is linked in. Regenerate it whenever
-# webrtc.branch changes, from the WebRTC checkout (depot_tools on the PATH):
+# The license files are generated from the WebRTC build rather than written
+# by hand, so that they list what each variant builds in: LICENSE.md for the
+# full variant, LICENSE-data-channels.md for the data channels variant, which
+# has no codecs. Regenerate both whenever webrtc.branch changes, from a WebRTC
+# checkout (depot_tools on the PATH) with one out dir per Linux CPU, generated
+# with the variant's GN args from dependencies/webrtc/CMakeLists.txt:
 #
-#   python tools_webrtc/libs/generate_licenses.py --target //:webrtc <out> out/<cpu>
+#   python tools_webrtc/libs/generate_licenses.py --target //:webrtc <out> out/x64 out/arm64 out/arm
 #
-# The tool knows no license for ffmpeg and openh264, which rtc_use_h264 pulls
-# in, and stops; map them to third_party/ffmpeg/COPYING.LGPLv2.1 and
+# The Linux out dirs cover macOS and Windows as well: no library enters the
+# build on those alone, and they use the system C++ library, not libc++. The
+# tool knows no license for ffmpeg and openh264, which rtc_use_h264 pulls in,
+# and stops; map them to third_party/ffmpeg/COPYING.LGPLv2.1 and
 # third_party/openh264/src/LICENSE in its LIB_TO_LICENSES_DICT first.
 # PATENTS is WebRTC's additional patent grant, which the tool leaves out.
 #
-install(FILES
-    "${CMAKE_CURRENT_SOURCE_DIR}/dependencies/webrtc/licenses/LICENSE.md"
-    "${CMAKE_CURRENT_SOURCE_DIR}/dependencies/webrtc/licenses/PATENTS"
+if(WEBRTC_DATA_CHANNELS_ONLY)
+    set(WEBRTC_LICENSE_FILE "${CMAKE_CURRENT_SOURCE_DIR}/dependencies/webrtc/licenses/LICENSE-data-channels.md")
+else()
+    set(WEBRTC_LICENSE_FILE "${CMAKE_CURRENT_SOURCE_DIR}/dependencies/webrtc/licenses/LICENSE.md")
+endif()
+install(FILES "${WEBRTC_LICENSE_FILE}"
+    DESTINATION "${CMAKE_INSTALL_PREFIX}/META-INF/licenses/webrtc"
+    RENAME LICENSE.md
+    COMPONENT Runtime
+)
+install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/dependencies/webrtc/licenses/PATENTS"
     DESTINATION "${CMAKE_INSTALL_PREFIX}/META-INF/licenses/webrtc"
     COMPONENT Runtime
 )
