@@ -110,6 +110,12 @@ extern "C" {
 	JNIEXPORT jint JNICALL Java_io_github_sendablemetatype_webrtc_media_player_AllocationFault_heldStrings
 	(JNIEnv *, jclass);
 
+JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_media_player_AllocationFault_failDecoderAllocation
+	(JNIEnv *, jclass);
+
+	JNIEXPORT void JNICALL Java_io_github_sendablemetatype_webrtc_media_player_AllocationFault_failOutput
+	(JNIEnv *, jclass, jboolean, jint);
+
 #ifdef __cplusplus
 }
 #endif

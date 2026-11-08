@@ -201,7 +201,7 @@ When two impolite peers collide, neither gives way. An impolite peer that waited
 | `CONNECTING` | ICE and DTLS are establishing the connection. |
 | `CONNECTED` | Media and data can flow. |
 | `DISCONNECTED` | Connectivity was lost. It may come back by itself. |
-| `FAILED` | The connection failed. `peer.restartIce()` tries to recover it. |
+| `FAILED` | The connection failed. `peer.restartIce()` or the configured recovery policy tries to recover it. |
 | `CLOSED` | The peer was closed. This state is final. |
 
 ```java
@@ -212,6 +212,77 @@ peer.whenClosed().thenRun(() -> System.out.println("Closed"));
 ```
 
 `onStateChange` calls a new handler with the current state first, so a handler added late still learns where the peer stands. `whenConnected()` fails if the connection fails or closes first.
+
+### Automatic ICE Recovery
+
+Automatic peers can opt into a `RecoveryPolicy`. Without one, the application still
+calls `peer.restartIce()` itself. The policy waits through short disconnections,
+restarts ICE on the same peer, and bounds retries with exponential backoff:
+
+```java
+RecoveryPolicy recovery = RecoveryPolicy.builder()
+        .grace(Duration.ofSeconds(2))
+        .maxAttempts(3)
+        .backoff(Duration.ofSeconds(1), Duration.ofSeconds(30))
+        .attemptTimeout(Duration.ofSeconds(15))
+        .onEvent(event -> System.out.println(event.state() + " attempt " + event.attempt()))
+        .build();
+
+Peer peer = rtc.createPeer(PeerOptions.builder()
+        .signaling(signaling)
+        .recovery(recovery)
+        .build());
+```
+
+`DISCONNECTED` starts the grace period; `FAILED` skips it. Repeated failure
+notifications during an attempt do not start parallel restarts. Events are
+`WAITING`, `ATTEMPTING`, `RETRYING`, `RECOVERED` and `EXHAUSTED`, delivered on the
+peer's event executor. `attempt()` counts attempts in the current outage, starting
+at one; a recovery during the grace period reports zero. `cause()` gives the last
+failure on retry or exhaustion. Successful signaling alone does not count as
+recovery: the peer must report `CONNECTED`. That resets the budget, including
+after exhaustion. Exhaustion leaves the peer open and creates no further automatic
+attempts until it connects again. `whenConnected()` keeps its existing first-connection
+semantics; observe `RECOVERED` for later recovery.
+
+Before an attempt, `iceServers(attempt -> completionStage)` can obtain fresh TURN
+credentials asynchronously. It runs on the event executor and must return promptly;
+the resulting list replaces **all** ICE servers, so include STUN servers that should
+remain available. The library copies the supplied servers; failed, null or invalid
+results fail the attempt. For example, with an application's asynchronous credential
+service returning `CompletionStage<List<RTCIceServer>>`:
+
+```java
+RecoveryPolicy recovery = RecoveryPolicy.builder()
+        .iceServers(attempt -> credentials.fetchIceServers())
+        .onEvent(event -> {
+            if (event.state() == RecoveryEvent.State.EXHAUSTED) {
+                showReconnectAction(event.cause());
+            }
+        })
+        .build();
+```
+
+The attempt deadline covers credentials, signaling and waiting for connectivity.
+An HTTP restart already in flight finishes or reaches its own operation timeout
+before another starts. Late credentials and completions after recovery or `close()`
+are ignored; the credential service owns cancellation of its requests. Closing the
+peer or runtime cancels scheduled retries, including one whose timer has fired but
+whose control task has not run yet. Event notifications already queued may still arrive.
+
+ICE recovery requires working signaling. Reconnecting a WebSocket or refreshing
+HTTP authorization is the application's separate responsibility. A policy does not
+create a replacement peer or session. If the application chooses that fallback, it
+must close the old session, attach handlers to the new peer, republish local tracks,
+and handle new remote tracks and data channels explicitly; their old handles are
+not transferred.
+
+`Whip.to(endpoint).recovery(recovery)` and `Whep.from(endpoint).recovery(recovery)`
+use the same policy with the session's ICE `PATCH` exchange. This replaces their
+built-in restart rule for that session. Keep using `session.restartIce()` for a
+manual HTTP restart; `session.peer().restartIce()` does not perform the HTTP
+exchange. For a manually negotiated peer outside WHIP/WHEP, the application owns
+recovery and its protocol-specific offer/answer exchange.
 
 ## Threads
 
@@ -614,7 +685,7 @@ Peer peer = rtc.createPeer(PeerOptions.builder()
         .build());
 ```
 
-The peer sets the send transform on each sender as its track is added, before negotiation, so no frame leaves without it and the encoder needs no restart. It sets the receive transform on each receiver before `onTrack` hands out the track, so the transform is in place before the first frame arrives. The builders of [WHIP and WHEP](#whip-and-whep) take them too, `Whip`'s as `sendTransform(...)`, `Whep`'s as `receiveTransform(...)`.
+The peer sets the send transform on each sender as its track is added, before negotiation, so no frame leaves without it and the encoder needs no restart. It sets the receive transform on each receiver before `onTrack` hands out the track, so the transform is in place before the first frame arrives. If installing the receive transform fails, the peer stops that track's transceiver and reports the failure through `onError`; the track is neither listed in `remoteTracks()` nor delivered through `onTrack`. If the receive path cannot be stopped, the peer closes. The builders of [WHIP and WHEP](#whip-and-whep) take them too, `Whip`'s as `sendTransform(...)`, `Whep`'s as `receiveTransform(...)`.
 
 A single sender or remote track takes a transform of its own, in place of the peer's, and `null` removes it:
 
@@ -860,9 +931,81 @@ peer.onStats(Duration.ofSeconds(1), stats -> System.out.printf(
 | `packetLoss()` | The share of received packets lost so far, 0 to 1. After a long session it barely moves. |
 | `recentPacketLoss()` | The share of packets lost of those expected since the previous sample, 0 to 1, and 0 if none were expected; -1 for the first sample and after the clock went back. A stream that came up or whose counters started again counts all it has. |
 | `outboundVideo()`, `inboundVideo()` | Codec, resolution and frame rate of each video stream, and what limits a sent one. |
-| `report()` | The whole `RTCStatsReport`. |
+| `inboundAudio()`, `outboundAudio()` | Audio streams ordered by statistics id: codec, jitter, concealment counters, audio level and sample counters. Unavailable fields are null; received PCM callbacks are observed only while an `onAudio` sink is attached. |
+| `diagnostics()` | The current state and confirmed `QualityCondition` causes. |
+| `diagnosticReport()` | A JSON snapshot with allowlisted diagnostics, media measurements, codec names, OS/architecture, Java version, library version and processor count. |
+| `report()` | The whole `RTCStatsReport`, including potentially sensitive connection information. |
 
 A peer bundles its media on one transport by default. When the remote side refuses to bundle, each m-line has a transport of its own. `transport()` is then the one with a candidate pair in use that carried the most bytes, sent and received, and of transports that carried as many, the one with the lowest id. Read `transports()` to watch each connection by itself.
+
+### Diagnosis and quality events
+
+```java
+Subscription diagnosis = peer.onDiagnostics(Duration.ofSeconds(1), status -> {
+    System.out.println(status.state());
+    status.conditions().forEach(cause -> System.out.println(cause.reason()));
+});
+
+// Export on demand, for example from a support button. File I/O belongs on
+// an application worker, outside the peer's event executor.
+peer.stats().thenAccept(stats -> supportExecutor.execute(() -> {
+    try {
+        Files.write(Paths.get("diagnostics.json"),
+                stats.diagnosticReport().getBytes(StandardCharsets.UTF_8));
+    }
+    catch (IOException error) {
+        error.printStackTrace();
+    }
+}));
+```
+
+The export example uses `java.nio.file.Files`, `java.nio.file.Paths`,
+`java.nio.charset.StandardCharsets` and `java.io.IOException`; `supportExecutor`
+is an application-owned executor.
+
+`onDiagnostics` emits the initial diagnosis and then only changes to its state or
+causes, including recovery. Handlers run on the peer's event executor; closing the
+subscription stops sampling. All `stats`, `onStats` and `onDiagnostics` calls share
+one history per peer. A captured `PeerStats` and its diagnosis stay immutable.
+
+There is no combined score. `OBSERVING` means there is no continuous measurement
+interval yet (including after a clock rollback or a gap longer than five seconds).
+`HEALTHY` means no supported problem has been confirmed; it is not a guarantee
+that all media paths work. `DEGRADED` includes the following confirmed causes:
+
+| Condition | Evidence |
+|---|---|
+| `VIDEO_CPU_LIMITED` | The same outgoing video RTP stream consistently reports `qualityLimitationReason=cpu`. |
+| `HIGH_PACKET_LOSS` | Recent inbound packet loss is at least 5%; recovery needs at most 2%. Values between those thresholds retain the current state and restart the confirmation window. |
+| `AUDIO_PACKETS_WITHOUT_PCM` | The same received audio RTP stream gains packets while no PCM callbacks reach its attached `onAudio` sinks. This observes sink ingress, before application queues and handlers; it does not diagnose speakers or slow application handlers. |
+
+Each problem and its recovery need at least three distinct measurements spanning
+at least three seconds. Polling once a second is recommended; cached reports do
+not advance the window. A missing stream or required measurement, a changed sink
+set, or a reset audio counter discards that stream's evidence instead of guessing.
+Sampling gaps longer than five seconds and backwards timestamps discard temporal
+evidence. Diagnostics do not add audio sinks: without an application subscription,
+PCM availability is unknown. Silence (audio level zero) alone is not a fault.
+
+`TURN_IN_USE` is immediate information when either selected candidate on any
+transport is a relay. It does not make a peer degraded. `TransportStats.relayed()`
+also exposes this fact, while `candidateType()` continues to describe the local
+candidate.
+
+`AudioStats.jitter()` is a `Duration`, `audioLevel()` is linear (0 to 1), and
+`concealedSamples()`, `concealmentEvents()` and `totalSamplesReceived()` are
+cumulative counters. Outbound level is read from the media source when available;
+receive-only measurements on outbound audio remain null. `pcmCallbacks()` counts
+sink callbacks across subscriptions, so multiple subscriptions can count the same
+audio more than once.
+
+The JSON export includes the confirmation policy and cause explanations. It uses
+schema version 1 and an explicit allowlist, including a
+bounded set of codec MIME names; unknown names become `other`. It excludes raw
+statistics, track/stream/transport/candidate identifiers, addresses, ports, URLs,
+ICE credentials, SDP, certificates and codec parameters. Missing measurements
+become JSON null. The raw `report()` and its string representation are not
+sanitized diagnostic exports.
 
 ## Closing
 

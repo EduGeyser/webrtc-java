@@ -47,6 +47,8 @@ public final class PeerOptions {
 
 	final String name;
 
+	final RecoveryPolicy recovery;
+
 	final List<RTCIceServer> iceServers;
 
 	final boolean relayOnly;
@@ -74,6 +76,7 @@ public final class PeerOptions {
 
 	private PeerOptions(Builder builder) {
 		this.name = builder.name;
+		this.recovery = builder.recovery;
 		this.iceServers = Collections.unmodifiableList(new ArrayList<>(builder.iceServers));
 		this.relayOnly = builder.relayOnly;
 		this.signaling = builder.signaling;
@@ -134,6 +137,8 @@ public final class PeerOptions {
 
 		private String name;
 
+		private RecoveryPolicy recovery;
+
 		private boolean relayOnly;
 
 		private Signaling signaling;
@@ -156,6 +161,17 @@ public final class PeerOptions {
 
 
 		private Builder() {
+		}
+
+		/**
+		 * Enables ICE recovery for automatic negotiation. Disabled by default.
+		 * Signaling recovery and creating a replacement session remain application
+		 * responsibilities; no peer, track or channel is replaced by this policy.
+		 * For manual peers use the WHIP/WHEP builder's recovery option instead.
+		 */
+		public Builder recovery(RecoveryPolicy policy) {
+			recovery = requireNonNull(policy, "policy");
+			return this;
 		}
 
 		/**
@@ -342,7 +358,9 @@ public final class PeerOptions {
 		 * end-to-end encryption needs. It is set on each receiver before
 		 * {@link Peer#onTrack} hands its track out, so it is in place before
 		 * the first frame arrives. {@link RemoteTrack#transform} replaces it
-		 * for one track.
+		 * for one track. If installation fails, the transceiver is stopped,
+		 * the track is not published, and the failure reaches {@code onError}.
+		 * If the receive path cannot be stopped, the peer closes.
 		 * <p>
 		 * The transform runs on a thread of each receiver, not on the peer's
 		 * event thread; see {@link RTCEncodedFrameTransformer}. A frame it
@@ -375,9 +393,13 @@ public final class PeerOptions {
 		 * @return the options.
 		 *
 		 * @throws IllegalStateException if the peer negotiates automatically
-		 *                               and has no signaling.
+		 *                               and has no signaling, or recovery is
+		 *                               configured for manual negotiation.
 		 */
 		public PeerOptions build() {
+			if (recovery != null && negotiation != Negotiation.AUTOMATIC) {
+				throw new IllegalStateException("Peer recovery requires automatic negotiation");
+			}
 			if (negotiation == Negotiation.AUTOMATIC && signaling == null) {
 				throw new IllegalStateException("A peer that negotiates automatically needs a Signaling. "
 						+ "Set one, or use Negotiation.MANUAL to drive the exchange through Peer.negotiator()");

@@ -26,10 +26,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 
 import io.github.sendablemetatype.webrtc.RTCEncodedFrameTransformer;
 import io.github.sendablemetatype.webrtc.RTCRtpReceiver;
+import io.github.sendablemetatype.webrtc.RTCRtpTransceiver;
 import io.github.sendablemetatype.webrtc.media.MediaStream;
 import io.github.sendablemetatype.webrtc.media.MediaStreamTrack;
 import io.github.sendablemetatype.webrtc.media.audio.AudioTrack;
@@ -49,6 +51,8 @@ final class RemoteTracks {
 
 	/** Set on each track before the application hears of it, or null. */
 	private final RTCEncodedFrameTransformer transform;
+
+	private final BiConsumer<RTCRtpReceiver, RTCEncodedFrameTransformer> installTransform;
 
 	private final CopyOnWriteArrayList<RemoteTrackImpl> tracks = new CopyOnWriteArrayList<>();
 
@@ -70,7 +74,14 @@ final class RemoteTracks {
 
 
 	RemoteTracks(PeerImpl peer, RTCEncodedFrameTransformer transform) {
+		this(peer, transform, RTCRtpReceiver::setTransform);
+	}
+
+	/** Allows a test to fail installation before the native receiver takes the transform. */
+	RemoteTracks(PeerImpl peer, RTCEncodedFrameTransformer transform,
+			BiConsumer<RTCRtpReceiver, RTCEncodedFrameTransformer> installTransform) {
 		this.peer = peer;
+		this.installTransform = installTransform;
 		this.transform = transform;
 		this.handlers = new Handlers<>(peer.rtc::reportError);
 	}
@@ -80,6 +91,20 @@ final class RemoteTracks {
 	 */
 	List<RemoteTrack> current() {
 		return Collections.unmodifiableList(new ArrayList<RemoteTrack>(tracks));
+	}
+
+	/** Snapshot only existing application sinks; diagnostics never enables PCM delivery. */
+	Map<String, long[]> pcmObservations() {
+		Map<String, long[]> result = new HashMap<>();
+		for (RemoteTrackImpl track : tracks) {
+			if (track instanceof RemoteAudioImpl) {
+				long[] observation = ((RemoteAudioImpl) track).pcmObservation();
+				if (observation != null) {
+					result.put(track.id(), observation);
+				}
+			}
+		}
+		return result;
 	}
 
 	Subscription onTrack(Consumer<RemoteTrack> handler) {
@@ -139,11 +164,29 @@ final class RemoteTracks {
 			try {
 				// Before the application hears of the track, and so before
 				// its first frame arrives.
-				receiver.setTransform(peer.guard(transform, owner));
+				installTransform.accept(receiver, peer.guard(transform, owner));
 			}
 			catch (Throwable e) {
+				try {
+					stopReceiver(receiver);
+				}
+				catch (Throwable stopError) {
+					e.addSuppressed(stopError);
+					// A path that could not be stopped must not keep receiving.
+					peer.close();
+					peer.connection().close();
+				}
+				finally {
+					try {
+						track.dispose();
+					}
+					finally {
+						receiver.dispose();
+					}
+				}
 				peer.deliverError(PeerImpl.asWebRtcException(e, "Setting the receive transform of " + owner
 						+ " failed"));
+				return;
 			}
 		}
 
@@ -158,6 +201,33 @@ final class RemoteTracks {
 			delivered.add(remote);
 			handlers.accept(remote);
 		});
+	}
+
+	/** Stops the native receive path, rather than only releasing its Java view. */
+	private void stopReceiver(RTCRtpReceiver receiver) {
+		RTCRtpTransceiver[] transceivers = peer.connection().getTransceivers();
+
+		try {
+			for (RTCRtpTransceiver transceiver : transceivers) {
+				RTCRtpReceiver candidate = transceiver.getReceiver();
+
+				try {
+					if (receiver.equals(candidate)) {
+						transceiver.stopImmediately();
+						return;
+					}
+				}
+				finally {
+					candidate.dispose();
+				}
+			}
+		}
+		finally {
+			for (RTCRtpTransceiver transceiver : transceivers) {
+				transceiver.dispose();
+			}
+		}
+		throw new IllegalStateException("The receiver has no transceiver to stop");
 	}
 
 	/**
