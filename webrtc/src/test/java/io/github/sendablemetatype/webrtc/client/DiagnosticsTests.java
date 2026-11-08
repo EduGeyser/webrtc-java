@@ -19,6 +19,7 @@ package io.github.sendablemetatype.webrtc.client;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -235,6 +236,8 @@ class DiagnosticsTests {
 		cpu(1, "cpu");
 		cpu(2, "cpu");
 		Map<String, Object> report = (Map<String, Object>) Json.parse(cpu(3, "cpu").diagnosticReport());
+		// The tests run inside the library's module, which carries the version.
+		assertNotEquals("unversioned", report.get("libraryVersion"));
 		Map<String, Object> policy = (Map<String, Object>) report.get("policy");
 		assertEquals(3.0, policy.get("confirmationSeconds"));
 		assertEquals(3.0, policy.get("minimumMeasurements"));

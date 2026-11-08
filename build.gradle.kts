@@ -88,6 +88,13 @@ subprojects {
 			}
 		}
 	}
+
+	// The modules carry the version their manifests carry: a package in a
+	// named module has no implementation version, so on the module path the
+	// library reads its own version from its module.
+	tasks.withType<JavaCompile>().configureEach {
+		options.javaModuleVersion = provider { project.version.toString() }
+	}
 }
 
 allprojects {

@@ -32,7 +32,7 @@ final class DiagnosticExport {
 				"amd64", "x86_64", "aarch64", "arm", "x86", "i386"));
 		String javaVersion = System.getProperty("java.specification.version", "");
 		field(out, "javaVersion", javaVersion.matches("[0-9]{1,3}(\\.[0-9]{1,3})?") ? javaVersion : "other");
-		String version = PeerStats.class.getPackage().getImplementationVersion();
+		String version = libraryVersion();
 		// This fork's versions carry its own iteration: 1.0.1-sm.1.
 		field(out, "libraryVersion", version != null && version.matches("[0-9]+\\.[0-9]+\\.[0-9]+(-sm\\.[0-9]+)?(-SNAPSHOT)?")
 				? version : "unversioned");
@@ -112,6 +112,20 @@ final class DiagnosticExport {
 			}
 		}
 		return out.append("]}").toString();
+	}
+
+	/**
+	 * The library's version: on the module path its module's, since a package
+	 * in a named module has no implementation version, on the class path the
+	 * one in the jar's manifest.
+	 */
+	private static String libraryVersion() {
+		Module module = PeerStats.class.getModule();
+
+		if (module.isNamed()) {
+			return module.getDescriptor().rawVersion().orElse(null);
+		}
+		return PeerStats.class.getPackage().getImplementationVersion();
 	}
 
 	private static String codec(String value) {
