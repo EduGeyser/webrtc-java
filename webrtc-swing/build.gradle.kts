@@ -81,7 +81,6 @@ tasks.test {
 	if (providers.gradleProperty("jni-check").isPresent) {
 		jvmArgs("-Xcheck:jni")
 	}
-	dependsOn(tasks.jar, project(":webrtc").tasks.named("jar"))
 
 	// A hung test JVM fails the build instead of blocking a CI runner.
 	timeout = Duration.ofMinutes(30)
@@ -100,6 +99,9 @@ tasks.test {
 	val testOutput = sourceSets.test.map { it.output }
 	inputs.files(testOutput).withPropertyName("testOutput")
 	val coreModuleJar = project(":webrtc").tasks.named<Jar>("jar").flatMap { it.archiveFile }
+	// Both jars reach the tests through the arguments below, which Gradle does
+	// not look into.
+	inputs.files(moduleJar, coreModuleJar).withPropertyName("moduleJars")
 
 	jvmArgumentProviders.add(CommandLineArgumentProvider {
 		val patch = testOutput.get().filter { it.exists() }.asPath

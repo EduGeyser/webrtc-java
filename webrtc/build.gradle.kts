@@ -118,7 +118,6 @@ tasks.test {
 	if (providers.gradleProperty("jni-check").isPresent) {
 		jvmArgs("-Xcheck:jni")
 	}
-	dependsOn(tasks.jar)
 
 	// A hung test JVM fails the build instead of blocking a CI runner.
 	timeout = Duration.ofMinutes(30)
@@ -134,6 +133,10 @@ tasks.test {
 
 	val moduleJar = tasks.jar.flatMap { it.archiveFile }
 	val testOutput = sourceSets.test.map { it.output }
+	// The jar reaches the tests through the arguments below, which Gradle does
+	// not look into: without the input, a change to the library alone would
+	// leave the tests up to date.
+	inputs.files(moduleJar).withPropertyName("moduleJar")
 	// The patched module includes the test resources, which the replaced class
 	// path no longer brings along.
 	inputs.files(testOutput).withPropertyName("testOutput")

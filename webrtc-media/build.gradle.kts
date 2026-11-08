@@ -222,7 +222,6 @@ tasks.test {
 	if (providers.gradleProperty("jni-check").isPresent) {
 		jvmArgs("-Xcheck:jni")
 	}
-	dependsOn(tasks.jar, project(":webrtc").tasks.named("jar"))
 	if (nativesDir == null) {
 		dependsOn(cmakeBuild)
 	}
@@ -249,6 +248,9 @@ tasks.test {
 	// tests play, which the replaced class path no longer brings along.
 	inputs.files(testOutput).withPropertyName("testOutput")
 	val coreModuleJar = project(":webrtc").tasks.named<Jar>("jar").flatMap { it.archiveFile }
+	// Both jars reach the tests through the arguments below, which Gradle does
+	// not look into.
+	inputs.files(moduleJar, coreModuleJar).withPropertyName("moduleJars")
 
 	jvmArgumentProviders.add(CommandLineArgumentProvider {
 		val patch = testOutput.get().filter { it.exists() }.asPath
