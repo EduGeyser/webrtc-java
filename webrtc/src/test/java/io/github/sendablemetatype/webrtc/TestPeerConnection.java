@@ -19,6 +19,8 @@ package io.github.sendablemetatype.webrtc;
 import static java.util.Objects.nonNull;
 
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 /**
  * Convenience test class implementing the basic {@link RTCPeerConnection}
@@ -29,6 +31,15 @@ import java.util.concurrent.CountDownLatch;
 class TestPeerConnection implements PeerConnectionObserver {
 
 	private final CountDownLatch connectedLatch;
+
+	/*
+	 * Candidates reach the remote peer off this peer's signaling thread. When
+	 * the two peers come from different factories, a synchronous
+	 * addIceCandidate from each signaling thread into the other's deadlocks as
+	 * soon as both gather at once. One thread keeps the candidates in order.
+	 */
+	private final ExecutorService candidateForwarder =
+			Executors.newSingleThreadExecutor(Thread.ofPlatform().daemon().factory());
 
 	private RTCPeerConnection localPeerConnection;
 
@@ -46,7 +57,9 @@ class TestPeerConnection implements PeerConnectionObserver {
 
 	@Override
 	public void onIceCandidate(RTCIceCandidate candidate) {
-		remotePeerConnection.addIceCandidate(candidate);
+		RTCPeerConnection remote = remotePeerConnection;
+
+		candidateForwarder.execute(() -> remote.addIceCandidate(candidate));
 	}
 
 	@Override
@@ -104,6 +117,8 @@ class TestPeerConnection implements PeerConnectionObserver {
 	}
 
 	void close() {
+		candidateForwarder.shutdownNow();
+
 		if (nonNull(localPeerConnection)) {
 			localPeerConnection.close();
 			localPeerConnection = null;
