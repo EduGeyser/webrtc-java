@@ -2,6 +2,290 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.0.1-sm.1] - 2026-11-08
+
+### Features
+- Add peer diagnostics and sanitized support reports
+- Add configurable ICE recovery for client peers and HTTP sessions
+- Report a failed bind of the shared endpoint's port
+- Tell which addresses the shared endpoint holds
+- Choose the release version when dispatching a release
+- Let data channel observers run on the network thread
+- Count what the shared endpoint does
+- Read a connection's ICE and SCTP metrics directly
+- Keep a STUN binding alive on the shared port
+- Take ICE traffic through PROXY protocol v2 relays
+- Hold ICE checks until a connection can answer them
+- Share one UDP port between peer connections
+- Report why a data channel failed or closed
+- Take the log sinks once, as WebRTC now does
+- Let the client API make peers and data channels without media
+- Release native objects with try-with-resources
+- Report native objects that were never disposed
+- Move the Swing video view into its own module
+- Let audio sinks take one reused array instead of a new one per chunk
+- Load the native libraries from a given directory or the library path
+- Seek to the keyframe before a position with fastSeek
+- Detect speech natively for local audio tracks
+- Decode video with VA-API on Linux
+- Give WHIP and WHEP errors their status and problem details
+- Expose WHIP/WHEP extensions and detect WHEP endpoints by HEAD
+- Ask for key frames in the client API
+- Encoded frame transforms for WHIP and WHEP
+- Authorize WHIP and WHEP by HTTP Basic
+- Encoded frame transforms in the client API
+- Feed the voice activity example from client API audio
+- Describe WHIP and WHEP errors by their problem details
+- Send WHIP video as simulcast
+- Bound the queue of pushed audio
+- Trickle WHIP/WHEP candidates, take ICE servers from Link, restart ICE
+- Allow plain http for WHIP/WHEP only on loopback
+- Answer WHEP counter-offers
+- Retry WHIP/WHEP offers after Retry-After
+- Limit and measure the client API's handler threads
+- Add a JavaFX camera example
+- Port the media file player example to the client API
+- Add high-level client API
+
+### Bug Fixes
+- Report the library version on the module path
+- Rerun the module tests when their jars change
+- Stop untransformed receive paths and preserve executor context
+- Contain decoder-thread exceptions and report rejected media output
+- Drop bind failures still queued for a cleared handler
+- Keep the scope of the endpoint's link-local addresses
+- Keep the endpoint until its Java object holds it
+- Stop converting at a pending Java exception
+- Let a local reference move into one of another type
+- Check the FFmpeg library list of each platform both ways
+- Tell the leak detector about a restored handle before publishing it
+- Close a shared endpoint without a release thread after its dispatch
+- Set the NVENC bit depths through the SDK 13 fields
+- Keep the shared endpoint when its release cannot be set up
+- Load the FFmpeg 9 libraries by their major versions
+- Put the shared endpoint's JNI entry points inside exception boundaries
+- MediaPlayer decoder and source lifetimes
+- Harden audio blocks, JNI boundaries and channel limits
+- Release codec wrappers and distinguish device failures
+- Skip camera integration tests without libudev
+- Validate I420 planes before native conversion
+- Improve video view buffering and message logging
+- Fail an observer registration whose global reference is missing
+- A data channel released after its dispose keeps the factory
+- Leave unset retransmit limits unset in the native data channel init
+- Allowed addresses hide whole networks
+- Report the address of a peer reflexive selected candidate
+- Keep serial executors running when error reporting fails
+- Honor video rotation metadata and non-square pixels in playback
+- Preserve color metadata during FFmpeg playback
+- Query contributing sources and report linear audio levels
+- Queue a closed peer's CLOSED event before the runtime may stop
+- Turn C++ exceptions of removeLogSinkNative into Java ones
+- Keep retained desktop frames intact and end sources without a backend
+- Bound desktop capture settings and remove a processed frame deadlock
+- Keep codec hashes and MIME types locale independent and avoid camera score overflow
+- Require the core module transitively in webrtc-media
+- Keep TURN credentials intact and settle DTMF tones reliably
+- Release D-Bus references and bound the window frame crop
+- Reject a second desktop capture start and normalize encoded rotation
+- Keep sleep prevented until the last request is released
+- Reject custom audio that WebRTC cannot send
+- Keep secrets of WHIP and WHEP URLs out of failures
+- Close races in stats sampling and the JavaFX view
+- Make media player seeking, position and queue memory reliable
+- Harden track listeners and the media recorder
+- Let a candidate held for its description free the operation chain
+- Turn every C++ exception of a JNI entry point into a Java one
+- Free observers and factories safely while they are still in use
+- Make the Java jars reproducible and check the build's Maven and Java versions
+- Close a peer connection at once while another call still uses it
+- Check every JNI call for exceptions and test under -Xcheck:jni in CI
+- Dispose native objects once and keep them while a call still uses them
+- Release VideoCapture natively, keep its sink and report start errors
+- Make track sinks safe to change from any thread and callback
+- Keep native references until their Java wrapper is created
+- Make decoder QP parsing flag atomic and give up codec calls without a JNI frame
+- Return valid track arrays from MediaStream getters
+- Report certificate expiration and fail library load on init errors
+- Keep strings intact across JNI and bind both AudioResampler initializers
+- Release native references and session descriptions in JNI glue
+- Keep device changes during startup and surface failed device queries
+- Detach closed peers from signaling and report stats per transport
+- Release resources on failed setup, rejected tasks and oversized sends
+- Report end of stream only after the last delivery has returned
+- Deliver player listener calls in order on one event thread
+- Voice activity hangover overflow and rounding
+- Discard expired negotiations and serialize ICE restart cleanup
+- Restart PulseAudio processing threads after reinitialization
+- Bound HTTP response reads and handle overflowing retry dates
+- Seek further back where the reader lands past the keyframe
+- Close a peer only once the control tasks queued before have run
+- Wait for a key frame after a recorder packet fails to allocate
+- Start playback after a seek at the position asked for
+- End a recording cleanly when its writer thread throws
+- Build and test macOS on macos-15 runners
+- Let WHIP and WHEP pick codecs, offer video for audio-only WHIP
+- Share a SyncClock with the custom sources constructed with it
+- Keep DTMF senders alive and observers of other wrappers registered
+- Send WHIP offers sendonly
+- Complete WHEP ICE restart support and harden HTTP sessions
+- Follow the WebRTC constraints of WHIP and WHEP
+- Skip the VP9 interpolation filter test where no hardware decodes VP9
+- Register a handler added from a handler at once, so it sees queued events
+- Send WHIP/WHEP requests with HttpClient, bounded and apart from peer control
+- Stamp custom media pushed without a timestamp on WebRTC's clock
+- Normalize VideoFrame rotation to 0, 90, 180 or 270
+- Native observer and object lifecycles around closing a connection
+- Accept custom frame buffers in VideoFrame.copy() and pushFrame()
+- Check strides and plane sizes of custom I420 buffers before copying them
+- Return no remote certificates before the DTLS handshake
+- Send pushed audio from a thread apart from the timeouts
+- Report Java exceptions from native callbacks in one piece
+- Compute bitrates over report times, report stats handler errors
+- Close an HTTP session's peer and resource independently, and fail on errors
+- Register a camera switch with the runtime and reject it on a closed track
+- Compare the recorded unicode file as a file, not a path, for macOS
+- Report a recording that fails to close, and tell how it ended
+- Pass media paths to FFmpeg as UTF-8
+- Keep local track releases independent of handlers and cancelled futures
+- Cover the remaining native failure paths of the media module
+- Keep C++ exceptions and string pins inside the media JNI layer
+- Round timeouts up and saturate them, so only zero waits without limit
+- Validate signaling JSON and ICE indexes strictly
+- Close a media player from a sink of a track it feeds
+- Reject I420 buffer sizes WebRTC cannot allocate
+- Run queued peer operations after the runtime stopped its timer
+- Keep what a seek decoded at the new position
+- End a WHIP or WHEP start whose future was cancelled
+- Keep WHIP/WHEP session credentials and bound signaling JSON
+- Wait for device switches on close and keep cleared or oversized audio from being sent
+- Wide planar audio, audio timestamp gaps and vanished audio devices
+- Close the peer of a WHIP or WHEP session that fails to start
+- Keep camera ownership consistent and fail switches peers did not take
+- Register a sender once when replaceTrack is given its current track
+- Count AudioConverter sizes over all channels and bound them natively
+- Size YUY2, UYVY and NV12 frames of odd width in whole pixel pairs
+- Settle and release recorder sources of the client API
+- Bound received data channel messages before they are queued
+- Load the native library for classes used on their own
+- Use the 3-parameter QueryCodecSupport overloads
+- Convert only the window between position and limit of a ByteBuffer
+- Bound AudioResampler buffers and keep cropped I420 buffers alive
+- Guard track creation and report failed track releases
+- Harden JNI error handling
+- Harden data channel sends and runtime close
+- Complete futures whose tasks a SerialExecutor drops
+- Harden WHIP/WHEP session setup and teardown
+- Close races in MediaReader.getInfo and WebRtc.createPeer
+
+### Refactor
+- The new JNI methods hold their objects under leases
+- Split PeerImpl along its responsibilities
+- Split operation chain and perfect negotiation out of PeerImpl
+- Rename webrtc-java-media and webrtc-java-javafx directories
+
+### Documentation
+- Update vfile-message to 4.0.4
+- Say that the fork adds to upstream's Java API
+- Name driver 570.0 as the NVENC minimum
+- Redesign documentation and publish Client API design guide
+- Say that a factory outlives the data channels of its connections
+- Say that loading the native only warns on Java 25 to 27
+- Name the fork's system properties in the getting started guide
+- Update VitePress to 2.0.0-alpha.21 and the other docs packages
+- Run the examples with Gradle
+- List the build prerequisites for the Gradle build
+- A microphone track hands no audio to sinks
+- List the tools and libraries needed to build from source
+- Group the README features and ship LICENSE and NOTICE in every jar
+- Fix two get-started examples that did not compile
+
+### Testing
+- The shared endpoint reports what it binds and fails to bind
+- Tag the new media tests for the data channels lanes
+- The factory hold test fails when its hold expires
+- The default thread test keeps the interface's default
+- Data channel observers run on the thread they ask for
+- The prflx test hides the callee's early candidates
+- Endpoint tests start from a clean state
+- The endpoint counts its traffic and rejections
+- Transport metrics cover ICE and SCTP
+- A STUN monitor learns the port's mapping
+- A relayed client is seen as itself
+- Held checks reach the connection created for them
+- Connections share an ICE UDP endpoint
+- A peer reflexive selected candidate keeps its address
+- Read the peer stats once the other peer has the message
+- Negotiate manually in the variant test's peer
+- Give the tests' own JVMs the patched test classes
+- Tag the new media tests for the data channels lanes
+- Write test files under build, where Gradle keeps them
+- Probe the library location tests with a call both variants have
+- Send the VP9 stream a frame at a time
+- Make three timing-dependent tests deterministic
+- Check the capture time of audio pushed without a timestamp
+- Start recording a client API call once its remote video decodes
+- Make the client concurrency tests deterministic
+
+### Miscellaneous Tasks
+- Build the macOS natives with Xcode 27.1 again
+- Build the macOS natives with Xcode 27.2
+- Update CHANGELOG.md for v1.0.0
+- Build and test both variants in one Build run
+- Install the September servicing release of Windows SDK 10.0.28000
+- Update setup-java, setup-gradle, upload-artifact, download-artifact and setup-node
+- Build the macOS natives with Xcode 27.1 on the xcode-27 image
+- Port upstream's jni-check job, switched off
+- Install libva-dev for the full variant's FFmpeg
+- Disable the jni-check job
+- Ignore Linux sysroots downloaded for the WebRTC build
+
+### Other
+- Give the data channels variant its own WebRTC license file
+- Regenerate the WebRTC license file for eeb7e6beb2
+- Merge upstream main at eecea412
+- Stop both peers' candidate forwarding before closing a test peer
+- Bound the watchdog's dumps and end only test JVMs
+- Forward test ICE candidates off the signaling thread
+- Fail an HTTP call that timed out with its own timeout, however the JDK reports it
+- Dump and end a hung native test run before the job timeout
+- Activate the Windows ARM64 profile of the parent pom
+- Log a failed endpoint bind at INFO while a handler reports it
+- Merge wj/endpoint-fixes into the 1.0 round
+- Update the NVIDIA codec headers to 13.0.19.1
+- Update the libva headers to 2.24.1
+- Update the Vulkan headers to 1.4.368
+- Update FFmpeg to 9.0.2
+- Update Gradle to 9.9.0
+- Build WebRTC from eeb7e6beb2 on main
+- Prepare 1.0.1-sm.1-SNAPSHOT
+- Rename the packages in Vue files too
+- Merge upstream main at 30971cf
+- Prepare for next development iteration
+- Prepare release v1.0.0
+- Merge upstream main at bef938b
+- Limit media source URLs in errors to their network origin
+- Open every test package to JUnit
+- Patch the clang header that breaks Windows ARM64, for now
+- Rename the system properties that the docs set with -D
+- Update FFmpeg to 8.1.3
+- Update Jackson to 3.2.4
+- Update Gradle to 9.8.2
+- Build WebRTC from c111ae68c9 on main
+- Let the core tests read java.desktop
+- Ship LICENSE and NOTICE in every Java jar
+- Take the jars' Build-Date from the commit time
+- Port upstream's Swing and JavaFX modules to Gradle
+- Merge upstream main at 8b675ca
+- Require Java 11
+- Port the peer connection, desktop video and media file examples to the client API
+- Add a JavaFX VideoView in a webrtc-java-javafx module
+- Bump vite from 7.3.6 to 7.3.7 in /docs
+- Bump com.fasterxml.jackson.core:jackson-databind
+- Skip binary files with text suffixes when renaming packages
+- Prepare for next development iteration
+
+
 ## [1.0.0] - 2026-11-06
 
 ### Features
