@@ -356,7 +356,7 @@ final class HttpCall {
 
 		response.whenComplete((value, error) -> {
 			if (error != null) {
-				result.completeExceptionally(unwrap(error));
+				result.completeExceptionally(failure(error));
 				return;
 			}
 
@@ -389,7 +389,7 @@ final class HttpCall {
 		}).exceptionally(error -> {
 			// A failure while processing a response must reach the caller,
 			// rather than only the discarded completion stage.
-			result.completeExceptionally(unwrap(error));
+			result.completeExceptionally(failure(error));
 			return null;
 		});
 	}
@@ -590,8 +590,23 @@ final class HttpCall {
 		return new HttpTimeoutException("The request to " + redacted(uri) + " did not complete within " + timeout);
 	}
 
-	private static Throwable unwrap(Throwable error) {
-		return error instanceof CompletionException && error.getCause() != null ? error.getCause() : error;
+	/**
+	 * What a failed exchange fails the request with. The JDK reports a passed
+	 * timeout as an {@link HttpTimeoutException} or as an {@code IOException}
+	 * wrapping one, depending on where it notices it; both become this
+	 * request's own timeout, whose message has the URL redacted.
+	 */
+	private Throwable failure(Throwable error) {
+		Throwable cause = error instanceof CompletionException && error.getCause() != null ? error.getCause() : error;
+		Throwable inner = cause;
+
+		// A few levels are enough for the JDK's wrapping, and a bound keeps a cyclic chain from looping.
+		for (int depth = 0; inner != null && depth < 8; depth++, inner = inner.getCause()) {
+			if (inner instanceof HttpTimeoutException) {
+				return timedOut();
+			}
+		}
+		return cause;
 	}
 
 
